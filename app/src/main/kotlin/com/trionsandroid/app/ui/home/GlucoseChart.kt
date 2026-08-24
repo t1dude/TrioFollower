@@ -84,9 +84,7 @@ private val GLUCOSE_TO_IOB_GAP = 8.dp
 private val IOB_STRIP_HEIGHT = 50.dp
 private val BOLUS_MARKER_TOP_MARGIN = 10.dp
 
-// A single missed loop cycle (~5min) shouldn't switch that stretch into "estimated" rendering —
-// only a real outage should. 20min is 4x Trio's normal cycle.
-private const val IOB_GAP_THRESHOLD_MILLIS = 20 * 60_000L
+// IOB_GAP_THRESHOLD_MILLIS lives in IobCalculator.kt, shared with the HUD's "current IOB" pill.
 private const val IOB_ESTIMATE_SAMPLE_INTERVAL_MILLIS = 5 * 60_000L
 
 /**

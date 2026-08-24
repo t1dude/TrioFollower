@@ -3,6 +3,7 @@ package com.trionsandroid.app.ui.home
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -22,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.trionsandroid.app.data.nightscout.Treatment
+import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
@@ -59,13 +61,25 @@ fun HomeScreen(viewModel: HomeViewModel = hiltViewModel()) {
             }
 
             item {
-                Box(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(vertical = 16.dp),
-                    contentAlignment = Alignment.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    GlucoseBubble(latest = latest, previous = previous, unit = uiState.glucoseUnit)
+                    GlucoseBubble(
+                        latest = latest,
+                        previous = previous,
+                        unit = uiState.glucoseUnit,
+                        alarms = uiState.alarms,
+                    )
+                    val hudState = computePumpCgmHudState(
+                        nowMillis = Instant.now().toEpochMilli(),
+                        treatments = uiState.treatments,
+                        deviceStatusPoints = uiState.deviceStatusPoints,
+                        insulinProfile = uiState.insulinProfile,
+                    )
+                    PumpCgmHud(state = hudState, modifier = Modifier.padding(top = 12.dp))
                 }
             }
 

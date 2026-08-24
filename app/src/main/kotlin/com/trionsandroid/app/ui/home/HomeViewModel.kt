@@ -22,10 +22,12 @@ import javax.inject.Inject
 // How far back each refresh actively re-fetches from Nightscout.
 private const val REFRESH_LOOKBACK_HOURS = 24
 
-// How far back the UI observes from the local cache — matches Room's retention window, so the
-// chart can scroll back through whatever history has accumulated across refreshes over time,
-// not just what the most recent refresh pulled.
-private const val OBSERVE_WINDOW_HOURS = 24 * 7
+// How far back the UI observes from the local cache — matches Room's retention window (see
+// NightscoutRepositoryImpl.RETENTION_HOURS), so the chart can scroll back through whatever
+// history has accumulated across refreshes over time, not just what the most recent refresh
+// pulled, and so the HUD can see a Site Change/Sensor Start treatment fetched via the lifecycle
+// query even when it's weeks old.
+private const val OBSERVE_WINDOW_HOURS = 24 * 30
 
 private data class HomeDataState(
     val readings: List<GlucoseReading>,

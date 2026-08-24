@@ -22,7 +22,29 @@ val TrioGlucoseLow = Color(0xFFE0B84D)
 val TrioGlucoseHigh = Color(0xFFE0954D)
 val TrioGlucoseUrgent = Color(0xFFE85B5B)
 
-// Insulin
-val TrioBasal = Color(0xFF4A7CFF)
-val TrioBolus = Color(0xFFFFA451)
+// Insulin — matches Trio's own Color.insulin asset (Assets.xcassets/Colors/Insulin.colorset:
+// srgb 0.118/0.588/0.988) exactly. Trio uses this one color for both basal and bolus, so
+// TrioBasal/TrioBolus intentionally share it rather than each having their own shade.
+val TrioInsulin = Color(0xFF1E96FC)
+val TrioBasal = TrioInsulin
+val TrioBolus = TrioInsulin
 val TrioIob = Color(0xFF3355C9)
+
+// Status colors for HUD pills (pump/sensor time remaining, reservoir, battery) — matches Trio's
+// Color.loopGreen / Color.loopRed asset colorsets and its plain SwiftUI Color.orange (systemOrange).
+val TrioLoopGreen = Color(0xFF6FCF97)
+val TrioLoopRed = Color(0xFFEB5757)
+val TrioWarningOrange = Color(0xFFFF9500)
+
+// Glucose bubble ring gradient — the exact 5-stop AngularGradient from Trio's
+// CurrentGlucoseView.swift (purple sweeping through to blue and back to purple). The trend arrow
+// triangle reuses the gradient's blue end (its fixed `triangleColor`).
+val TrioRingGradient = listOf(
+    Color(0xFFB857FF),
+    Color(0xFF9F6CFA),
+    Color(0xFF7C8BF3),
+    Color(0xFF57AAEC),
+    Color(0xFF43BBE9),
+    Color(0xFFB857FF),
+)
+val TrioTrendArrowColor = Color(0xFF43BBE9)

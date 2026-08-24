@@ -21,9 +21,20 @@ data class DeviceStatusDto(
     val date: Double? = null,
     @SerialName("created_at") val createdAt: String? = null,
     val openaps: OpenApsStatusDto? = null,
+    val pump: PumpStatusDto? = null,
 ) {
     val stableId: String get() = identifier ?: legacyId ?: "${date}_$createdAt"
 }
+
+/**
+ * Nightscout devicestatus.pump, confirmed against Trio's NSPumpStatus (NightscoutStatus.swift).
+ * Some pumps report reservoir as the sentinel 0xDEADBEEF (3735928559) meaning "at least 50U,
+ * exact level unknown" (see PumpView.swift) rather than an actual unit count.
+ */
+@Serializable
+data class PumpStatusDto(
+    val reservoir: Double? = null,
+)
 
 @Serializable
 data class OpenApsStatusDto(

@@ -9,4 +9,5 @@ data class DeviceStatusEntity(
     val dateMillis: Long,
     val iobUnits: Double?,
     val cobGrams: Double?,
+    val reservoirUnits: Double?,
 )

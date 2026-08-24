@@ -134,6 +134,35 @@ class NightscoutRepositoryImpl @Inject constructor(
             }.onFailure { e ->
                 diagnosticLogger.logError(TAG, "DeviceStatus fetch failed (non-fatal)", e)
             }
+
+            // Isolated for the same reason as profile/devicestatus. Site/pod changes and sensor
+            // starts are days apart, so the one that matters for the HUD's time-remaining pills
+            // routinely falls outside the regular 24h treatments window — that's the common case
+            // here, not an edge case, hence the much longer lookback.
+            runCatching {
+                val lookbackMillis = System.currentTimeMillis() - TimeUnit.DAYS.toMillis(LIFECYCLE_LOOKBACK_DAYS)
+                val lifecycleDtos = LIFECYCLE_EVENT_TYPES.flatMap { eventType ->
+                    val byDate = api.getLatestLifecycleEvent(
+                        bearerToken = bearer,
+                        eventType = eventType,
+                        sinceMillis = lookbackMillis,
+                    )
+                    val byCreatedAt = api.getLatestLifecycleEventByCreatedAt(
+                        bearerToken = bearer,
+                        eventType = eventType,
+                        sinceMillis = lookbackMillis,
+                    )
+                    decodeResilient<TreatmentDto>("$TAG.Lifecycle", byDate.result) +
+                        decodeResilient<TreatmentDto>("$TAG.Lifecycle", byCreatedAt.result)
+                }.distinctBy { it.stableId }
+                val storedLifecycle = lifecycleDtos.mapNotNull { it.toEntity() }
+                treatmentDao.upsertAll(storedLifecycle)
+                storedLifecycle.size
+            }.onSuccess { count ->
+                diagnosticLogger.log(TAG, "Lifecycle events: stored=$count")
+            }.onFailure { e ->
+                diagnosticLogger.logError(TAG, "Lifecycle events fetch failed (non-fatal)", e)
+            }
             Unit
         }.onFailure { e ->
             diagnosticLogger.logError(TAG, "refresh() failed", e)
@@ -162,8 +191,12 @@ class NightscoutRepositoryImpl @Inject constructor(
     private companion object {
         const val TAG = "NightscoutRepository"
 
-        // Keep a week of local cache so the future scrollable graph can pan back without
-        // re-fetching, well beyond what a single refresh's lookback window covers.
-        const val RETENTION_HOURS = 24L * 7
+        // 30 days: long enough to scroll the chart back without re-fetching, and — just as
+        // importantly — long enough that a Sensor Start or Site Change fetched via the lifecycle
+        // query below (up to LIFECYCLE_LOOKBACK_DAYS old) doesn't get deleted by this same
+        // refresh moments after being stored.
+        const val RETENTION_HOURS = 24L * 30
+        const val LIFECYCLE_LOOKBACK_DAYS = 30L
+        val LIFECYCLE_EVENT_TYPES = listOf("Site Change", "Sensor Start")
     }
 }

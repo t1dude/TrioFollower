@@ -100,20 +100,32 @@ private fun JsonElement?.toDiaHours(): Double = when (this) {
     else -> DEFAULT_DIA_HOURS
 }
 
+private const val RESERVOIR_UNKNOWN_FULL_SENTINEL = 3_735_928_559.0 // 0xDEADBEEF, see PumpStatusDto
+
 fun DeviceStatusDto.toEntity(): DeviceStatusEntity? {
     val dateMillis = date?.toLong()
         ?: createdAt?.let { runCatching { Instant.parse(it).toEpochMilli() }.getOrNull() }
         ?: return null
     val iob = openaps.extractIobUnits()
     val cob = openaps?.suggested?.cob ?: openaps?.enacted?.cob
-    if (iob == null && cob == null) return null
-    return DeviceStatusEntity(id = stableId, dateMillis = dateMillis, iobUnits = iob, cobGrams = cob)
+    val reservoir = pump?.reservoir?.let {
+        if (it == RESERVOIR_UNKNOWN_FULL_SENTINEL) Double.POSITIVE_INFINITY else it
+    }
+    if (iob == null && cob == null && reservoir == null) return null
+    return DeviceStatusEntity(
+        id = stableId,
+        dateMillis = dateMillis,
+        iobUnits = iob,
+        cobGrams = cob,
+        reservoirUnits = reservoir,
+    )
 }
 
 fun DeviceStatusEntity.toDomain(): DeviceStatusPoint = DeviceStatusPoint(
     timestamp = Instant.ofEpochMilli(dateMillis),
     iobUnits = iobUnits,
     cobGrams = cobGrams,
+    reservoirUnits = reservoirUnits,
 )
 
 /**

@@ -9,6 +9,11 @@ data class IobPoint(val timestampMillis: Long, val iobUnits: Double)
 const val DEFAULT_DIA_HOURS = 6.0
 private const val DEFAULT_PEAK_MINUTES = 75.0 // rapid-acting insulin default, matching oref0
 
+// A single missed loop cycle (~5min) shouldn't be treated as a real devicestatus outage — only a
+// real gap should. 20min is 4x Trio's normal cycle. Shared by the chart's gap-filled IOB curve
+// and the HUD's "current IOB" pill, so both agree on what counts as stale.
+const val IOB_GAP_THRESHOLD_MILLIS = 20 * 60_000L
+
 /**
  * Estimates insulin-on-board at regular intervals across a time range, using oref0's exponential
  * insulin activity model (github.com/openaps/oref0/blob/master/lib/iob/calculate.js — the

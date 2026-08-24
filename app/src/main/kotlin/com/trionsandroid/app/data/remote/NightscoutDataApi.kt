@@ -61,4 +61,29 @@ interface NightscoutDataApi {
         @Query("sort\$desc") sort: String = "created_at",
         @Query("limit") limit: Int = 1000,
     ): NightscoutV3Envelope
+
+    /**
+     * Just the single most recent occurrence of a pump/CGM lifecycle event (e.g. "Site Change",
+     * "Sensor Start"), for the HUD's time-remaining pills. These are rare (days apart) so the
+     * regular getTreatments() 24h window usually won't catch them — this queries much further
+     * back but only needs limit=1.
+     */
+    @GET("api/v3/treatments")
+    suspend fun getLatestLifecycleEvent(
+        @Header("Authorization") bearerToken: String,
+        @Query("eventType\$eq") eventType: String,
+        @Query("date\$gte") sinceMillis: Long,
+        @Query("sort\$desc") sort: String = "date",
+        @Query("limit") limit: Int = 1,
+    ): NightscoutV3Envelope
+
+    /** See getLatestLifecycleEvent — same created_at fallback reason as treatments/devicestatus. */
+    @GET("api/v3/treatments")
+    suspend fun getLatestLifecycleEventByCreatedAt(
+        @Header("Authorization") bearerToken: String,
+        @Query("eventType\$eq") eventType: String,
+        @Query("created_at\$gte") sinceMillis: Long,
+        @Query("sort\$desc") sort: String = "created_at",
+        @Query("limit") limit: Int = 1,
+    ): NightscoutV3Envelope
 }

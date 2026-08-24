@@ -51,4 +51,14 @@ interface NightscoutDataApi {
         @Query("sort\$desc") sort: String = "date",
         @Query("limit") limit: Int = 1000,
     ): NightscoutV3Envelope
+
+    /** See DeviceStatusDto's doc comment — devicestatus needs the same date/created_at dual
+     * query as treatments, for the same underlying reason. */
+    @GET("api/v3/devicestatus")
+    suspend fun getDeviceStatusByCreatedAt(
+        @Header("Authorization") bearerToken: String,
+        @Query("created_at\$gte") sinceMillis: Long,
+        @Query("sort\$desc") sort: String = "created_at",
+        @Query("limit") limit: Int = 1000,
+    ): NightscoutV3Envelope
 }

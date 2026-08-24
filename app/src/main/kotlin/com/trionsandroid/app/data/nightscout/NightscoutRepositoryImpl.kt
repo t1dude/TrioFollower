@@ -118,15 +118,19 @@ class NightscoutRepositoryImpl @Inject constructor(
             }
 
             // Isolated for the same reason as profile: IOB/COB (from devicestatus) is secondary
-            // to entries/treatments updating successfully.
+            // to entries/treatments updating successfully. Queried by both date and created_at
+            // for the same reason as treatments — see DeviceStatusDto's doc comment.
             runCatching {
-                val deviceStatusEnvelope = api.getDeviceStatus(bearerToken = bearer, sinceMillis = sinceMillis)
-                val deviceStatusDtos = decodeResilient<DeviceStatusDto>("$TAG.DeviceStatus", deviceStatusEnvelope.result)
-                val storedDeviceStatus = deviceStatusDtos.mapNotNull { it.toEntity() }
+                val byDate = api.getDeviceStatus(bearerToken = bearer, sinceMillis = sinceMillis)
+                val byCreatedAt = api.getDeviceStatusByCreatedAt(bearerToken = bearer, sinceMillis = sinceMillis)
+                val dtosByDate = decodeResilient<DeviceStatusDto>("$TAG.DeviceStatus", byDate.result)
+                val dtosByCreatedAt = decodeResilient<DeviceStatusDto>("$TAG.DeviceStatus", byCreatedAt.result)
+                val merged = (dtosByDate + dtosByCreatedAt).distinctBy { it.stableId }
+                val storedDeviceStatus = merged.mapNotNull { it.toEntity() }
                 deviceStatusDao.upsertAll(storedDeviceStatus)
-                deviceStatusEnvelope.result.size to storedDeviceStatus.size
-            }.onSuccess { (received, stored) ->
-                diagnosticLogger.log(TAG, "DeviceStatus: received=$received stored=$stored")
+                Triple(byDate.result.size, byCreatedAt.result.size, storedDeviceStatus.size)
+            }.onSuccess { (byDate, byCreatedAt, stored) ->
+                diagnosticLogger.log(TAG, "DeviceStatus: byDate=$byDate byCreatedAt=$byCreatedAt stored=$stored")
             }.onFailure { e ->
                 diagnosticLogger.logError(TAG, "DeviceStatus fetch failed (non-fatal)", e)
             }

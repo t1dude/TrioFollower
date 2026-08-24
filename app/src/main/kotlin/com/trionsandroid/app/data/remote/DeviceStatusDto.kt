@@ -5,19 +5,24 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 
 /**
- * Nightscout devicestatus document, as uploaded by Trio's loop engine every cycle. Unlike
- * treatments, devicestatus has always been date-keyed (not created_at) in Nightscout's data
- * model, and Trio's own upload code has no created_at-equivalent field for it — so a single
- * date$gte query should be reliable here, unlike the treatments case.
+ * Nightscout devicestatus document, as uploaded by Trio's loop engine every cycle.
+ *
+ * Confirmed against Trio's own upload code (NightscoutAPI.swift's uploadDeviceStatus): it POSTs
+ * the NightscoutStatus struct directly to the legacy v1 devicestatus endpoint with no date or
+ * created_at field of its own — Nightscout's server assigns created_at on receipt for a v1
+ * insert like this, not date, exactly like the treatments case. (An earlier version of this
+ * comment claimed devicestatus was reliably date-keyed; that was a guess and it was wrong —
+ * confirmed empirically via an empty date$gte result despite the data existing.)
  */
 @Serializable
 data class DeviceStatusDto(
     @SerialName("_id") val legacyId: String? = null,
     val identifier: String? = null,
     val date: Double? = null,
+    @SerialName("created_at") val createdAt: String? = null,
     val openaps: OpenApsStatusDto? = null,
 ) {
-    val stableId: String get() = identifier ?: legacyId ?: date.toString()
+    val stableId: String get() = identifier ?: legacyId ?: "${date}_$createdAt"
 }
 
 @Serializable

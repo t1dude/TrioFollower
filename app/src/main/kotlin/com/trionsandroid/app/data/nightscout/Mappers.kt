@@ -101,7 +101,9 @@ private fun JsonElement?.toDiaHours(): Double = when (this) {
 }
 
 fun DeviceStatusDto.toEntity(): DeviceStatusEntity? {
-    val dateMillis = date?.toLong() ?: return null
+    val dateMillis = date?.toLong()
+        ?: createdAt?.let { runCatching { Instant.parse(it).toEpochMilli() }.getOrNull() }
+        ?: return null
     val iob = openaps.extractIobUnits()
     val cob = openaps?.suggested?.cob ?: openaps?.enacted?.cob
     if (iob == null && cob == null) return null

@@ -61,7 +61,10 @@ private const val MIN_VIEWPORT_MILLIS = 30 * 60_000L
 private val ZOOM_CYCLE_MILLIS = listOf(12 * HOUR_MILLIS, 6 * HOUR_MILLIS, 3 * HOUR_MILLIS)
 private const val MIN_FLING_VELOCITY_PX_PER_SEC = 50f
 private val LEFT_GUTTER = 40.dp
-private val BOTTOM_GUTTER = 20.dp
+// Needs to fit a 10sp label's full line height (ascent+descent, typically ~14-16dp — taller
+// than the font size itself) plus its 4dp gap below iobBottom; 20dp was clipping labels by a
+// couple of dp on-device once the IOB band pushed everything else down.
+private val BOTTOM_GUTTER = 28.dp
 private val hourFormatter = DateTimeFormatter.ofPattern("HH")
 private val dayFormatter = DateTimeFormatter.ofPattern("dd.MM")
 

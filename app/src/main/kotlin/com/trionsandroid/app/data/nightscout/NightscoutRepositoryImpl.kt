@@ -66,14 +66,22 @@ class NightscoutRepositoryImpl @Inject constructor(
                     "decoded=${entryDtos.size} stored=${storedEntries.size}",
             )
 
-            val treatments = api.getTreatments(bearerToken = bearer, sinceMillis = sinceMillis)
-            val treatmentDtos = decodeResilient<TreatmentDto>("$TAG.Treatments", treatments.result)
-            val storedTreatments = treatmentDtos.mapNotNull { it.toEntity() }
+            // Query by both `date` and `created_at`: treatments have historically used
+            // created_at as their canonical timestamp, and a document written via that older
+            // path may lack an indexed `date` entirely — invisible to a date-only query even
+            // though it's fully visible on the classic dashboard. See getTreatmentsByCreatedAt's
+            // doc comment. Results can overlap, so merge by identifier.
+            val treatmentsByDate = api.getTreatments(bearerToken = bearer, sinceMillis = sinceMillis)
+            val treatmentsByCreatedAt = api.getTreatmentsByCreatedAt(bearerToken = bearer, sinceMillis = sinceMillis)
+            val treatmentDtosByDate = decodeResilient<TreatmentDto>("$TAG.Treatments", treatmentsByDate.result)
+            val treatmentDtosByCreatedAt = decodeResilient<TreatmentDto>("$TAG.Treatments", treatmentsByCreatedAt.result)
+            val mergedTreatmentDtos = (treatmentDtosByDate + treatmentDtosByCreatedAt).distinctBy { it.stableId }
+            val storedTreatments = mergedTreatmentDtos.mapNotNull { it.toEntity() }
             treatmentDao.upsertAll(storedTreatments)
             diagnosticLogger.log(
                 TAG,
-                "Treatments: status=${treatments.status} received=${treatments.result.size} " +
-                    "decoded=${treatmentDtos.size} stored=${storedTreatments.size}",
+                "Treatments: byDate=${treatmentsByDate.result.size} byCreatedAt=${treatmentsByCreatedAt.result.size} " +
+                    "merged=${mergedTreatmentDtos.size} stored=${storedTreatments.size}",
             )
 
             val cutoffMillis = System.currentTimeMillis() - TimeUnit.HOURS.toMillis(RETENTION_HOURS)

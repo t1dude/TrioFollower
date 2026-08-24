@@ -34,11 +34,13 @@ fun GlucoseEntryEntity.toDomain(): GlucoseReading = GlucoseReading(
 )
 
 fun TreatmentDto.toEntity(): TreatmentEntity? {
-    val dateValue = date ?: return null
     val type = eventType ?: return null
+    val dateMillis = date?.toLong()
+        ?: createdAt?.let { runCatching { Instant.parse(it).toEpochMilli() }.getOrNull() }
+        ?: return null
     return TreatmentEntity(
         id = stableId,
-        dateMillis = dateValue.toLong(),
+        dateMillis = dateMillis,
         eventType = type,
         insulinUnits = insulin,
         carbsGrams = carbs,

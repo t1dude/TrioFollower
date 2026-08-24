@@ -9,6 +9,9 @@ data class TreatmentDto(
     val identifier: String? = null,
     // See EntryDto.date — Nightscout can report a fractional-millisecond value here too.
     val date: Double? = null,
+    // The historical canonical timestamp for treatments (ISO 8601), used as a fallback when
+    // `date` is absent — see NightscoutDataApi.getTreatmentsByCreatedAt's doc comment.
+    @SerialName("created_at") val createdAt: String? = null,
     val eventType: String? = null,
     val insulin: Double? = null,
     val carbs: Double? = null,

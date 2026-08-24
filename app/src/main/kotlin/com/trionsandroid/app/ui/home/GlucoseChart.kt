@@ -84,6 +84,31 @@ private val GLUCOSE_TO_IOB_GAP = 8.dp
 private val IOB_STRIP_HEIGHT = 50.dp
 private val BOLUS_MARKER_TOP_MARGIN = 10.dp
 
+// A single missed loop cycle (~5min) shouldn't switch that stretch into "estimated" rendering —
+// only a real outage should. 20min is 4x Trio's normal cycle.
+private const val IOB_GAP_THRESHOLD_MILLIS = 20 * 60_000L
+private const val IOB_ESTIMATE_SAMPLE_INTERVAL_MILLIS = 5 * 60_000L
+
+/**
+ * Finds stretches of [viewportStartMillis, viewportEndMillis] with no real devicestatus IOB
+ * point nearby, so the caller can fill just those with a locally-estimated curve instead of
+ * leaving the graph blank across a genuine upload outage.
+ */
+private fun findIobGaps(
+    viewportStartMillis: Long,
+    viewportEndMillis: Long,
+    realTimestampsMillis: List<Long>,
+): List<LongRange> {
+    val gaps = mutableListOf<LongRange>()
+    var cursor = viewportStartMillis
+    for (t in realTimestampsMillis) {
+        if (t - cursor > IOB_GAP_THRESHOLD_MILLIS) gaps += cursor..t
+        if (t > cursor) cursor = t
+    }
+    if (viewportEndMillis - cursor > IOB_GAP_THRESHOLD_MILLIS) gaps += cursor..viewportEndMillis
+    return gaps
+}
+
 /** "5" for a whole number of units, otherwise trimmed to as few decimals as the dose needs. */
 private fun formatBolusUnits(units: Double): String {
     if (units == units.toLong().toDouble()) return units.toLong().toString()
@@ -98,8 +123,9 @@ private fun formatBolusUnits(units: Double): String {
  * history fetching is a future enhancement.
  *
  * Three bands top to bottom: basal (0 U/hr at top, growing down), glucose, and IOB (0u at
- * bottom, growing up — plotted directly from Trio's own devicestatus uploads, not recomputed
- * locally; see the IOB curve's rendering comment below for why).
+ * bottom, growing up — plotted from Trio's own devicestatus uploads where available, falling
+ * back to a dashed local estimate across genuine upload gaps; see the IOB curve's rendering
+ * comment below for why).
  */
 @Composable
 fun GlucoseChart(
@@ -428,36 +454,67 @@ fun GlucoseChart(
             // directly from Trio's own devicestatus uploads (the IOB it actually computed and
             // used for dosing — accounting for DIA, peak time, and temp basal netting) rather
             // than a locally-recomputed activity curve, so this always matches what Trio itself
-            // shows instead of risking a subtly different number from our own model.
+            // shows instead of risking a subtly different number from our own model. Where
+            // devicestatus is genuinely missing (loop wasn't uploading), that stretch is instead
+            // filled with a dashed, locally-estimated curve from bolus decay — see IobCalculator's
+            // doc comment — so the graph doesn't just go blank across an outage.
             val iobPoints = deviceStatusPoints
                 .filter { it.iobUnits != null && it.timestamp.toEpochMilli() in viewportStartMillis..viewportEndMillis }
                 .sortedBy { it.timestamp }
-            if (iobPoints.isNotEmpty()) {
-                val maxIob = iobPoints.maxOf { it.iobUnits!! }.coerceAtLeast(0.5)
+            val diaHours = insulinProfile?.diaHours ?: DEFAULT_DIA_HOURS
+            val gapEstimates = findIobGaps(
+                viewportStartMillis,
+                viewportEndMillis,
+                iobPoints.map { it.timestamp.toEpochMilli() },
+            ).map { gap ->
+                computeIobSeries(gap.first, gap.last, treatments, diaHours, IOB_ESTIMATE_SAMPLE_INTERVAL_MILLIS)
+            }.filter { it.isNotEmpty() }
+
+            if (iobPoints.isNotEmpty() || gapEstimates.isNotEmpty()) {
+                val maxIob = (
+                    iobPoints.map { it.iobUnits!! } + gapEstimates.flatten().map { it.iobUnits }
+                    ).maxOrNull()?.coerceAtLeast(0.5) ?: 0.5
 
                 fun iobYFor(units: Double): Float {
                     val fraction = (units / maxIob).coerceIn(0.0, 1.0)
                     return iobBottom - (fraction * (iobBottom - iobTop)).toFloat()
                 }
 
-                val fillPath = Path()
-                val linePath = Path()
-                iobPoints.forEachIndexed { index, point ->
-                    val x = xFor(point.timestamp.toEpochMilli())
-                    val y = iobYFor(point.iobUnits!!)
-                    if (index == 0) {
-                        fillPath.moveTo(x, iobBottom)
-                        fillPath.lineTo(x, y)
-                        linePath.moveTo(x, y)
-                    } else {
-                        fillPath.lineTo(x, y)
-                        linePath.lineTo(x, y)
+                if (iobPoints.isNotEmpty()) {
+                    val fillPath = Path()
+                    val linePath = Path()
+                    iobPoints.forEachIndexed { index, point ->
+                        val x = xFor(point.timestamp.toEpochMilli())
+                        val y = iobYFor(point.iobUnits!!)
+                        if (index == 0) {
+                            fillPath.moveTo(x, iobBottom)
+                            fillPath.lineTo(x, y)
+                            linePath.moveTo(x, y)
+                        } else {
+                            fillPath.lineTo(x, y)
+                            linePath.lineTo(x, y)
+                        }
                     }
+                    fillPath.lineTo(xFor(iobPoints.last().timestamp.toEpochMilli()), iobBottom)
+                    fillPath.close()
+                    drawPath(fillPath, color = TrioIob.copy(alpha = 0.35f))
+                    drawPath(linePath, color = TrioIob, style = Stroke(width = 1.5.dp.toPx()))
                 }
-                fillPath.lineTo(xFor(iobPoints.last().timestamp.toEpochMilli()), iobBottom)
-                fillPath.close()
-                drawPath(fillPath, color = TrioIob.copy(alpha = 0.35f))
-                drawPath(linePath, color = TrioIob, style = Stroke(width = 1.5.dp.toPx()))
+
+                val estimateDash = PathEffect.dashPathEffect(floatArrayOf(10f, 6f))
+                gapEstimates.forEach { series ->
+                    val linePath = Path()
+                    series.forEachIndexed { index, point ->
+                        val x = xFor(point.timestampMillis)
+                        val y = iobYFor(point.iobUnits)
+                        if (index == 0) linePath.moveTo(x, y) else linePath.lineTo(x, y)
+                    }
+                    drawPath(
+                        linePath,
+                        color = TrioIob.copy(alpha = 0.6f),
+                        style = Stroke(width = 1.5.dp.toPx(), pathEffect = estimateDash),
+                    )
+                }
             }
         }
     }

@@ -1,5 +1,7 @@
 package com.trionsandroid.app.di
 
+import com.trionsandroid.app.data.nightscout.NightscoutRepository
+import com.trionsandroid.app.data.nightscout.NightscoutRepositoryImpl
 import com.trionsandroid.app.data.settings.SettingsRepository
 import com.trionsandroid.app.data.settings.SettingsRepositoryImpl
 import dagger.Binds
@@ -15,4 +17,8 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindSettingsRepository(impl: SettingsRepositoryImpl): SettingsRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindNightscoutRepository(impl: NightscoutRepositoryImpl): NightscoutRepository
 }

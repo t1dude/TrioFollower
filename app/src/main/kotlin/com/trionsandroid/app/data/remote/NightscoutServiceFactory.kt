@@ -16,6 +16,8 @@ class NightscoutServiceFactory @Inject constructor(
 ) {
     fun authApi(baseUrl: String): NightscoutAuthApi = retrofit(baseUrl).create(NightscoutAuthApi::class.java)
 
+    fun dataApi(baseUrl: String): NightscoutDataApi = retrofit(baseUrl).create(NightscoutDataApi::class.java)
+
     private fun retrofit(baseUrl: String): Retrofit {
         val withScheme = if (baseUrl.startsWith("http://") || baseUrl.startsWith("https://")) {
             baseUrl

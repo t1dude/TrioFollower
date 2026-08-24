@@ -1,14 +1,18 @@
 package com.trionsandroid.app.data.nightscout
 
+import com.trionsandroid.app.data.local.DeviceStatusEntity
 import com.trionsandroid.app.data.local.GlucoseEntryEntity
 import com.trionsandroid.app.data.local.TreatmentEntity
 import com.trionsandroid.app.data.remote.BasalScheduleEntryDto
+import com.trionsandroid.app.data.remote.DeviceStatusDto
 import com.trionsandroid.app.data.remote.EntryDto
+import com.trionsandroid.app.data.remote.OpenApsStatusDto
 import com.trionsandroid.app.data.remote.ProfileDocumentDto
 import com.trionsandroid.app.data.remote.ProfileStoreEntryDto
 import com.trionsandroid.app.data.remote.TreatmentDto
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.jsonObject
@@ -94,4 +98,33 @@ private fun JsonElement?.toDiaHours(): Double = when (this) {
     is JsonPrimitive -> doubleOrNull ?: DEFAULT_DIA_HOURS
     is JsonArray -> lastOrNull()?.jsonObject?.get("value")?.jsonPrimitive?.doubleOrNull ?: DEFAULT_DIA_HOURS
     else -> DEFAULT_DIA_HOURS
+}
+
+fun DeviceStatusDto.toEntity(): DeviceStatusEntity? {
+    val dateMillis = date?.toLong() ?: return null
+    val iob = openaps.extractIobUnits()
+    val cob = openaps?.suggested?.cob ?: openaps?.enacted?.cob
+    if (iob == null && cob == null) return null
+    return DeviceStatusEntity(id = stableId, dateMillis = dateMillis, iobUnits = iob, cobGrams = cob)
+}
+
+fun DeviceStatusEntity.toDomain(): DeviceStatusPoint = DeviceStatusPoint(
+    timestamp = Instant.ofEpochMilli(dateMillis),
+    iobUnits = iobUnits,
+    cobGrams = cobGrams,
+)
+
+/**
+ * openaps.iob is a single object in the shape Trio actually uploads, but Trio's own local
+ * (pre-upload) storage keeps it as an array, and other uploaders may differ again — handle both
+ * shapes, then fall back to the IOB carried on the suggested/enacted determination if the
+ * dedicated iob entry is absent entirely.
+ */
+private fun OpenApsStatusDto?.extractIobUnits(): Double? {
+    val fromIobEntry = when (val element = this?.iob) {
+        is JsonObject -> element["iob"]?.jsonPrimitive?.doubleOrNull
+        is JsonArray -> element.firstOrNull()?.jsonObject?.get("iob")?.jsonPrimitive?.doubleOrNull
+        else -> null
+    }
+    return fromIobEntry ?: this?.suggested?.iob ?: this?.enacted?.iob
 }

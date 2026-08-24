@@ -2,6 +2,7 @@ package com.trionsandroid.app.di
 
 import android.content.Context
 import androidx.room.Room
+import com.trionsandroid.app.data.local.DeviceStatusDao
 import com.trionsandroid.app.data.local.GlucoseEntryDao
 import com.trionsandroid.app.data.local.TreatmentDao
 import com.trionsandroid.app.data.local.TrioDatabase
@@ -28,4 +29,7 @@ object DatabaseModule {
 
     @Provides
     fun provideTreatmentDao(database: TrioDatabase): TreatmentDao = database.treatmentDao()
+
+    @Provides
+    fun provideDeviceStatusDao(database: TrioDatabase): DeviceStatusDao = database.deviceStatusDao()
 }

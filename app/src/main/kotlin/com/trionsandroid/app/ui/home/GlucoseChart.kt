@@ -31,6 +31,7 @@ import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.trionsandroid.app.data.nightscout.DeviceStatusPoint
 import com.trionsandroid.app.data.nightscout.GlucoseReading
 import com.trionsandroid.app.data.nightscout.InsulinProfile
 import com.trionsandroid.app.data.nightscout.Treatment
@@ -83,7 +84,6 @@ private val IOB_STRIP_HEIGHT = 50.dp
 private val CHART_HEIGHT =
     BASAL_STRIP_HEIGHT + STRIP_TO_GLUCOSE_GAP + GLUCOSE_AREA_HEIGHT + GLUCOSE_TO_IOB_GAP + IOB_STRIP_HEIGHT + BOTTOM_GUTTER
 private val BOLUS_MARKER_TOP_MARGIN = 10.dp
-private const val IOB_TARGET_SAMPLE_COUNT = 150
 
 /** "5" for a whole number of units, otherwise trimmed to as few decimals as the dose needs. */
 private fun formatBolusUnits(units: Double): String {
@@ -99,13 +99,15 @@ private fun formatBolusUnits(units: Double): String {
  * history fetching is a future enhancement.
  *
  * Three bands top to bottom: basal (0 U/hr at top, growing down), glucose, and IOB (0u at
- * bottom, growing up — see IobCalculator.kt for the model and its documented simplifications).
+ * bottom, growing up — plotted directly from Trio's own devicestatus uploads, not recomputed
+ * locally; see the IOB curve's rendering comment below for why).
  */
 @Composable
 fun GlucoseChart(
     readings: List<GlucoseReading>,
     treatments: List<Treatment>,
     insulinProfile: InsulinProfile?,
+    deviceStatusPoints: List<DeviceStatusPoint>,
     unit: GlucoseUnit,
     alarms: AlarmSettings,
     modifier: Modifier = Modifier,
@@ -412,20 +414,16 @@ fun GlucoseChart(
             }
 
             // IOB curve, in the reserved strip below the glucose area. Normal orientation (0u at
-            // the bottom, growing up) — unlike basal, Trio doesn't invert this one. Sampled at a
-            // resolution proportional to the viewport rather than a fixed time step, so a
-            // multi-day zoomed-out view doesn't evaluate the activity curve at a wasteful number
-            // of points.
-            val iobSampleIntervalMillis = (viewportDurationMillis / IOB_TARGET_SAMPLE_COUNT).coerceAtLeast(60_000L)
-            val iobSeries = computeIobSeries(
-                viewportStartMillis = viewportStartMillis,
-                viewportEndMillis = viewportEndMillis,
-                treatments = treatments,
-                diaHours = insulinProfile?.diaHours ?: DEFAULT_DIA_HOURS,
-                sampleIntervalMillis = iobSampleIntervalMillis,
-            )
-            if (iobSeries.isNotEmpty()) {
-                val maxIob = iobSeries.maxOf { it.iobUnits }.coerceAtLeast(0.5)
+            // the bottom, growing up) — unlike basal, Trio doesn't invert this one. Plotted
+            // directly from Trio's own devicestatus uploads (the IOB it actually computed and
+            // used for dosing — accounting for DIA, peak time, and temp basal netting) rather
+            // than a locally-recomputed activity curve, so this always matches what Trio itself
+            // shows instead of risking a subtly different number from our own model.
+            val iobPoints = deviceStatusPoints
+                .filter { it.iobUnits != null && it.timestamp.toEpochMilli() in viewportStartMillis..viewportEndMillis }
+                .sortedBy { it.timestamp }
+            if (iobPoints.isNotEmpty()) {
+                val maxIob = iobPoints.maxOf { it.iobUnits!! }.coerceAtLeast(0.5)
 
                 fun iobYFor(units: Double): Float {
                     val fraction = (units / maxIob).coerceIn(0.0, 1.0)
@@ -434,9 +432,9 @@ fun GlucoseChart(
 
                 val fillPath = Path()
                 val linePath = Path()
-                iobSeries.forEachIndexed { index, point ->
-                    val x = xFor(point.timestampMillis)
-                    val y = iobYFor(point.iobUnits)
+                iobPoints.forEachIndexed { index, point ->
+                    val x = xFor(point.timestamp.toEpochMilli())
+                    val y = iobYFor(point.iobUnits!!)
                     if (index == 0) {
                         fillPath.moveTo(x, iobBottom)
                         fillPath.lineTo(x, y)
@@ -446,7 +444,7 @@ fun GlucoseChart(
                         linePath.lineTo(x, y)
                     }
                 }
-                fillPath.lineTo(xFor(iobSeries.last().timestampMillis), iobBottom)
+                fillPath.lineTo(xFor(iobPoints.last().timestamp.toEpochMilli()), iobBottom)
                 fillPath.close()
                 drawPath(fillPath, color = TrioIob.copy(alpha = 0.35f))
                 drawPath(linePath, color = TrioIob, style = Stroke(width = 1.5.dp.toPx()))

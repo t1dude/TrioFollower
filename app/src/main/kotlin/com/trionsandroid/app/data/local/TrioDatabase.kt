@@ -4,11 +4,12 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 
 @Database(
-    entities = [GlucoseEntryEntity::class, TreatmentEntity::class],
-    version = 1,
+    entities = [GlucoseEntryEntity::class, TreatmentEntity::class, DeviceStatusEntity::class],
+    version = 2,
     exportSchema = true,
 )
 abstract class TrioDatabase : RoomDatabase() {
     abstract fun glucoseEntryDao(): GlucoseEntryDao
     abstract fun treatmentDao(): TreatmentDao
+    abstract fun deviceStatusDao(): DeviceStatusDao
 }

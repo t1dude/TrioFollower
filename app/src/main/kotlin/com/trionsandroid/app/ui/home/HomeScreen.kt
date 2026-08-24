@@ -97,6 +97,7 @@ fun HomeScreen(viewModel: HomeViewModel = hiltViewModel()) {
                     readings = uiState.readings,
                     treatments = uiState.treatments,
                     insulinProfile = uiState.insulinProfile,
+                    deviceStatusPoints = uiState.deviceStatusPoints,
                     unit = uiState.glucoseUnit,
                     alarms = uiState.alarms,
                     modifier = Modifier.padding(top = 8.dp, bottom = 16.dp),

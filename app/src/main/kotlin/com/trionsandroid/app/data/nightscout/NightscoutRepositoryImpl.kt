@@ -1,8 +1,10 @@
 package com.trionsandroid.app.data.nightscout
 
+import com.trionsandroid.app.data.local.DeviceStatusDao
 import com.trionsandroid.app.data.local.GlucoseEntryDao
 import com.trionsandroid.app.data.local.TreatmentDao
 import com.trionsandroid.app.data.logging.DiagnosticLogger
+import com.trionsandroid.app.data.remote.DeviceStatusDto
 import com.trionsandroid.app.data.remote.EntryDto
 import com.trionsandroid.app.data.remote.NightscoutServiceFactory
 import com.trionsandroid.app.data.remote.ProfileDocumentDto
@@ -28,6 +30,7 @@ class NightscoutRepositoryImpl @Inject constructor(
     private val serviceFactory: NightscoutServiceFactory,
     private val glucoseEntryDao: GlucoseEntryDao,
     private val treatmentDao: TreatmentDao,
+    private val deviceStatusDao: DeviceStatusDao,
     private val diagnosticLogger: DiagnosticLogger,
     private val json: Json,
 ) : NightscoutRepository {
@@ -39,6 +42,9 @@ class NightscoutRepositoryImpl @Inject constructor(
 
     override fun observeTreatments(sinceMillis: Long): Flow<List<Treatment>> =
         treatmentDao.observeSince(sinceMillis).map { treatments -> treatments.map { it.toDomain() } }
+
+    override fun observeDeviceStatus(sinceMillis: Long): Flow<List<DeviceStatusPoint>> =
+        deviceStatusDao.observeSince(sinceMillis).map { points -> points.map { it.toDomain() } }
 
     override fun observeInsulinProfile(): Flow<InsulinProfile?> = insulinProfile.asStateFlow()
 
@@ -87,6 +93,7 @@ class NightscoutRepositoryImpl @Inject constructor(
             val cutoffMillis = System.currentTimeMillis() - TimeUnit.HOURS.toMillis(RETENTION_HOURS)
             glucoseEntryDao.deleteOlderThan(cutoffMillis)
             treatmentDao.deleteOlderThan(cutoffMillis)
+            deviceStatusDao.deleteOlderThan(cutoffMillis)
 
             // Isolated from the rest of refresh(): the profile is only needed for the insulin
             // overlay's basal schedule, and a hiccup fetching it shouldn't surface as a failed
@@ -108,6 +115,20 @@ class NightscoutRepositoryImpl @Inject constructor(
                 }
             }.onFailure { e ->
                 diagnosticLogger.logError(TAG, "Profile fetch failed (non-fatal)", e)
+            }
+
+            // Isolated for the same reason as profile: IOB/COB (from devicestatus) is secondary
+            // to entries/treatments updating successfully.
+            runCatching {
+                val deviceStatusEnvelope = api.getDeviceStatus(bearerToken = bearer, sinceMillis = sinceMillis)
+                val deviceStatusDtos = decodeResilient<DeviceStatusDto>("$TAG.DeviceStatus", deviceStatusEnvelope.result)
+                val storedDeviceStatus = deviceStatusDtos.mapNotNull { it.toEntity() }
+                deviceStatusDao.upsertAll(storedDeviceStatus)
+                deviceStatusEnvelope.result.size to storedDeviceStatus.size
+            }.onSuccess { (received, stored) ->
+                diagnosticLogger.log(TAG, "DeviceStatus: received=$received stored=$stored")
+            }.onFailure { e ->
+                diagnosticLogger.logError(TAG, "DeviceStatus fetch failed (non-fatal)", e)
             }
             Unit
         }.onFailure { e ->

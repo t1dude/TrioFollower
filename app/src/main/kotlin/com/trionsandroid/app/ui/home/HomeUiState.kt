@@ -1,5 +1,6 @@
 package com.trionsandroid.app.ui.home
 
+import com.trionsandroid.app.data.nightscout.DeviceStatusPoint
 import com.trionsandroid.app.data.nightscout.GlucoseReading
 import com.trionsandroid.app.data.nightscout.InsulinProfile
 import com.trionsandroid.app.data.nightscout.Treatment
@@ -14,4 +15,5 @@ data class HomeUiState(
     val readings: List<GlucoseReading> = emptyList(),
     val treatments: List<Treatment> = emptyList(),
     val insulinProfile: InsulinProfile? = null,
+    val deviceStatusPoints: List<DeviceStatusPoint> = emptyList(),
 )

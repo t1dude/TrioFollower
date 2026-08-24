@@ -2,6 +2,7 @@ package com.trionsandroid.app.ui.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.trionsandroid.app.data.nightscout.DeviceStatusPoint
 import com.trionsandroid.app.data.nightscout.GlucoseReading
 import com.trionsandroid.app.data.nightscout.InsulinProfile
 import com.trionsandroid.app.data.nightscout.NightscoutRepository
@@ -31,6 +32,7 @@ private data class HomeDataState(
     val treatments: List<Treatment>,
     val settings: UserSettings,
     val insulinProfile: InsulinProfile?,
+    val deviceStatusPoints: List<DeviceStatusPoint>,
 )
 
 @HiltViewModel
@@ -50,8 +52,9 @@ class HomeViewModel @Inject constructor(
         nightscoutRepository.observeTreatments(sinceMillis),
         settingsRepository.settings,
         nightscoutRepository.observeInsulinProfile(),
-    ) { readings, treatments, settings, insulinProfile ->
-        HomeDataState(readings, treatments, settings, insulinProfile)
+        nightscoutRepository.observeDeviceStatus(sinceMillis),
+    ) { readings, treatments, settings, insulinProfile, deviceStatusPoints ->
+        HomeDataState(readings, treatments, settings, insulinProfile, deviceStatusPoints)
     }
 
     val uiState: StateFlow<HomeUiState> = combine(dataState, isLoading, errorMessage) { data, loading, error ->
@@ -63,6 +66,7 @@ class HomeViewModel @Inject constructor(
             readings = data.readings.sortedByDescending { it.timestamp },
             treatments = data.treatments.sortedByDescending { it.timestamp },
             insulinProfile = data.insulinProfile,
+            deviceStatusPoints = data.deviceStatusPoints.sortedBy { it.timestamp },
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())
 

@@ -1,0 +1,39 @@
+package com.trionsandroid.app.data.remote
+
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonElement
+
+/**
+ * Nightscout devicestatus document, as uploaded by Trio's loop engine every cycle. Unlike
+ * treatments, devicestatus has always been date-keyed (not created_at) in Nightscout's data
+ * model, and Trio's own upload code has no created_at-equivalent field for it — so a single
+ * date$gte query should be reliable here, unlike the treatments case.
+ */
+@Serializable
+data class DeviceStatusDto(
+    @SerialName("_id") val legacyId: String? = null,
+    val identifier: String? = null,
+    val date: Double? = null,
+    val openaps: OpenApsStatusDto? = null,
+) {
+    val stableId: String get() = identifier ?: legacyId ?: date.toString()
+}
+
+@Serializable
+data class OpenApsStatusDto(
+    // Trio's own local (pre-upload) storage keeps this as an array (github.com/nightscout/Trio,
+    // NightscoutManager.swift: "storage.retrieveAsync(OpenAPS.Monitor.iob, as: [IOBEntry].self)"),
+    // while the NightscoutStatus struct actually uploaded types it as a single object — and other
+    // uploaders may differ again. Left as raw JSON and disambiguated when mapping to the domain
+    // model so either shape works.
+    val iob: JsonElement? = null,
+    val suggested: DeterminationDto? = null,
+    val enacted: DeterminationDto? = null,
+)
+
+@Serializable
+data class DeterminationDto(
+    @SerialName("IOB") val iob: Double? = null,
+    @SerialName("COB") val cob: Double? = null,
+)

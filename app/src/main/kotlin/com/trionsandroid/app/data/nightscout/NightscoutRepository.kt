@@ -6,6 +6,9 @@ interface NightscoutRepository {
     fun observeGlucoseEntries(sinceMillis: Long): Flow<List<GlucoseReading>>
     fun observeTreatments(sinceMillis: Long): Flow<List<Treatment>>
 
+    /** IOB/COB as Trio's own loop engine computed and uploaded them, not derived locally. */
+    fun observeDeviceStatus(sinceMillis: Long): Flow<List<DeviceStatusPoint>>
+
     /**
      * The most recently fetched insulin profile (basal schedule + DIA), or null before the first
      * successful fetch. Not cached to Room — it's small and cheap to re-fetch, and doesn't need

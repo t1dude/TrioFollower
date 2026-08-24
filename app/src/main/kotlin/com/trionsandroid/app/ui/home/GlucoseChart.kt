@@ -63,7 +63,16 @@ private val BOTTOM_GUTTER = 20.dp
 private val hourFormatter = DateTimeFormatter.ofPattern("HH")
 private val dayFormatter = DateTimeFormatter.ofPattern("dd.MM")
 
-private const val BOLUS_EVENT_TYPES_HINT = "Bolus" // matched via contains(), see boluses filter below
+// "Bolus" substring catches Correction/Meal/Snack/Combo Bolus etc. across uploaders, but Trio
+// itself (see PumpHistoryStorage.swift's determineBolusEventType) uploads SMB and manually
+// administered doses under eventType "SMB" / "External Insulin" specifically — neither contains
+// "Bolus", so they need an explicit match alongside the substring heuristic.
+private const val BOLUS_EVENT_TYPE_SUBSTRING = "Bolus"
+private val EXACT_BOLUS_EVENT_TYPES = setOf("SMB", "External Insulin")
+
+private fun isBolusEventType(eventType: String): Boolean =
+    eventType.contains(BOLUS_EVENT_TYPE_SUBSTRING, ignoreCase = true) ||
+        EXACT_BOLUS_EVENT_TYPES.any { it.equals(eventType, ignoreCase = true) }
 private val BASAL_STRIP_HEIGHT = 40.dp
 private val STRIP_TO_GLUCOSE_GAP = 8.dp
 private val GLUCOSE_AREA_HEIGHT = 220.dp
@@ -368,7 +377,7 @@ fun GlucoseChart(
             val boluses = treatments.filter { treatment ->
                 val units = treatment.insulinUnits
                 units != null && units > 0.0 &&
-                    treatment.eventType.contains(BOLUS_EVENT_TYPES_HINT, ignoreCase = true) &&
+                    isBolusEventType(treatment.eventType) &&
                     treatment.timestamp.toEpochMilli() in viewportStartMillis..viewportEndMillis
             }
             boluses.forEach { bolus ->

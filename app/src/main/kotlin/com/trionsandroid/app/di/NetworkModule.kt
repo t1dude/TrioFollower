@@ -1,6 +1,6 @@
 package com.trionsandroid.app.di
 
-import com.trionsandroid.app.BuildConfig
+import com.trionsandroid.app.data.logging.DiagnosticHttpLogger
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -24,10 +24,10 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideOkHttpClient(): OkHttpClient {
-        val logging = HttpLoggingInterceptor().apply {
-            level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BODY else HttpLoggingInterceptor.Level.NONE
-            // Never write the bearer JWT itself to Logcat, even in debug builds.
+    fun provideOkHttpClient(diagnosticHttpLogger: DiagnosticHttpLogger): OkHttpClient {
+        val logging = HttpLoggingInterceptor(diagnosticHttpLogger).apply {
+            level = HttpLoggingInterceptor.Level.BODY
+            // Never write the bearer JWT itself into the log, even though it's short-lived.
             redactHeader("Authorization")
         }
         return OkHttpClient.Builder()

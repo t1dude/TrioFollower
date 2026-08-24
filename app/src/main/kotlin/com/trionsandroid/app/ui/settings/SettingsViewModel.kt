@@ -2,6 +2,7 @@ package com.trionsandroid.app.ui.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.trionsandroid.app.data.logging.DiagnosticLogger
 import com.trionsandroid.app.data.remote.NightscoutServiceFactory
 import com.trionsandroid.app.data.settings.AlarmSettings
 import com.trionsandroid.app.data.settings.BackgroundMode
@@ -18,6 +19,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
+import java.io.File
 import java.io.IOException
 import javax.inject.Inject
 
@@ -26,6 +28,7 @@ class SettingsViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val secureTokenStore: SecureTokenStore,
     private val serviceFactory: NightscoutServiceFactory,
+    private val diagnosticLogger: DiagnosticLogger,
 ) : ViewModel() {
 
     // Text fields need a locally-owned, synchronously-updated source of truth for their
@@ -94,6 +97,10 @@ class SettingsViewModel @Inject constructor(
     fun onAlarmSettingsChange(alarms: AlarmSettings) {
         viewModelScope.launch { settingsRepository.setAlarmSettings(alarms) }
     }
+
+    fun logFile(): File = diagnosticLogger.file()
+
+    fun clearLog() = diagnosticLogger.clear()
 
     fun testConnection() {
         val url = uiState.value.nightscoutUrl

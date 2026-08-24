@@ -244,5 +244,14 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                 PermissionsSection()
             }
         }
+
+        item {
+            SettingsSection(title = "Diagnostics") {
+                DiagnosticsSection(
+                    onShareLog = { viewModel.logFile() },
+                    onClearLog = viewModel::clearLog,
+                )
+            }
+        }
     }
 }

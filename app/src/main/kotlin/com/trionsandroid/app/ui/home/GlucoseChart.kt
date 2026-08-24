@@ -282,6 +282,16 @@ fun GlucoseChart(
             val iobTop = glucoseBottom + GLUCOSE_TO_IOB_GAP.toPx()
             val iobBottom = iobTop + IOB_STRIP_HEIGHT.toPx()
 
+            // TEMPORARY DIAGNOSTIC — marks the space actually reserved below the IOB strip using
+            // this Canvas's real measured `size.height`, not the value we requested. Screenshot
+            // this to tell apart "not enough space was reserved" from "space was reserved but the
+            // label didn't draw in it." Remove once the x-axis label clipping bug is confirmed fixed.
+            drawRect(
+                color = androidx.compose.ui.graphics.Color.Red.copy(alpha = 0.25f),
+                topLeft = Offset(0f, iobBottom),
+                size = androidx.compose.ui.geometry.Size(size.width, size.height - iobBottom),
+            )
+
             fun xFor(millis: Long): Float =
                 leftGutter + ((millis - viewportStartMillis).toFloat() / viewportDurationMillis) * chartWidth
 

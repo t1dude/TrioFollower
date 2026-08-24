@@ -101,6 +101,7 @@ class NightscoutRepositoryImpl @Inject constructor(
             }.onFailure { e ->
                 diagnosticLogger.logError(TAG, "Profile fetch failed (non-fatal)", e)
             }
+            Unit
         }.onFailure { e ->
             diagnosticLogger.logError(TAG, "refresh() failed", e)
         }

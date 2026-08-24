@@ -46,6 +46,7 @@ import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 import kotlin.math.abs
 
 private val Y_GRIDLINES_MGDL = listOf(50, 100, 150, 200, 250, 300)
@@ -68,6 +69,12 @@ private val STRIP_TO_GLUCOSE_GAP = 8.dp
 private val GLUCOSE_AREA_HEIGHT = 220.dp
 private val CHART_HEIGHT = BASAL_STRIP_HEIGHT + STRIP_TO_GLUCOSE_GAP + GLUCOSE_AREA_HEIGHT
 private val BOLUS_MARKER_TOP_MARGIN = 10.dp
+
+/** "5" for a whole number of units, otherwise trimmed to as few decimals as the dose needs. */
+private fun formatBolusUnits(units: Double): String {
+    if (units == units.toLong().toDouble()) return units.toLong().toString()
+    return String.format(Locale.getDefault(), "%.2f", units).trimEnd('0').trimEnd('.')
+}
 
 /**
  * A pannable, pinch-zoomable view of glucose + insulin history, with fling-on-release and a
@@ -354,25 +361,38 @@ fun GlucoseChart(
                 )
             }
 
-            // Bolus markers, inside the glucose area near its top (not a separate strip) so the
-            // dose sits visually right above whatever the BG curve does afterward — matches
-            // Trio's placement rather than a detached annotation row.
+            // Bolus markers, pinned just above wherever the BG curve actually is at that moment
+            // (nearest reading by time) rather than a fixed height — so the dose sits right on
+            // top of its own result on the curve, matching Trio's placement. Amount is labeled
+            // above each marker; no minimum-size filter yet (planned as a Settings threshold).
             val boluses = treatments.filter { treatment ->
                 val units = treatment.insulinUnits
                 units != null && units > 0.0 &&
                     treatment.eventType.contains(BOLUS_EVENT_TYPES_HINT, ignoreCase = true) &&
                     treatment.timestamp.toEpochMilli() in viewportStartMillis..viewportEndMillis
             }
-            val bolusMarkerApexY = glucoseTop + BOLUS_MARKER_TOP_MARGIN.toPx()
             boluses.forEach { bolus ->
-                val x = xFor(bolus.timestamp.toEpochMilli())
+                val bolusMillis = bolus.timestamp.toEpochMilli()
+                val x = xFor(bolusMillis)
+                val nearbyMgDl = sorted.minByOrNull { abs(it.timestamp.toEpochMilli() - bolusMillis) }?.mgDl
+                val curveY = nearbyMgDl?.let { yFor(it) } ?: (glucoseTop + BOLUS_MARKER_TOP_MARGIN.toPx())
+                val apexY = (curveY - 14.dp.toPx()).coerceAtLeast(glucoseTop + BOLUS_MARKER_TOP_MARGIN.toPx())
                 val markerPath = Path().apply {
-                    moveTo(x - 4.dp.toPx(), bolusMarkerApexY - 8.dp.toPx())
-                    lineTo(x + 4.dp.toPx(), bolusMarkerApexY - 8.dp.toPx())
-                    lineTo(x, bolusMarkerApexY)
+                    moveTo(x - 4.dp.toPx(), apexY - 8.dp.toPx())
+                    lineTo(x + 4.dp.toPx(), apexY - 8.dp.toPx())
+                    lineTo(x, apexY)
                     close()
                 }
                 drawPath(markerPath, color = TrioBolus)
+
+                val amountLabel = textMeasurer.measure(
+                    text = formatBolusUnits(bolus.insulinUnits ?: 0.0),
+                    style = TextStyle(fontSize = 9.sp, color = TrioBolus),
+                )
+                drawText(
+                    amountLabel,
+                    topLeft = Offset(x - amountLabel.size.width / 2f, apexY - 8.dp.toPx() - amountLabel.size.height - 2.dp.toPx()),
+                )
             }
         }
     }

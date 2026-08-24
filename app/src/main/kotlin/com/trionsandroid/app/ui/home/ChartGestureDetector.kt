@@ -38,9 +38,11 @@ suspend fun PointerInputScope.detectChartGestures(
         velocityTracker.addPointerInputChange(down)
         var totalMovement = 0f
         var pastSlop = false
+        var wasMultiTouch = false
 
         do {
             val event = awaitPointerEvent()
+            if (event.changes.size > 1) wasMultiTouch = true
             val zoomChange = event.calculateZoom()
             val panChange = event.calculatePan()
             totalMovement += panChange.getDistance()
@@ -67,7 +69,13 @@ suspend fun PointerInputScope.detectChartGestures(
             }
         } else {
             lastTapDownMillis = -1L
-            onFlingVelocity(velocityTracker.calculateVelocity().x)
+            // The velocity tracker mixes samples from whichever fingers were down, which isn't
+            // meaningful once a second pointer joins (pinch-zoom) — the resulting "velocity" is
+            // essentially noise, not intended pan momentum. Only fling on a pure single-pointer
+            // pan; a gesture that was ever a pinch just stops where it's released.
+            if (!wasMultiTouch) {
+                onFlingVelocity(velocityTracker.calculateVelocity().x)
+            }
         }
     }
 }

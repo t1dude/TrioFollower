@@ -37,6 +37,7 @@ class HomeViewModel @Inject constructor(
             isLoading = loading,
             errorMessage = error,
             glucoseUnit = settings.glucoseUnit,
+            alarms = settings.alarms,
             readings = readings.sortedByDescending { it.timestamp },
             treatments = treatments.sortedByDescending { it.timestamp },
         )

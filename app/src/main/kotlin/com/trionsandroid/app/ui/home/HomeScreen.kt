@@ -22,10 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.trionsandroid.app.data.nightscout.GlucoseReading
 import com.trionsandroid.app.data.nightscout.Treatment
-import com.trionsandroid.app.data.settings.GlucoseUnit
-import com.trionsandroid.app.data.settings.format
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
@@ -34,6 +31,8 @@ private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
 @Composable
 fun HomeScreen(viewModel: HomeViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val latest = uiState.readings.firstOrNull()
+    val previous = uiState.readings.getOrNull(1)
 
     LazyColumn(
         modifier = Modifier
@@ -70,26 +69,36 @@ fun HomeScreen(viewModel: HomeViewModel = hiltViewModel()) {
             }
         }
 
-        if (uiState.isLoading && uiState.readings.isEmpty()) {
-            item {
-                Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
+        item {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 24.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                GlucoseBubble(latest = latest, previous = previous, unit = uiState.glucoseUnit)
             }
         }
 
-        if (uiState.readings.isNotEmpty()) {
+        if (uiState.isLoading && uiState.readings.isEmpty()) {
             item {
-                Text(
-                    text = "Glucose (last 24h)",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onBackground,
-                    modifier = Modifier.padding(top = 16.dp, bottom = 8.dp),
-                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(32.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CircularProgressIndicator()
+                }
             }
-            items(uiState.readings, key = { it.id }) { reading ->
-                GlucoseRow(reading, uiState.glucoseUnit)
-                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+        } else if (uiState.readings.isNotEmpty()) {
+            item {
+                GlucoseChart(
+                    readings = uiState.readings,
+                    unit = uiState.glucoseUnit,
+                    alarms = uiState.alarms,
+                    modifier = Modifier.padding(top = 8.dp, bottom = 16.dp),
+                )
             }
         }
 
@@ -99,7 +108,7 @@ fun HomeScreen(viewModel: HomeViewModel = hiltViewModel()) {
                     text = "Treatments (last 24h)",
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onBackground,
-                    modifier = Modifier.padding(top = 24.dp, bottom = 8.dp),
+                    modifier = Modifier.padding(top = 16.dp, bottom = 8.dp),
                 )
             }
             items(uiState.treatments, key = { it.id }) { treatment ->
@@ -117,29 +126,6 @@ fun HomeScreen(viewModel: HomeViewModel = hiltViewModel()) {
                 )
             }
         }
-    }
-}
-
-@Composable
-private fun GlucoseRow(reading: GlucoseReading, unit: GlucoseUnit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Text(
-            text = timeFormatter.format(reading.timestamp.atZone(ZoneId.systemDefault())),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-            text = "${unit.format(reading.mgDl)} ${unit.label}",
-            color = MaterialTheme.colorScheme.onBackground,
-        )
-        Text(
-            text = reading.trend.arrow,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
     }
 }
 

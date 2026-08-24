@@ -7,7 +7,9 @@ import kotlinx.serialization.Serializable
 data class EntryDto(
     @SerialName("_id") val legacyId: String? = null,
     val identifier: String? = null,
-    val date: Long,
+    // Nightscout sometimes reports `date` with a fractional-millisecond component
+    // (e.g. 1787474479807.234) depending on the uploader, so this can't be a Long.
+    val date: Double,
     val sgv: Int? = null,
     val direction: String? = null,
     val type: String? = null,

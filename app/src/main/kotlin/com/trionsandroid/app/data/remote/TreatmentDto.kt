@@ -7,7 +7,8 @@ import kotlinx.serialization.Serializable
 data class TreatmentDto(
     @SerialName("_id") val legacyId: String? = null,
     val identifier: String? = null,
-    val date: Long? = null,
+    // See EntryDto.date — Nightscout can report a fractional-millisecond value here too.
+    val date: Double? = null,
     val eventType: String? = null,
     val insulin: Double? = null,
     val carbs: Double? = null,

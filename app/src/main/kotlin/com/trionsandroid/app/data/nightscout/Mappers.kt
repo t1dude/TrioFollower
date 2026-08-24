@@ -10,7 +10,7 @@ fun EntryDto.toEntity(): GlucoseEntryEntity? {
     val sgvValue = sgv ?: return null
     return GlucoseEntryEntity(
         id = stableId,
-        dateMillis = date,
+        dateMillis = date.toLong(),
         sgvMgDl = sgvValue,
         direction = direction,
         device = device,
@@ -25,11 +25,11 @@ fun GlucoseEntryEntity.toDomain(): GlucoseReading = GlucoseReading(
 )
 
 fun TreatmentDto.toEntity(): TreatmentEntity? {
-    val dateMillis = date ?: return null
+    val dateValue = date ?: return null
     val type = eventType ?: return null
     return TreatmentEntity(
         id = stableId,
-        dateMillis = dateMillis,
+        dateMillis = dateValue.toLong(),
         eventType = type,
         insulinUnits = insulin,
         carbsGrams = carbs,

@@ -1,7 +1,9 @@
 package com.trionsandroid.app.ui.home
 
+import androidx.compose.animation.core.AnimationState
+import androidx.compose.animation.core.animateDecay
+import androidx.compose.animation.core.exponentialDecay
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -9,8 +11,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -30,9 +35,12 @@ import com.trionsandroid.app.data.settings.GlucoseUnit
 import com.trionsandroid.app.data.settings.format
 import com.trionsandroid.app.ui.theme.TrioGlucoseHigh
 import com.trionsandroid.app.ui.theme.TrioGlucoseLow
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import kotlin.math.abs
 
 private val Y_GRIDLINES_MGDL = listOf(50, 100, 150, 200, 250, 300)
 private const val Y_MIN_MGDL = 40f
@@ -41,16 +49,19 @@ private const val Y_MAX_MGDL = 300f
 private const val HOUR_MILLIS = 3_600_000L
 private const val DEFAULT_VIEWPORT_MILLIS = 6 * HOUR_MILLIS
 private const val MIN_VIEWPORT_MILLIS = 30 * 60_000L
+private val ZOOM_CYCLE_MILLIS = listOf(12 * HOUR_MILLIS, 6 * HOUR_MILLIS, 3 * HOUR_MILLIS)
+private const val MIN_FLING_VELOCITY_PX_PER_SEC = 50f
 private val LEFT_GUTTER = 40.dp
 private val BOTTOM_GUTTER = 20.dp
 private val hourFormatter = DateTimeFormatter.ofPattern("HH")
 private val dayFormatter = DateTimeFormatter.ofPattern("dd.MM")
 
 /**
- * A pannable, pinch-zoomable view of glucose history. The visible window is clamped to
- * whatever's actually cached locally (see HomeViewModel's OBSERVE_WINDOW_HOURS) — scrolling
- * back further than that isn't possible yet, since refresh() only actively re-fetches the last
- * 24h; deeper on-demand history fetching is a future enhancement.
+ * A pannable, pinch-zoomable view of glucose history, with fling-on-release and a double-tap
+ * that cycles through 12h/6h/3h. The visible window is clamped to whatever's actually cached
+ * locally (see HomeViewModel's OBSERVE_WINDOW_HOURS) — scrolling back further than that isn't
+ * possible yet, since refresh() only actively re-fetches the last 24h; deeper on-demand history
+ * fetching is a future enhancement.
  */
 @Composable
 fun GlucoseChart(
@@ -64,6 +75,7 @@ fun GlucoseChart(
     val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
     val gridColor = MaterialTheme.colorScheme.outline
     val lineColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val coroutineScope = rememberCoroutineScope()
 
     val nowMillis = System.currentTimeMillis()
     val dataMinMillis = readings.minOfOrNull { it.timestamp.toEpochMilli() } ?: (nowMillis - DEFAULT_VIEWPORT_MILLIS)
@@ -73,6 +85,8 @@ fun GlucoseChart(
     var viewportEndMillis by remember { mutableLongStateOf(dataMaxMillis) }
     var viewportDurationMillis by remember { mutableLongStateOf(DEFAULT_VIEWPORT_MILLIS) }
     var canvasWidthPx by remember { mutableFloatStateOf(0f) }
+    var flingJob by remember { mutableStateOf<Job?>(null) }
+    var zoomCycleIndex by remember { mutableIntStateOf(-1) }
 
     val leftGutterPx = with(density) { LEFT_GUTTER.toPx() }
 
@@ -84,43 +98,93 @@ fun GlucoseChart(
     val currentDataMaxMillis by rememberUpdatedState(dataMaxMillis)
     val currentMaxViewportMillis by rememberUpdatedState(maxViewportMillis)
 
+    // Recenters the viewport on targetTimeMillis (kept at targetFraction across the chart width)
+    // at the given duration, clamping to the available data range. Shared by live pinch-zoom,
+    // double-tap cycling, and (indirectly, via delta shifts) fling — the one place this math lives.
+    fun applyViewport(targetTimeMillis: Long, targetFraction: Float, requestedDurationMillis: Long) {
+        val newDuration = requestedDurationMillis.coerceIn(MIN_VIEWPORT_MILLIS, currentMaxViewportMillis)
+        var newStart = targetTimeMillis - (targetFraction * newDuration).toLong()
+        var newEnd = newStart + newDuration
+        if (newStart < currentDataMinMillis) {
+            newEnd += currentDataMinMillis - newStart
+            newStart = currentDataMinMillis
+        }
+        if (newEnd > currentDataMaxMillis) {
+            newStart -= newEnd - currentDataMaxMillis
+            newEnd = currentDataMaxMillis
+        }
+        newStart = newStart.coerceAtLeast(currentDataMinMillis)
+        viewportDurationMillis = newEnd - newStart
+        viewportEndMillis = newEnd
+    }
+
     Box(
         modifier = modifier
             .fillMaxWidth()
             .height(220.dp)
             .onSizeChanged { canvasWidthPx = it.width.toFloat() }
             .pointerInput(Unit) {
-                detectTransformGestures { centroid, pan, zoom, _ ->
-                    val chartWidthPx = canvasWidthPx - leftGutterPx
-                    if (chartWidthPx <= 0f) return@detectTransformGestures
-
-                    val oldDuration = viewportDurationMillis
-                    val oldStart = viewportEndMillis - oldDuration
-                    val centroidFraction = ((centroid.x - leftGutterPx) / chartWidthPx).coerceIn(0f, 1f)
-                    val centroidTimeMillis = oldStart + (centroidFraction * oldDuration).toLong()
-
-                    val newDuration = (oldDuration / zoom)
-                        .toLong()
-                        .coerceIn(MIN_VIEWPORT_MILLIS, currentMaxViewportMillis)
-
-                    var newStart = centroidTimeMillis - (centroidFraction * newDuration).toLong()
-                    val millisPerPx = newDuration / chartWidthPx
-                    newStart -= (pan.x * millisPerPx).toLong()
-                    var newEnd = newStart + newDuration
-
-                    if (newStart < currentDataMinMillis) {
-                        newEnd += currentDataMinMillis - newStart
-                        newStart = currentDataMinMillis
-                    }
-                    if (newEnd > currentDataMaxMillis) {
-                        newStart -= newEnd - currentDataMaxMillis
-                        newEnd = currentDataMaxMillis
-                    }
-                    newStart = newStart.coerceAtLeast(currentDataMinMillis)
-
-                    viewportDurationMillis = newEnd - newStart
-                    viewportEndMillis = newEnd
-                }
+                detectChartGestures(
+                    onTouchDown = {
+                        flingJob?.cancel()
+                    },
+                    onGesture = { centroid, pan, zoom ->
+                        val chartWidthPx = canvasWidthPx - leftGutterPx
+                        if (chartWidthPx > 0f) {
+                            val oldDuration = viewportDurationMillis
+                            val oldStart = viewportEndMillis - oldDuration
+                            val centroidFraction = ((centroid.x - leftGutterPx) / chartWidthPx).coerceIn(0f, 1f)
+                            val centroidTimeMillis = oldStart + (centroidFraction * oldDuration).toLong()
+                            val requestedDuration = (oldDuration / zoom).toLong()
+                            val newDurationForPanScale = requestedDuration
+                                .coerceIn(MIN_VIEWPORT_MILLIS, currentMaxViewportMillis)
+                            val millisPerPx = newDurationForPanScale / chartWidthPx
+                            val adjustedTargetMillis = centroidTimeMillis - (pan.x * millisPerPx).toLong()
+                            applyViewport(adjustedTargetMillis, centroidFraction, requestedDuration)
+                        }
+                    },
+                    onFlingVelocity = { velocityPxPerSec ->
+                        val chartWidthPx = canvasWidthPx - leftGutterPx
+                        if (chartWidthPx > 0f && abs(velocityPxPerSec) > MIN_FLING_VELOCITY_PX_PER_SEC) {
+                            val durationAtFlingStart = viewportDurationMillis
+                            val millisPerPx = durationAtFlingStart / chartWidthPx
+                            flingJob = coroutineScope.launch {
+                                var previousValue = 0f
+                                AnimationState(initialValue = 0f, initialVelocity = velocityPxPerSec)
+                                    .animateDecay(exponentialDecay()) {
+                                        val deltaMillis = ((value - previousValue) * millisPerPx).toLong()
+                                        previousValue = value
+                                        var newEnd = viewportEndMillis - deltaMillis
+                                        var newStart = newEnd - durationAtFlingStart
+                                        var hitBoundary = false
+                                        if (newStart < currentDataMinMillis) {
+                                            newStart = currentDataMinMillis
+                                            newEnd = newStart + durationAtFlingStart
+                                            hitBoundary = true
+                                        }
+                                        if (newEnd > currentDataMaxMillis) {
+                                            newEnd = currentDataMaxMillis
+                                            newStart = newEnd - durationAtFlingStart
+                                            hitBoundary = true
+                                        }
+                                        viewportEndMillis = newEnd
+                                        if (hitBoundary) cancelAnimation()
+                                    }
+                            }
+                        }
+                    },
+                    onDoubleTap = { tapPosition ->
+                        val chartWidthPx = canvasWidthPx - leftGutterPx
+                        if (chartWidthPx > 0f) {
+                            zoomCycleIndex = (zoomCycleIndex + 1) % ZOOM_CYCLE_MILLIS.size
+                            val oldDuration = viewportDurationMillis
+                            val oldStart = viewportEndMillis - oldDuration
+                            val tapFraction = ((tapPosition.x - leftGutterPx) / chartWidthPx).coerceIn(0f, 1f)
+                            val tapTimeMillis = oldStart + (tapFraction * oldDuration).toLong()
+                            applyViewport(tapTimeMillis, tapFraction, ZOOM_CYCLE_MILLIS[zoomCycleIndex])
+                        }
+                    },
+                )
             },
     ) {
         Canvas(modifier = Modifier.fillMaxWidth().height(220.dp)) {

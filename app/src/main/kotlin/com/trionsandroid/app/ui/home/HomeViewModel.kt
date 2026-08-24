@@ -14,7 +14,13 @@ import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
-private const val LOOKBACK_HOURS = 24
+// How far back each refresh actively re-fetches from Nightscout.
+private const val REFRESH_LOOKBACK_HOURS = 24
+
+// How far back the UI observes from the local cache — matches Room's retention window, so the
+// chart can scroll back through whatever history has accumulated across refreshes over time,
+// not just what the most recent refresh pulled.
+private const val OBSERVE_WINDOW_HOURS = 24 * 7
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
@@ -24,7 +30,7 @@ class HomeViewModel @Inject constructor(
 
     private val isLoading = MutableStateFlow(false)
     private val errorMessage = MutableStateFlow<String?>(null)
-    private val sinceMillis = System.currentTimeMillis() - TimeUnit.HOURS.toMillis(LOOKBACK_HOURS.toLong())
+    private val sinceMillis = System.currentTimeMillis() - TimeUnit.HOURS.toMillis(OBSERVE_WINDOW_HOURS.toLong())
 
     val uiState: StateFlow<HomeUiState> = combine(
         nightscoutRepository.observeGlucoseEntries(sinceMillis),
@@ -51,7 +57,7 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             isLoading.value = true
             errorMessage.value = null
-            nightscoutRepository.refresh(lookbackHours = LOOKBACK_HOURS)
+            nightscoutRepository.refresh(lookbackHours = REFRESH_LOOKBACK_HOURS)
                 .onFailure { errorMessage.value = it.message ?: "Couldn't refresh from Nightscout" }
             isLoading.value = false
         }

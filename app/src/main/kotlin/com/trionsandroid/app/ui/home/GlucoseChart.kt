@@ -63,11 +63,11 @@ private val hourFormatter = DateTimeFormatter.ofPattern("HH")
 private val dayFormatter = DateTimeFormatter.ofPattern("dd.MM")
 
 private const val BOLUS_EVENT_TYPES_HINT = "Bolus" // matched via contains(), see boluses filter below
-private val MARKER_AREA_HEIGHT = 16.dp
 private val BASAL_STRIP_HEIGHT = 40.dp
 private val STRIP_TO_GLUCOSE_GAP = 8.dp
 private val GLUCOSE_AREA_HEIGHT = 220.dp
-private val CHART_HEIGHT = MARKER_AREA_HEIGHT + BASAL_STRIP_HEIGHT + STRIP_TO_GLUCOSE_GAP + GLUCOSE_AREA_HEIGHT
+private val CHART_HEIGHT = BASAL_STRIP_HEIGHT + STRIP_TO_GLUCOSE_GAP + GLUCOSE_AREA_HEIGHT
+private val BOLUS_MARKER_TOP_MARGIN = 10.dp
 
 /**
  * A pannable, pinch-zoomable view of glucose + insulin history, with fling-on-release and a
@@ -215,10 +215,9 @@ fun GlucoseChart(
             val bottomGutter = BOTTOM_GUTTER.toPx()
             val chartWidth = size.width - leftGutter
 
-            val markerAreaPx = MARKER_AREA_HEIGHT.toPx()
             val basalStripPx = BASAL_STRIP_HEIGHT.toPx()
             val stripGapPx = STRIP_TO_GLUCOSE_GAP.toPx()
-            val glucoseTop = markerAreaPx + basalStripPx + stripGapPx
+            val glucoseTop = basalStripPx + stripGapPx
             val glucoseBottom = size.height - bottomGutter
             val glucoseChartHeight = glucoseBottom - glucoseTop
 
@@ -296,16 +295,18 @@ fun GlucoseChart(
                 tick = tick.plusHours(tickIntervalHours)
             }
 
-            // Basal step chart, in the reserved strip above the glucose area
+            // Basal step chart, in the reserved strip above the glucose area. 0 U/hr sits at the
+            // top (matching Trio's own layout) and the filled area grows downward as the rate
+            // increases, rather than the more conventional "0 at the bottom" bar-chart baseline.
             val basalSegments = computeBasalSegments(viewportStartMillis, viewportEndMillis, insulinProfile, treatments)
             if (basalSegments.isNotEmpty()) {
-                val stripTop = markerAreaPx
-                val stripBottom = markerAreaPx + basalStripPx
+                val stripTop = 0f
+                val stripBottom = basalStripPx
                 val maxRate = basalSegments.maxOf { it.rateUnitsPerHour }.coerceAtLeast(0.1)
 
                 fun basalYFor(rate: Double): Float {
                     val fraction = (rate / maxRate).coerceIn(0.0, 1.0)
-                    return stripBottom - (fraction * (stripBottom - stripTop)).toFloat()
+                    return stripTop + (fraction * (stripBottom - stripTop)).toFloat()
                 }
 
                 val fillPath = Path()
@@ -315,7 +316,7 @@ fun GlucoseChart(
                     val x2 = xFor(segment.endMillis.coerceIn(viewportStartMillis, viewportEndMillis))
                     val y = basalYFor(segment.rateUnitsPerHour)
                     if (index == 0) {
-                        fillPath.moveTo(x1, stripBottom)
+                        fillPath.moveTo(x1, stripTop)
                         fillPath.lineTo(x1, y)
                         linePath.moveTo(x1, y)
                     } else {
@@ -326,28 +327,10 @@ fun GlucoseChart(
                     linePath.lineTo(x2, y)
                 }
                 val lastEnd = basalSegments.last().endMillis.coerceIn(viewportStartMillis, viewportEndMillis)
-                fillPath.lineTo(xFor(lastEnd), stripBottom)
+                fillPath.lineTo(xFor(lastEnd), stripTop)
                 fillPath.close()
                 drawPath(fillPath, color = TrioBasal.copy(alpha = 0.3f))
                 drawPath(linePath, color = TrioBasal, style = Stroke(width = 1.5.dp.toPx()))
-            }
-
-            // Bolus markers, as small triangles above the basal strip
-            val boluses = treatments.filter { treatment ->
-                val units = treatment.insulinUnits
-                units != null && units > 0.0 &&
-                    treatment.eventType.contains(BOLUS_EVENT_TYPES_HINT, ignoreCase = true) &&
-                    treatment.timestamp.toEpochMilli() in viewportStartMillis..viewportEndMillis
-            }
-            boluses.forEach { bolus ->
-                val x = xFor(bolus.timestamp.toEpochMilli())
-                val markerPath = Path().apply {
-                    moveTo(x - 4.dp.toPx(), 2.dp.toPx())
-                    lineTo(x + 4.dp.toPx(), 2.dp.toPx())
-                    lineTo(x, markerAreaPx)
-                    close()
-                }
-                drawPath(markerPath, color = TrioBolus)
             }
 
             // Connect consecutive readings
@@ -369,6 +352,27 @@ fun GlucoseChart(
                     radius = 3.dp.toPx(),
                     center = Offset(xFor(reading.timestamp.toEpochMilli()), yFor(reading.mgDl)),
                 )
+            }
+
+            // Bolus markers, inside the glucose area near its top (not a separate strip) so the
+            // dose sits visually right above whatever the BG curve does afterward — matches
+            // Trio's placement rather than a detached annotation row.
+            val boluses = treatments.filter { treatment ->
+                val units = treatment.insulinUnits
+                units != null && units > 0.0 &&
+                    treatment.eventType.contains(BOLUS_EVENT_TYPES_HINT, ignoreCase = true) &&
+                    treatment.timestamp.toEpochMilli() in viewportStartMillis..viewportEndMillis
+            }
+            val bolusMarkerApexY = glucoseTop + BOLUS_MARKER_TOP_MARGIN.toPx()
+            boluses.forEach { bolus ->
+                val x = xFor(bolus.timestamp.toEpochMilli())
+                val markerPath = Path().apply {
+                    moveTo(x - 4.dp.toPx(), bolusMarkerApexY - 8.dp.toPx())
+                    lineTo(x + 4.dp.toPx(), bolusMarkerApexY - 8.dp.toPx())
+                    lineTo(x, bolusMarkerApexY)
+                    close()
+                }
+                drawPath(markerPath, color = TrioBolus)
             }
         }
     }

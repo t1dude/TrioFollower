@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import retrofit2.HttpException
@@ -27,16 +28,23 @@ class SettingsViewModel @Inject constructor(
     private val serviceFactory: NightscoutServiceFactory,
 ) : ViewModel() {
 
+    // Text fields need a locally-owned, synchronously-updated source of truth for their
+    // displayed value. Driving a TextField's value straight from a Flow that round-trips
+    // through disk I/O (DataStore/EncryptedSharedPreferences) lags by a frame on every
+    // keystroke, which makes Compose treat each recomposition as an external edit and
+    // reset the cursor to the start.
+    private val nightscoutUrlDraft = MutableStateFlow("")
     private val accessToken = MutableStateFlow("")
     private val connectionTestState = MutableStateFlow<ConnectionTestState>(ConnectionTestState.Idle)
 
     val uiState: StateFlow<SettingsUiState> = combine(
         settingsRepository.settings,
+        nightscoutUrlDraft,
         accessToken,
         connectionTestState,
-    ) { settings, token, testState ->
+    ) { settings, url, token, testState ->
         SettingsUiState(
-            nightscoutUrl = settings.nightscoutUrl,
+            nightscoutUrl = url,
             accessToken = token,
             glucoseUnit = settings.glucoseUnit,
             refreshIntervalMinutes = settings.refreshIntervalMinutes,
@@ -48,11 +56,13 @@ class SettingsViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
+            nightscoutUrlDraft.value = settingsRepository.settings.first().nightscoutUrl
             accessToken.value = secureTokenStore.getAccessToken()
         }
     }
 
     fun onNightscoutUrlChange(url: String) {
+        nightscoutUrlDraft.value = url
         connectionTestState.value = ConnectionTestState.Idle
         viewModelScope.launch { settingsRepository.setNightscoutUrl(url) }
     }

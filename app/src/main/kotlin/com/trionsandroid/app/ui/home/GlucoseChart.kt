@@ -61,10 +61,8 @@ private const val MIN_VIEWPORT_MILLIS = 30 * 60_000L
 private val ZOOM_CYCLE_MILLIS = listOf(12 * HOUR_MILLIS, 6 * HOUR_MILLIS, 3 * HOUR_MILLIS)
 private const val MIN_FLING_VELOCITY_PX_PER_SEC = 50f
 private val LEFT_GUTTER = 40.dp
-// Needs to fit a 10sp label's full line height (ascent+descent, typically ~14-16dp — taller
-// than the font size itself) plus its 4dp gap below iobBottom; 20dp was clipping labels by a
-// couple of dp on-device once the IOB band pushed everything else down.
-private val BOTTOM_GUTTER = 28.dp
+private val BOTTOM_LABEL_GAP = 4.dp
+private val BOTTOM_SAFETY_MARGIN = 6.dp
 private val hourFormatter = DateTimeFormatter.ofPattern("HH")
 private val dayFormatter = DateTimeFormatter.ofPattern("dd.MM")
 
@@ -84,8 +82,6 @@ private val STRIP_TO_GLUCOSE_GAP = 8.dp
 private val GLUCOSE_AREA_HEIGHT = 180.dp
 private val GLUCOSE_TO_IOB_GAP = 8.dp
 private val IOB_STRIP_HEIGHT = 50.dp
-private val CHART_HEIGHT =
-    BASAL_STRIP_HEIGHT + STRIP_TO_GLUCOSE_GAP + GLUCOSE_AREA_HEIGHT + GLUCOSE_TO_IOB_GAP + IOB_STRIP_HEIGHT + BOTTOM_GUTTER
 private val BOLUS_MARKER_TOP_MARGIN = 10.dp
 
 /** "5" for a whole number of units, otherwise trimmed to as few decimals as the dose needs. */
@@ -121,6 +117,17 @@ fun GlucoseChart(
     val gridColor = MaterialTheme.colorScheme.outline
     val lineColor = MaterialTheme.colorScheme.onSurfaceVariant
     val coroutineScope = rememberCoroutineScope()
+
+    // Reserve exactly as much bottom space as the x-axis labels actually need, rather than a
+    // guessed constant — different devices/fonts render "00"-style labels at different heights,
+    // and two prior fixed-dp guesses in a row both left labels clipped.
+    val axisLabelHeightDp = remember(textMeasurer) {
+        with(density) {
+            textMeasurer.measure("00", style = TextStyle(fontSize = 10.sp)).size.height.toDp()
+        }
+    }
+    val chartHeight = BASAL_STRIP_HEIGHT + STRIP_TO_GLUCOSE_GAP + GLUCOSE_AREA_HEIGHT +
+        GLUCOSE_TO_IOB_GAP + IOB_STRIP_HEIGHT + BOTTOM_LABEL_GAP + axisLabelHeightDp + BOTTOM_SAFETY_MARGIN
 
     val nowMillis = System.currentTimeMillis()
     val dataMinMillis = readings.minOfOrNull { it.timestamp.toEpochMilli() } ?: (nowMillis - DEFAULT_VIEWPORT_MILLIS)
@@ -166,7 +173,7 @@ fun GlucoseChart(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(CHART_HEIGHT)
+            .height(chartHeight)
             .onSizeChanged { canvasWidthPx = it.width.toFloat() }
             .pointerInput(Unit) {
                 detectChartGestures(
@@ -232,7 +239,7 @@ fun GlucoseChart(
                 )
             },
     ) {
-        Canvas(modifier = Modifier.fillMaxWidth().height(CHART_HEIGHT)) {
+        Canvas(modifier = Modifier.fillMaxWidth().height(chartHeight)) {
             val viewportStartMillis = viewportEndMillis - viewportDurationMillis
             val sorted = readings
                 .filter { it.timestamp.toEpochMilli() in viewportStartMillis..viewportEndMillis }
@@ -319,7 +326,7 @@ fun GlucoseChart(
                 )
                 val text = if (useDayLabel) dayFormatter.format(tick) else hourFormatter.format(tick)
                 val label = textMeasurer.measure(text, style = TextStyle(fontSize = 10.sp, color = labelColor))
-                drawText(label, topLeft = Offset(x - label.size.width / 2f, iobBottom + 4.dp.toPx()))
+                drawText(label, topLeft = Offset(x - label.size.width / 2f, iobBottom + BOTTOM_LABEL_GAP.toPx()))
                 tick = tick.plusHours(tickIntervalHours)
             }
 

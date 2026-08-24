@@ -41,6 +41,7 @@ import com.trionsandroid.app.ui.theme.TrioBasal
 import com.trionsandroid.app.ui.theme.TrioBolus
 import com.trionsandroid.app.ui.theme.TrioGlucoseHigh
 import com.trionsandroid.app.ui.theme.TrioGlucoseLow
+import com.trionsandroid.app.ui.theme.TrioIob
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import java.time.Instant
@@ -73,11 +74,16 @@ private val EXACT_BOLUS_EVENT_TYPES = setOf("SMB", "External Insulin")
 private fun isBolusEventType(eventType: String): Boolean =
     eventType.contains(BOLUS_EVENT_TYPE_SUBSTRING, ignoreCase = true) ||
         EXACT_BOLUS_EVENT_TYPES.any { it.equals(eventType, ignoreCase = true) }
+
 private val BASAL_STRIP_HEIGHT = 40.dp
 private val STRIP_TO_GLUCOSE_GAP = 8.dp
-private val GLUCOSE_AREA_HEIGHT = 220.dp
-private val CHART_HEIGHT = BASAL_STRIP_HEIGHT + STRIP_TO_GLUCOSE_GAP + GLUCOSE_AREA_HEIGHT
+private val GLUCOSE_AREA_HEIGHT = 180.dp
+private val GLUCOSE_TO_IOB_GAP = 8.dp
+private val IOB_STRIP_HEIGHT = 50.dp
+private val CHART_HEIGHT =
+    BASAL_STRIP_HEIGHT + STRIP_TO_GLUCOSE_GAP + GLUCOSE_AREA_HEIGHT + GLUCOSE_TO_IOB_GAP + IOB_STRIP_HEIGHT + BOTTOM_GUTTER
 private val BOLUS_MARKER_TOP_MARGIN = 10.dp
+private const val IOB_TARGET_SAMPLE_COUNT = 150
 
 /** "5" for a whole number of units, otherwise trimmed to as few decimals as the dose needs. */
 private fun formatBolusUnits(units: Double): String {
@@ -92,8 +98,8 @@ private fun formatBolusUnits(units: Double): String {
  * isn't possible yet, since refresh() only actively re-fetches the last 24h; deeper on-demand
  * history fetching is a future enhancement.
  *
- * IOB isn't rendered yet — that's a separate follow-up (needs its own activity-curve math, not
- * just the profile this milestone already fetches for the basal schedule).
+ * Three bands top to bottom: basal (0 U/hr at top, growing down), glucose, and IOB (0u at
+ * bottom, growing up — see IobCalculator.kt for the model and its documented simplifications).
  */
 @Composable
 fun GlucoseChart(
@@ -228,14 +234,15 @@ fun GlucoseChart(
                 .sortedBy { it.timestamp }
 
             val leftGutter = LEFT_GUTTER.toPx()
-            val bottomGutter = BOTTOM_GUTTER.toPx()
             val chartWidth = size.width - leftGutter
 
             val basalStripPx = BASAL_STRIP_HEIGHT.toPx()
             val stripGapPx = STRIP_TO_GLUCOSE_GAP.toPx()
             val glucoseTop = basalStripPx + stripGapPx
-            val glucoseBottom = size.height - bottomGutter
+            val glucoseBottom = glucoseTop + GLUCOSE_AREA_HEIGHT.toPx()
             val glucoseChartHeight = glucoseBottom - glucoseTop
+            val iobTop = glucoseBottom + GLUCOSE_TO_IOB_GAP.toPx()
+            val iobBottom = iobTop + IOB_STRIP_HEIGHT.toPx()
 
             fun xFor(millis: Long): Float =
                 leftGutter + ((millis - viewportStartMillis).toFloat() / viewportDurationMillis) * chartWidth
@@ -282,7 +289,7 @@ fun GlucoseChart(
             }
 
             // Vertical time ticks + labels — granularity adapts to how far zoomed out we are.
-            // Drawn full-height so they visually tie the basal strip and glucose area together.
+            // Drawn full-height so they visually tie the basal/glucose/IOB bands together.
             val tickIntervalHours = when {
                 viewportDurationMillis <= 12 * HOUR_MILLIS -> 1L
                 viewportDurationMillis <= 3 * 24 * HOUR_MILLIS -> 6L
@@ -302,12 +309,12 @@ fun GlucoseChart(
                 drawLine(
                     color = gridColor.copy(alpha = 0.2f),
                     start = Offset(x, 0f),
-                    end = Offset(x, glucoseBottom),
+                    end = Offset(x, iobBottom),
                     strokeWidth = 1.dp.toPx(),
                 )
                 val text = if (useDayLabel) dayFormatter.format(tick) else hourFormatter.format(tick)
                 val label = textMeasurer.measure(text, style = TextStyle(fontSize = 10.sp, color = labelColor))
-                drawText(label, topLeft = Offset(x - label.size.width / 2f, glucoseBottom + 4.dp.toPx()))
+                drawText(label, topLeft = Offset(x - label.size.width / 2f, iobBottom + 4.dp.toPx()))
                 tick = tick.plusHours(tickIntervalHours)
             }
 
@@ -402,6 +409,47 @@ fun GlucoseChart(
                     amountLabel,
                     topLeft = Offset(x - amountLabel.size.width / 2f, apexY - 8.dp.toPx() - amountLabel.size.height - 2.dp.toPx()),
                 )
+            }
+
+            // IOB curve, in the reserved strip below the glucose area. Normal orientation (0u at
+            // the bottom, growing up) — unlike basal, Trio doesn't invert this one. Sampled at a
+            // resolution proportional to the viewport rather than a fixed time step, so a
+            // multi-day zoomed-out view doesn't evaluate the activity curve at a wasteful number
+            // of points.
+            val iobSampleIntervalMillis = (viewportDurationMillis / IOB_TARGET_SAMPLE_COUNT).coerceAtLeast(60_000L)
+            val iobSeries = computeIobSeries(
+                viewportStartMillis = viewportStartMillis,
+                viewportEndMillis = viewportEndMillis,
+                treatments = treatments,
+                diaHours = insulinProfile?.diaHours ?: DEFAULT_DIA_HOURS,
+                sampleIntervalMillis = iobSampleIntervalMillis,
+            )
+            if (iobSeries.isNotEmpty()) {
+                val maxIob = iobSeries.maxOf { it.iobUnits }.coerceAtLeast(0.5)
+
+                fun iobYFor(units: Double): Float {
+                    val fraction = (units / maxIob).coerceIn(0.0, 1.0)
+                    return iobBottom - (fraction * (iobBottom - iobTop)).toFloat()
+                }
+
+                val fillPath = Path()
+                val linePath = Path()
+                iobSeries.forEachIndexed { index, point ->
+                    val x = xFor(point.timestampMillis)
+                    val y = iobYFor(point.iobUnits)
+                    if (index == 0) {
+                        fillPath.moveTo(x, iobBottom)
+                        fillPath.lineTo(x, y)
+                        linePath.moveTo(x, y)
+                    } else {
+                        fillPath.lineTo(x, y)
+                        linePath.lineTo(x, y)
+                    }
+                }
+                fillPath.lineTo(xFor(iobSeries.last().timestampMillis), iobBottom)
+                fillPath.close()
+                drawPath(fillPath, color = TrioIob.copy(alpha = 0.35f))
+                drawPath(linePath, color = TrioIob, style = Stroke(width = 1.5.dp.toPx()))
             }
         }
     }

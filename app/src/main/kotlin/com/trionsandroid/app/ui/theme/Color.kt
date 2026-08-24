@@ -19,6 +19,7 @@ val TrioAccentBlue = Color(0xFF5FC7E8)
 // Glucose range colors
 val TrioGlucoseInRange = Color(0xFF4FD88A)
 val TrioGlucoseLow = Color(0xFFE0B84D)
+val TrioGlucoseHigh = Color(0xFFE0954D)
 val TrioGlucoseUrgent = Color(0xFFE85B5B)
 
 // Insulin

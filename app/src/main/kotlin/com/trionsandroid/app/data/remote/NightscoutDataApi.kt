@@ -11,7 +11,7 @@ interface NightscoutDataApi {
         @Query("date\$gte") sinceMillis: Long,
         @Query("sort\$desc") sort: String = "date",
         @Query("limit") limit: Int = 1000,
-    ): NightscoutV3Response<EntryDto>
+    ): NightscoutV3Envelope
 
     @GET("api/v3/treatments")
     suspend fun getTreatments(
@@ -19,5 +19,5 @@ interface NightscoutDataApi {
         @Query("date\$gte") sinceMillis: Long,
         @Query("sort\$desc") sort: String = "date",
         @Query("limit") limit: Int = 1000,
-    ): NightscoutV3Response<TreatmentDto>
+    ): NightscoutV3Envelope
 }

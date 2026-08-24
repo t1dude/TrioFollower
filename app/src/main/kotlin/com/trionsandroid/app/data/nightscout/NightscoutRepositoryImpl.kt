@@ -3,12 +3,18 @@ package com.trionsandroid.app.data.nightscout
 import com.trionsandroid.app.data.local.GlucoseEntryDao
 import com.trionsandroid.app.data.local.TreatmentDao
 import com.trionsandroid.app.data.logging.DiagnosticLogger
+import com.trionsandroid.app.data.remote.EntryDto
 import com.trionsandroid.app.data.remote.NightscoutServiceFactory
+import com.trionsandroid.app.data.remote.TreatmentDto
 import com.trionsandroid.app.data.settings.SecureTokenStore
 import com.trionsandroid.app.data.settings.SettingsRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.serialization.SerializationException
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.decodeFromJsonElement
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
@@ -20,6 +26,7 @@ class NightscoutRepositoryImpl @Inject constructor(
     private val glucoseEntryDao: GlucoseEntryDao,
     private val treatmentDao: TreatmentDao,
     private val diagnosticLogger: DiagnosticLogger,
+    private val json: Json,
 ) : NightscoutRepository {
 
     override fun observeGlucoseEntries(sinceMillis: Long): Flow<List<GlucoseReading>> =
@@ -43,19 +50,23 @@ class NightscoutRepositoryImpl @Inject constructor(
             val sinceMillis = System.currentTimeMillis() - TimeUnit.HOURS.toMillis(lookbackHours.toLong())
 
             val entries = api.getEntries(bearerToken = bearer, sinceMillis = sinceMillis)
-            val storedEntries = entries.result.mapNotNull { it.toEntity() }
+            val entryDtos = decodeResilient<EntryDto>("$TAG.Entries", entries.result)
+            val storedEntries = entryDtos.mapNotNull { it.toEntity() }
             glucoseEntryDao.upsertAll(storedEntries)
             diagnosticLogger.log(
                 TAG,
-                "Entries: status=${entries.status} received=${entries.result.size} stored=${storedEntries.size}",
+                "Entries: status=${entries.status} received=${entries.result.size} " +
+                    "decoded=${entryDtos.size} stored=${storedEntries.size}",
             )
 
             val treatments = api.getTreatments(bearerToken = bearer, sinceMillis = sinceMillis)
-            val storedTreatments = treatments.result.mapNotNull { it.toEntity() }
+            val treatmentDtos = decodeResilient<TreatmentDto>("$TAG.Treatments", treatments.result)
+            val storedTreatments = treatmentDtos.mapNotNull { it.toEntity() }
             treatmentDao.upsertAll(storedTreatments)
             diagnosticLogger.log(
                 TAG,
-                "Treatments: status=${treatments.status} received=${treatments.result.size} stored=${storedTreatments.size}",
+                "Treatments: status=${treatments.status} received=${treatments.result.size} " +
+                    "decoded=${treatmentDtos.size} stored=${storedTreatments.size}",
             )
 
             val cutoffMillis = System.currentTimeMillis() - TimeUnit.HOURS.toMillis(RETENTION_HOURS)
@@ -64,6 +75,25 @@ class NightscoutRepositoryImpl @Inject constructor(
         }.onFailure { e ->
             diagnosticLogger.logError(TAG, "refresh() failed", e)
         }
+    }
+
+    /**
+     * Decodes each result element independently instead of deserializing the whole array in
+     * one shot, so one malformed record (a different Loop/AndroidAPS/Trio uploader writing an
+     * unexpected shape into the same collection) doesn't throw away every other record in the
+     * batch. Failures are logged with the offending raw JSON so they can all be fixed from a
+     * single refresh instead of one crash at a time.
+     */
+    private inline fun <reified T> decodeResilient(tag: String, elements: List<JsonElement>): List<T> {
+        val decoded = mutableListOf<T>()
+        for (element in elements) {
+            try {
+                decoded.add(json.decodeFromJsonElement<T>(element))
+            } catch (e: SerializationException) {
+                diagnosticLogger.logError(tag, "Failed to decode record: $element", e)
+            }
+        }
+        return decoded
     }
 
     private companion object {

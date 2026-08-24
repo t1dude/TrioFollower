@@ -20,4 +20,11 @@ interface NightscoutDataApi {
         @Query("sort\$desc") sort: String = "date",
         @Query("limit") limit: Int = 1000,
     ): NightscoutV3Envelope
+
+    @GET("api/v3/profile")
+    suspend fun getProfile(
+        @Header("Authorization") bearerToken: String,
+        @Query("sort\$desc") sort: String = "date",
+        @Query("limit") limit: Int = 1,
+    ): NightscoutV3Envelope
 }

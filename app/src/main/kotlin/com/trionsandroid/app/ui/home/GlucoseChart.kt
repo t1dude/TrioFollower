@@ -20,7 +20,9 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
@@ -30,9 +32,13 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.trionsandroid.app.data.nightscout.GlucoseReading
+import com.trionsandroid.app.data.nightscout.InsulinProfile
+import com.trionsandroid.app.data.nightscout.Treatment
 import com.trionsandroid.app.data.settings.AlarmSettings
 import com.trionsandroid.app.data.settings.GlucoseUnit
 import com.trionsandroid.app.data.settings.format
+import com.trionsandroid.app.ui.theme.TrioBasal
+import com.trionsandroid.app.ui.theme.TrioBolus
 import com.trionsandroid.app.ui.theme.TrioGlucoseHigh
 import com.trionsandroid.app.ui.theme.TrioGlucoseLow
 import kotlinx.coroutines.Job
@@ -56,16 +62,28 @@ private val BOTTOM_GUTTER = 20.dp
 private val hourFormatter = DateTimeFormatter.ofPattern("HH")
 private val dayFormatter = DateTimeFormatter.ofPattern("dd.MM")
 
+private const val BOLUS_EVENT_TYPES_HINT = "Bolus" // matched via contains(), see boluses filter below
+private val MARKER_AREA_HEIGHT = 16.dp
+private val BASAL_STRIP_HEIGHT = 40.dp
+private val STRIP_TO_GLUCOSE_GAP = 8.dp
+private val GLUCOSE_AREA_HEIGHT = 220.dp
+private val CHART_HEIGHT = MARKER_AREA_HEIGHT + BASAL_STRIP_HEIGHT + STRIP_TO_GLUCOSE_GAP + GLUCOSE_AREA_HEIGHT
+
 /**
- * A pannable, pinch-zoomable view of glucose history, with fling-on-release and a double-tap
- * that cycles through 12h/6h/3h. The visible window is clamped to whatever's actually cached
- * locally (see HomeViewModel's OBSERVE_WINDOW_HOURS) — scrolling back further than that isn't
- * possible yet, since refresh() only actively re-fetches the last 24h; deeper on-demand history
- * fetching is a future enhancement.
+ * A pannable, pinch-zoomable view of glucose + insulin history, with fling-on-release and a
+ * double-tap that cycles through 12h/6h/3h. The visible window is clamped to whatever's actually
+ * cached locally (see HomeViewModel's OBSERVE_WINDOW_HOURS) — scrolling back further than that
+ * isn't possible yet, since refresh() only actively re-fetches the last 24h; deeper on-demand
+ * history fetching is a future enhancement.
+ *
+ * IOB isn't rendered yet — that's a separate follow-up (needs its own activity-curve math, not
+ * just the profile this milestone already fetches for the basal schedule).
  */
 @Composable
 fun GlucoseChart(
     readings: List<GlucoseReading>,
+    treatments: List<Treatment>,
+    insulinProfile: InsulinProfile?,
     unit: GlucoseUnit,
     alarms: AlarmSettings,
     modifier: Modifier = Modifier,
@@ -121,7 +139,7 @@ fun GlucoseChart(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(220.dp)
+            .height(CHART_HEIGHT)
             .onSizeChanged { canvasWidthPx = it.width.toFloat() }
             .pointerInput(Unit) {
                 detectChartGestures(
@@ -187,7 +205,7 @@ fun GlucoseChart(
                 )
             },
     ) {
-        Canvas(modifier = Modifier.fillMaxWidth().height(220.dp)) {
+        Canvas(modifier = Modifier.fillMaxWidth().height(CHART_HEIGHT)) {
             val viewportStartMillis = viewportEndMillis - viewportDurationMillis
             val sorted = readings
                 .filter { it.timestamp.toEpochMilli() in viewportStartMillis..viewportEndMillis }
@@ -196,14 +214,20 @@ fun GlucoseChart(
             val leftGutter = LEFT_GUTTER.toPx()
             val bottomGutter = BOTTOM_GUTTER.toPx()
             val chartWidth = size.width - leftGutter
-            val chartHeight = size.height - bottomGutter
+
+            val markerAreaPx = MARKER_AREA_HEIGHT.toPx()
+            val basalStripPx = BASAL_STRIP_HEIGHT.toPx()
+            val stripGapPx = STRIP_TO_GLUCOSE_GAP.toPx()
+            val glucoseTop = markerAreaPx + basalStripPx + stripGapPx
+            val glucoseBottom = size.height - bottomGutter
+            val glucoseChartHeight = glucoseBottom - glucoseTop
 
             fun xFor(millis: Long): Float =
                 leftGutter + ((millis - viewportStartMillis).toFloat() / viewportDurationMillis) * chartWidth
 
             fun yFor(mgDl: Int): Float {
                 val clamped = mgDl.toFloat().coerceIn(Y_MIN_MGDL, Y_MAX_MGDL)
-                return chartHeight - ((clamped - Y_MIN_MGDL) / (Y_MAX_MGDL - Y_MIN_MGDL)) * chartHeight
+                return glucoseBottom - ((clamped - Y_MIN_MGDL) / (Y_MAX_MGDL - Y_MIN_MGDL)) * glucoseChartHeight
             }
 
             // Horizontal gridlines + value labels
@@ -242,7 +266,8 @@ fun GlucoseChart(
                 )
             }
 
-            // Vertical time ticks + labels — granularity adapts to how far zoomed out we are
+            // Vertical time ticks + labels — granularity adapts to how far zoomed out we are.
+            // Drawn full-height so they visually tie the basal strip and glucose area together.
             val tickIntervalHours = when {
                 viewportDurationMillis <= 12 * HOUR_MILLIS -> 1L
                 viewportDurationMillis <= 3 * 24 * HOUR_MILLIS -> 6L
@@ -262,13 +287,67 @@ fun GlucoseChart(
                 drawLine(
                     color = gridColor.copy(alpha = 0.2f),
                     start = Offset(x, 0f),
-                    end = Offset(x, chartHeight),
+                    end = Offset(x, glucoseBottom),
                     strokeWidth = 1.dp.toPx(),
                 )
                 val text = if (useDayLabel) dayFormatter.format(tick) else hourFormatter.format(tick)
                 val label = textMeasurer.measure(text, style = TextStyle(fontSize = 10.sp, color = labelColor))
-                drawText(label, topLeft = Offset(x - label.size.width / 2f, chartHeight + 4.dp.toPx()))
+                drawText(label, topLeft = Offset(x - label.size.width / 2f, glucoseBottom + 4.dp.toPx()))
                 tick = tick.plusHours(tickIntervalHours)
+            }
+
+            // Basal step chart, in the reserved strip above the glucose area
+            val basalSegments = computeBasalSegments(viewportStartMillis, viewportEndMillis, insulinProfile, treatments)
+            if (basalSegments.isNotEmpty()) {
+                val stripTop = markerAreaPx
+                val stripBottom = markerAreaPx + basalStripPx
+                val maxRate = basalSegments.maxOf { it.rateUnitsPerHour }.coerceAtLeast(0.1)
+
+                fun basalYFor(rate: Double): Float {
+                    val fraction = (rate / maxRate).coerceIn(0.0, 1.0)
+                    return stripBottom - (fraction * (stripBottom - stripTop)).toFloat()
+                }
+
+                val fillPath = Path()
+                val linePath = Path()
+                basalSegments.forEachIndexed { index, segment ->
+                    val x1 = xFor(segment.startMillis.coerceIn(viewportStartMillis, viewportEndMillis))
+                    val x2 = xFor(segment.endMillis.coerceIn(viewportStartMillis, viewportEndMillis))
+                    val y = basalYFor(segment.rateUnitsPerHour)
+                    if (index == 0) {
+                        fillPath.moveTo(x1, stripBottom)
+                        fillPath.lineTo(x1, y)
+                        linePath.moveTo(x1, y)
+                    } else {
+                        fillPath.lineTo(x1, y)
+                        linePath.lineTo(x1, y)
+                    }
+                    fillPath.lineTo(x2, y)
+                    linePath.lineTo(x2, y)
+                }
+                val lastEnd = basalSegments.last().endMillis.coerceIn(viewportStartMillis, viewportEndMillis)
+                fillPath.lineTo(xFor(lastEnd), stripBottom)
+                fillPath.close()
+                drawPath(fillPath, color = TrioBasal.copy(alpha = 0.3f))
+                drawPath(linePath, color = TrioBasal, style = Stroke(width = 1.5.dp.toPx()))
+            }
+
+            // Bolus markers, as small triangles above the basal strip
+            val boluses = treatments.filter { treatment ->
+                val units = treatment.insulinUnits
+                units != null && units > 0.0 &&
+                    treatment.eventType.contains(BOLUS_EVENT_TYPES_HINT, ignoreCase = true) &&
+                    treatment.timestamp.toEpochMilli() in viewportStartMillis..viewportEndMillis
+            }
+            boluses.forEach { bolus ->
+                val x = xFor(bolus.timestamp.toEpochMilli())
+                val markerPath = Path().apply {
+                    moveTo(x - 4.dp.toPx(), 2.dp.toPx())
+                    lineTo(x + 4.dp.toPx(), 2.dp.toPx())
+                    lineTo(x, markerAreaPx)
+                    close()
+                }
+                drawPath(markerPath, color = TrioBolus)
             }
 
             // Connect consecutive readings

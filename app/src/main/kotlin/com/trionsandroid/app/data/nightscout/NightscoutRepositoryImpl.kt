@@ -5,10 +5,13 @@ import com.trionsandroid.app.data.local.TreatmentDao
 import com.trionsandroid.app.data.logging.DiagnosticLogger
 import com.trionsandroid.app.data.remote.EntryDto
 import com.trionsandroid.app.data.remote.NightscoutServiceFactory
+import com.trionsandroid.app.data.remote.ProfileDocumentDto
 import com.trionsandroid.app.data.remote.TreatmentDto
 import com.trionsandroid.app.data.settings.SecureTokenStore
 import com.trionsandroid.app.data.settings.SettingsRepository
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.SerializationException
@@ -29,11 +32,15 @@ class NightscoutRepositoryImpl @Inject constructor(
     private val json: Json,
 ) : NightscoutRepository {
 
+    private val insulinProfile = MutableStateFlow<InsulinProfile?>(null)
+
     override fun observeGlucoseEntries(sinceMillis: Long): Flow<List<GlucoseReading>> =
         glucoseEntryDao.observeSince(sinceMillis).map { entries -> entries.map { it.toDomain() } }
 
     override fun observeTreatments(sinceMillis: Long): Flow<List<Treatment>> =
         treatmentDao.observeSince(sinceMillis).map { treatments -> treatments.map { it.toDomain() } }
+
+    override fun observeInsulinProfile(): Flow<InsulinProfile?> = insulinProfile.asStateFlow()
 
     override suspend fun refresh(lookbackHours: Int): Result<Unit> {
         diagnosticLogger.log(TAG, "refresh() starting, lookbackHours=$lookbackHours")
@@ -72,6 +79,28 @@ class NightscoutRepositoryImpl @Inject constructor(
             val cutoffMillis = System.currentTimeMillis() - TimeUnit.HOURS.toMillis(RETENTION_HOURS)
             glucoseEntryDao.deleteOlderThan(cutoffMillis)
             treatmentDao.deleteOlderThan(cutoffMillis)
+
+            // Isolated from the rest of refresh(): the profile is only needed for the insulin
+            // overlay's basal schedule, and a hiccup fetching it shouldn't surface as a failed
+            // refresh when the entries/treatments that matter more just updated fine.
+            runCatching {
+                val profileEnvelope = api.getProfile(bearerToken = bearer)
+                decodeResilient<ProfileDocumentDto>("$TAG.Profile", profileEnvelope.result)
+                    .firstOrNull()
+                    ?.toInsulinProfile()
+            }.onSuccess { profile ->
+                if (profile != null) {
+                    insulinProfile.value = profile
+                    diagnosticLogger.log(
+                        TAG,
+                        "Profile: dia=${profile.diaHours}h basalEntries=${profile.basalSchedule.size}",
+                    )
+                } else {
+                    diagnosticLogger.log(TAG, "Profile: no usable profile document found")
+                }
+            }.onFailure { e ->
+                diagnosticLogger.logError(TAG, "Profile fetch failed (non-fatal)", e)
+            }
         }.onFailure { e ->
             diagnosticLogger.logError(TAG, "refresh() failed", e)
         }

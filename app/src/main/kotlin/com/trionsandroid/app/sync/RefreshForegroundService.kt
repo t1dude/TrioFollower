@@ -44,18 +44,32 @@ class RefreshForegroundService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        // A fresh onCreate() means a brand-new Service instance — the OS destroyed the previous
+        // one entirely, as opposed to onStartCommand being re-invoked on one that's still alive
+        // (e.g. a START_STICKY restart passes a null Intent to onStartCommand without a new
+        // onCreate if the process itself was never killed). Distinguishing those two is the
+        // whole point of this log line.
+        diagnosticLogger.log(TAG, "Service onCreate (new instance)")
         ensureChannel()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val intervalMinutes = intent?.getIntExtra(EXTRA_INTERVAL_MINUTES, DEFAULT_INTERVAL_MINUTES)
             ?: DEFAULT_INTERVAL_MINUTES
+        diagnosticLogger.log(
+            TAG,
+            "onStartCommand startId=$startId intent=${if (intent == null) "null (likely a START_STICKY restart)" else "explicit"} " +
+                "hadRunningLoop=${loopJob?.isActive == true}",
+        )
         startForeground(NOTIFICATION_ID, buildNotification(lastSyncText = "not synced yet"))
 
         loopJob?.cancel()
         loopJob = scope.launch {
             diagnosticLogger.log(TAG, "Foreground sync loop starting, interval=${intervalMinutes}m")
+            var cycle = 0
             while (isActive) {
+                cycle++
+                diagnosticLogger.log(TAG, "Cycle $cycle starting at ${TIME_FORMATTER.format(LocalTime.now())}")
                 runCatching {
                     nightscoutRepository.refresh()
                     alarmCheckRunner.checkAndNotify()
@@ -66,6 +80,7 @@ class RefreshForegroundService : Service() {
                 updateNotification("last synced ${TIME_FORMATTER.format(LocalTime.now())}")
                 delay(intervalMinutes * 60_000L)
             }
+            diagnosticLogger.log(TAG, "Loop exited after cycle $cycle (isActive became false)")
         }
         return START_STICKY
     }

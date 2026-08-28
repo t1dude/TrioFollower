@@ -1,9 +1,8 @@
 package com.trionsandroid.app.ui.home
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -11,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -61,25 +61,28 @@ fun HomeScreen(viewModel: HomeViewModel = hiltViewModel()) {
             }
 
             item {
-                Column(
+                val hudState = computePumpCgmHudState(
+                    nowMillis = Instant.now().toEpochMilli(),
+                    treatments = uiState.treatments,
+                    deviceStatusPoints = uiState.deviceStatusPoints,
+                    insulinProfile = uiState.insulinProfile,
+                )
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
+                        .padding(vertical = 16.dp)
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    PumpHudStackLeft(state = hudState, modifier = Modifier.padding(end = 12.dp))
                     GlucoseBubble(
                         latest = latest,
                         previous = previous,
                         unit = uiState.glucoseUnit,
                         alarms = uiState.alarms,
                     )
-                    val hudState = computePumpCgmHudState(
-                        nowMillis = Instant.now().toEpochMilli(),
-                        treatments = uiState.treatments,
-                        deviceStatusPoints = uiState.deviceStatusPoints,
-                        insulinProfile = uiState.insulinProfile,
-                    )
-                    PumpCgmHud(state = hudState, modifier = Modifier.padding(top = 12.dp))
+                    PumpHudStackRight(state = hudState, modifier = Modifier.padding(start = 12.dp))
                 }
             }
 

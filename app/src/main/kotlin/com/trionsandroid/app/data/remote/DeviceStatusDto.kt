@@ -28,8 +28,11 @@ data class DeviceStatusDto(
 
 /**
  * Nightscout devicestatus.pump, confirmed against Trio's NSPumpStatus (NightscoutStatus.swift).
- * Some pumps report reservoir as the sentinel 0xDEADBEEF (3735928559) meaning "at least 50U,
- * exact level unknown" (see PumpView.swift) rather than an actual unit count.
+ * `reservoir` is nullable for a real reason, not just optionality: Omnipod reports 0xDEADBEEF
+ * locally for "at least 50U, exact level unknown" (PumpView.swift), and NightscoutManager.swift's
+ * upload code (`reservoir: reservoir != 0xDEAD_BEEF ? reservoir : nil`) turns that into an
+ * *absent* field on the wire — so "pump present, reservoir missing" is itself the "50+" signal,
+ * not just missing data. See the mapping in Mappers.kt.
  */
 @Serializable
 data class PumpStatusDto(

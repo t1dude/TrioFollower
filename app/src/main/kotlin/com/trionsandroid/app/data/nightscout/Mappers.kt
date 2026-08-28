@@ -108,8 +108,19 @@ fun DeviceStatusDto.toEntity(): DeviceStatusEntity? {
         ?: return null
     val iob = openaps.extractIobUnits()
     val cob = openaps?.suggested?.cob ?: openaps?.enacted?.cob
-    val reservoir = pump?.reservoir?.let {
-        if (it == RESERVOIR_UNKNOWN_FULL_SENTINEL) Double.POSITIVE_INFINITY else it
+    // A `pump` block with no `reservoir` key is Omnipod's actual "50+, exact level unknown"
+    // signal on the wire — confirmed against Trio's NightscoutManager.swift upload code
+    // (`reservoir: reservoir != 0xDEAD_BEEF ? reservoir : nil`): the local sentinel becomes
+    // Swift `nil`, which is omitted from the uploaded JSON entirely, not sent as the literal
+    // sentinel number. Treating "pump present, reservoir absent" as "no data" made the HUD fall
+    // back to whatever old record last had a real number — sometimes days-stale, from a
+    // previous pod. The literal-sentinel check stays as a defensive fallback for any uploader
+    // that does send the raw number.
+    val reservoir = when {
+        pump == null -> null
+        pump.reservoir == null -> Double.POSITIVE_INFINITY
+        pump.reservoir == RESERVOIR_UNKNOWN_FULL_SENTINEL -> Double.POSITIVE_INFINITY
+        else -> pump.reservoir
     }
     if (iob == null && cob == null && reservoir == null) return null
     return DeviceStatusEntity(

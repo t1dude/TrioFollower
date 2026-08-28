@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -48,7 +50,7 @@ fun HomeScreen(viewModel: HomeViewModel = hiltViewModel()) {
                 .background(MaterialTheme.colorScheme.background)
                 .padding(horizontal = 16.dp),
             contentPadding = PaddingValues(top = 8.dp, bottom = 96.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             uiState.errorMessage?.let { message ->
                 item {
@@ -67,36 +69,53 @@ fun HomeScreen(viewModel: HomeViewModel = hiltViewModel()) {
                     deviceStatusPoints = uiState.deviceStatusPoints,
                     insulinProfile = uiState.insulinProfile,
                 )
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 16.dp)
-                        .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically,
+                // A tonal surface card (Material 3's recommended way to separate grouped content
+                // without heavy shadows) instead of the bubble/pills floating directly on the
+                // page background.
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.large,
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                 ) {
-                    PumpHudStackLeft(state = hudState, modifier = Modifier.padding(end = 12.dp))
-                    GlucoseBubble(
-                        latest = latest,
-                        previous = previous,
-                        unit = uiState.glucoseUnit,
-                        alarms = uiState.alarms,
-                    )
-                    PumpHudStackRight(state = hudState, modifier = Modifier.padding(start = 12.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 16.dp, horizontal = 8.dp)
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        PumpHudStackLeft(state = hudState, modifier = Modifier.padding(end = 12.dp))
+                        GlucoseBubble(
+                            latest = latest,
+                            previous = previous,
+                            unit = uiState.glucoseUnit,
+                            alarms = uiState.alarms,
+                        )
+                        PumpHudStackRight(state = hudState, modifier = Modifier.padding(start = 12.dp))
+                    }
                 }
             }
 
             if (uiState.readings.isNotEmpty()) {
                 item {
-                    GlucoseChart(
-                        readings = uiState.readings,
-                        treatments = uiState.treatments,
-                        insulinProfile = uiState.insulinProfile,
-                        deviceStatusPoints = uiState.deviceStatusPoints,
-                        unit = uiState.glucoseUnit,
-                        alarms = uiState.alarms,
-                        modifier = Modifier.padding(top = 8.dp, bottom = 16.dp),
-                    )
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = MaterialTheme.shapes.large,
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                    ) {
+                        GlucoseChart(
+                            readings = uiState.readings,
+                            treatments = uiState.treatments,
+                            insulinProfile = uiState.insulinProfile,
+                            deviceStatusPoints = uiState.deviceStatusPoints,
+                            unit = uiState.glucoseUnit,
+                            alarms = uiState.alarms,
+                            modifier = Modifier.padding(12.dp),
+                        )
+                    }
                 }
             }
 

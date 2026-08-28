@@ -144,21 +144,21 @@ private fun formatUnits(units: Double?): String = when {
     else -> String.format(Locale.getDefault(), "%.1f", units)
 }
 
-/** IOB and reservoir pills, stacked vertically — placed to the left of the bubble. */
+/** Reservoir and IOB pills, stacked vertically — placed to the left of the bubble. */
 @Composable
 fun PumpHudStackLeft(state: PumpCgmHudState, modifier: Modifier = Modifier) {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        HudPill(
-            icon = Icons.Filled.Vaccines,
-            label = "${formatUnits(state.currentIobUnits)} U",
-            legend = "Insulin on board",
-            color = if (state.currentIobUnits != null) TrioInsulin else TrioOnSurfaceMuted,
-        )
         HudPill(
             icon = Icons.Filled.Medication,
             label = "${formatUnits(state.reservoirUnits)} U",
             legend = "Reservoir",
             color = reservoirColor(state.reservoirUnits),
+        )
+        HudPill(
+            icon = Icons.Filled.Vaccines,
+            label = "${formatUnits(state.currentIobUnits)} U",
+            legend = "Insulin on board",
+            color = if (state.currentIobUnits != null) TrioInsulin else TrioOnSurfaceMuted,
         )
     }
 }

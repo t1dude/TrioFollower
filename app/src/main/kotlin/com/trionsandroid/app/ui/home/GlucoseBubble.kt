@@ -64,11 +64,18 @@ fun GlucoseBubble(
             val trianglePx = TRIANGLE_SIZE.toPx()
             val triangleOffsetPx = TRIANGLE_OFFSET.toPx()
 
-            drawCircle(
-                brush = Brush.sweepGradient(TrioRingGradient),
-                radius = ringRadiusPx,
-                style = Stroke(width = strokePx),
-            )
+            // Trio's AngularGradient sweeps counterclockwise starting at 9 o'clock
+            // (startAngle: 270°, endAngle: -90°), but Compose's sweepGradient always sweeps
+            // clockwise starting at 3 o'clock. Reversing the stop order flips the sweep
+            // direction to match, and rotating 180° re-aligns the phase — together they
+            // reproduce Trio's exact angle-to-color mapping (verified stop-by-stop).
+            rotateDrawScope(degrees = 180f) {
+                drawCircle(
+                    brush = Brush.sweepGradient(TrioRingGradient.asReversed()),
+                    radius = ringRadiusPx,
+                    style = Stroke(width = strokePx),
+                )
+            }
 
             // Trio's Triangle shape (apex near the top, rounded base) drawn in local coordinates,
             // then rotated 90° (its own fixed rotation, making it point east at rest — i.e. the

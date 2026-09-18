@@ -67,9 +67,9 @@ fun GlucoseBubble(
             // Trio's AngularGradient sweeps counterclockwise starting at 9 o'clock
             // (startAngle: 270°, endAngle: -90°), but Compose's sweepGradient always sweeps
             // clockwise starting at 3 o'clock. Reversing the stop order flips the sweep
-            // direction to match, and rotating 180° re-aligns the phase — together they
+            // direction to match, and rotating 225° re-aligns the phase — together they
             // reproduce Trio's exact angle-to-color mapping (verified stop-by-stop).
-            rotateDrawScope(degrees = 180f) {
+            rotateDrawScope(degrees = 225f) {
                 drawCircle(
                     brush = Brush.sweepGradient(TrioRingGradient.asReversed()),
                     radius = ringRadiusPx,

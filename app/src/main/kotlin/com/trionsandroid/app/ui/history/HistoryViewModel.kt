@@ -54,6 +54,7 @@ class HistoryViewModel @Inject constructor(
             isLoading = loading,
             errorMessage = error,
             glucoseUnit = data.settings.glucoseUnit,
+            timeFormat = data.settings.timeFormat,
             alarms = data.settings.alarms,
             readings = data.readings.sortedByDescending { it.timestamp },
             treatments = data.treatments.sortedByDescending { it.timestamp },

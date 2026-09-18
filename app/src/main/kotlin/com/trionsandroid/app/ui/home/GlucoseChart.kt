@@ -41,7 +41,9 @@ import com.trionsandroid.app.data.nightscout.isBolusEventType
 import com.trionsandroid.app.data.nightscout.isTempTargetEventType
 import com.trionsandroid.app.data.settings.AlarmSettings
 import com.trionsandroid.app.data.settings.GlucoseUnit
+import com.trionsandroid.app.data.settings.TimeFormat
 import com.trionsandroid.app.data.settings.format
+import com.trionsandroid.app.data.settings.hourPattern
 import com.trionsandroid.app.ui.theme.TrioAccentPurple
 import com.trionsandroid.app.ui.theme.TrioBasal
 import com.trionsandroid.app.ui.theme.TrioBolus
@@ -70,7 +72,6 @@ private const val MIN_FLING_VELOCITY_PX_PER_SEC = 50f
 private val LEFT_GUTTER = 40.dp
 private val BOTTOM_LABEL_GAP = 4.dp
 private val BOTTOM_SAFETY_MARGIN = 6.dp
-private val hourFormatter = DateTimeFormatter.ofPattern("HH")
 private val dayFormatter = DateTimeFormatter.ofPattern("dd.MM")
 
 private val BASAL_STRIP_HEIGHT = 40.dp
@@ -130,6 +131,7 @@ fun GlucoseChart(
     deviceStatusPoints: List<DeviceStatusPoint>,
     unit: GlucoseUnit,
     alarms: AlarmSettings,
+    timeFormat: TimeFormat = TimeFormat.HOUR_24,
     modifier: Modifier = Modifier,
 ) {
     val density = LocalDensity.current
@@ -137,6 +139,7 @@ fun GlucoseChart(
     val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
     val gridColor = MaterialTheme.colorScheme.outline
     val lineColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val hourFormatter = remember(timeFormat) { DateTimeFormatter.ofPattern(timeFormat.hourPattern()) }
     val coroutineScope = rememberCoroutineScope()
 
     // Reserve exactly as much bottom space as the x-axis labels actually need, rather than a

@@ -124,6 +124,7 @@ fun HomeScreen(viewModel: HomeViewModel = hiltViewModel()) {
                             deviceStatusPoints = uiState.deviceStatusPoints,
                             unit = uiState.glucoseUnit,
                             alarms = uiState.alarms,
+                            timeFormat = uiState.timeFormat,
                             modifier = Modifier.padding(12.dp),
                         )
                     }

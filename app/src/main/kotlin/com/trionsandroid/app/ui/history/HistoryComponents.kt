@@ -42,11 +42,6 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
 
-// Includes the date, not just the time (unlike Trio's own history rows) — our History tab
-// observes a 30-day local cache, not Trio's ~24h-scoped fetches, so a bare time-of-day would be
-// ambiguous for older entries.
-private val timeFormatter = DateTimeFormatter.ofPattern("dd.MM HH:mm")
-
 /** Every History row shares this shape: a colored dot, a primary label, a secondary value, and a
  *  timestamp — mirrors Trio's own HistoryRootView row layout (dot + label + value + time).
  *  FlowRow (not a plain Row) so a long value/timestamp — e.g. an adjustment's full start-end
@@ -96,15 +91,15 @@ private fun EmptyHistoryMessage(text: String) {
     )
 }
 
-private fun formatTimestamp(treatment: Treatment) =
-    timeFormatter.format(treatment.timestamp.atZone(ZoneId.systemDefault()))
+private fun formatTimestamp(treatment: Treatment, formatter: DateTimeFormatter) =
+    formatter.format(treatment.timestamp.atZone(ZoneId.systemDefault()))
 
-private fun formatTimestamp(reading: GlucoseReading) =
-    timeFormatter.format(reading.timestamp.atZone(ZoneId.systemDefault()))
+private fun formatTimestamp(reading: GlucoseReading, formatter: DateTimeFormatter) =
+    formatter.format(reading.timestamp.atZone(ZoneId.systemDefault()))
 
 /** All insulin delivery — basals (temp basal treatments), bolus, SMB, and external doses —
  *  matching Trio's own treatmentsList categories (HistoryRootView+Treatments.swift). */
-fun LazyListScope.treatmentEntries(treatments: List<Treatment>) {
+fun LazyListScope.treatmentEntries(treatments: List<Treatment>, timeFormatter: DateTimeFormatter) {
     val insulinTreatments = treatments.filter { isBolusEventType(it.eventType) || isTempBasalEventType(it.eventType) }
     if (insulinTreatments.isEmpty()) {
         item { EmptyHistoryMessage("No insulin history yet.") }
@@ -112,7 +107,7 @@ fun LazyListScope.treatmentEntries(treatments: List<Treatment>) {
     }
     items(insulinTreatments, key = { it.id }) { treatment ->
         val (dotColor, label, value) = treatmentDisplay(treatment)
-        HistoryEntryRow(dotColor, label, value, formatTimestamp(treatment))
+        HistoryEntryRow(dotColor, label, value, formatTimestamp(treatment, timeFormatter))
         HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
     }
 }
@@ -141,7 +136,7 @@ private fun treatmentDisplay(treatment: Treatment): Triple<Color, String, String
 }
 
 /** All carb entries. */
-fun LazyListScope.mealEntries(treatments: List<Treatment>) {
+fun LazyListScope.mealEntries(treatments: List<Treatment>, timeFormatter: DateTimeFormatter) {
     val meals = treatments.filter { (it.carbsGrams ?: 0.0) > 0.0 }
     if (meals.isEmpty()) {
         item { EmptyHistoryMessage("No carb entries yet.") }
@@ -152,14 +147,19 @@ fun LazyListScope.mealEntries(treatments: List<Treatment>) {
             dotColor = TrioCarb,
             label = "Carbs",
             value = "%.0f g".format(treatment.carbsGrams ?: 0.0),
-            timestamp = formatTimestamp(treatment),
+            timestamp = formatTimestamp(treatment, timeFormatter),
         )
         HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
     }
 }
 
 /** Every cached glucose reading, colored by range like the rest of the app. */
-fun LazyListScope.glucoseEntries(readings: List<GlucoseReading>, unit: GlucoseUnit, alarms: AlarmSettings) {
+fun LazyListScope.glucoseEntries(
+    readings: List<GlucoseReading>,
+    unit: GlucoseUnit,
+    alarms: AlarmSettings,
+    timeFormatter: DateTimeFormatter,
+) {
     if (readings.isEmpty()) {
         item { EmptyHistoryMessage("No glucose readings yet.") }
         return
@@ -169,7 +169,7 @@ fun LazyListScope.glucoseEntries(readings: List<GlucoseReading>, unit: GlucoseUn
             dotColor = rangeColor(reading.mgDl, alarms),
             label = "${unit.format(reading.mgDl)} ${unit.label}",
             value = reading.trend.arrow,
-            timestamp = formatTimestamp(reading),
+            timestamp = formatTimestamp(reading, timeFormatter),
         )
         HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
     }
@@ -178,7 +178,7 @@ fun LazyListScope.glucoseEntries(readings: List<GlucoseReading>, unit: GlucoseUn
 /** Overrides and temp targets, matching Trio's combined Adjustments list
  *  (HistoryRootView+Adjustments.swift): dot + name + target (if any) + a start-end range instead
  *  of a single timestamp, since an adjustment spans a duration rather than being instantaneous. */
-fun LazyListScope.adjustmentEntries(treatments: List<Treatment>, unit: GlucoseUnit) {
+fun LazyListScope.adjustmentEntries(treatments: List<Treatment>, unit: GlucoseUnit, timeFormatter: DateTimeFormatter) {
     val adjustments = treatments.filter { isAdjustmentEventType(it.eventType) }
     if (adjustments.isEmpty()) {
         item { EmptyHistoryMessage("No adjustments yet.") }

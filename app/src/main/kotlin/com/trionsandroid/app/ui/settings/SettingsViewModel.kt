@@ -9,6 +9,7 @@ import com.trionsandroid.app.data.settings.BackgroundMode
 import com.trionsandroid.app.data.settings.GlucoseUnit
 import com.trionsandroid.app.data.settings.SecureTokenStore
 import com.trionsandroid.app.data.settings.SettingsRepository
+import com.trionsandroid.app.data.settings.TimeFormat
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -49,6 +50,7 @@ class SettingsViewModel @Inject constructor(
             nightscoutUrl = url,
             accessToken = token,
             glucoseUnit = settings.glucoseUnit,
+            timeFormat = settings.timeFormat,
             refreshIntervalMinutes = settings.refreshIntervalMinutes,
             backgroundMode = settings.backgroundMode,
             alarms = settings.alarms,
@@ -77,6 +79,10 @@ class SettingsViewModel @Inject constructor(
 
     fun onGlucoseUnitChange(unit: GlucoseUnit) {
         viewModelScope.launch { settingsRepository.setGlucoseUnit(unit) }
+    }
+
+    fun onTimeFormatChange(format: TimeFormat) {
+        viewModelScope.launch { settingsRepository.setTimeFormat(format) }
     }
 
     fun onRefreshIntervalChange(minutes: Int) {

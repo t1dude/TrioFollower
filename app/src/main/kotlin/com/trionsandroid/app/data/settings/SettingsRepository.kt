@@ -7,6 +7,7 @@ interface SettingsRepository {
 
     suspend fun setNightscoutUrl(url: String)
     suspend fun setGlucoseUnit(unit: GlucoseUnit)
+    suspend fun setTimeFormat(format: TimeFormat)
     suspend fun setRefreshIntervalMinutes(minutes: Int)
     suspend fun setBackgroundMode(mode: BackgroundMode)
     suspend fun setAlarmSettings(alarms: AlarmSettings)

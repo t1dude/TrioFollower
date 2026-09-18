@@ -37,6 +37,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.trionsandroid.app.data.settings.GlucoseUnit
+import com.trionsandroid.app.data.settings.TimeFormat
 import com.trionsandroid.app.data.settings.allowedRefreshIntervals
 import com.trionsandroid.app.ui.theme.TrioGlucoseHigh
 import com.trionsandroid.app.ui.theme.TrioGlucoseLow
@@ -120,6 +121,25 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                             shape = SegmentedButtonDefaults.itemShape(index = index, count = GlucoseUnit.entries.size),
                         ) {
                             Text(unit.label)
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(20.dp))
+                Text(
+                    text = "Time format",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(8.dp))
+                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                    TimeFormat.entries.forEachIndexed { index, format ->
+                        SegmentedButton(
+                            selected = uiState.timeFormat == format,
+                            onClick = { viewModel.onTimeFormatChange(format) },
+                            shape = SegmentedButtonDefaults.itemShape(index = index, count = TimeFormat.entries.size),
+                        ) {
+                            Text(format.label)
                         }
                     }
                 }

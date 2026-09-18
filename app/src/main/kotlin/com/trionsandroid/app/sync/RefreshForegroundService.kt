@@ -18,6 +18,7 @@ import com.trionsandroid.app.data.logging.DiagnosticLogger
 import com.trionsandroid.app.data.nightscout.NightscoutRepository
 import com.trionsandroid.app.data.settings.SettingsRepository
 import com.trionsandroid.app.data.settings.format
+import com.trionsandroid.app.data.settings.timePattern
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -98,7 +99,7 @@ class RefreshForegroundService : Service() {
                 // Re-acquiring (not just once up front) keeps the safety-timeout window comfortably
                 // ahead of the loop for as long as it keeps running, however many cycles that is.
                 wakeLock.acquire(WAKE_LOCK_SAFETY_TIMEOUT_MILLIS)
-                diagnosticLogger.log(TAG, "Cycle $cycle starting at ${TIME_FORMATTER.format(LocalTime.now())}")
+                diagnosticLogger.log(TAG, "Cycle $cycle starting at ${DIAGNOSTIC_TIME_FORMATTER.format(LocalTime.now())}")
                 runCatching {
                     nightscoutRepository.refresh()
                     alarmCheckRunner.checkAndNotify()
@@ -106,9 +107,14 @@ class RefreshForegroundService : Service() {
                 // Updates the ongoing notification with the current glucose and last sync time on
                 // every cycle, successful or not — this doubles as a live, always-visible way to
                 // tell the loop is actually still ticking, without needing a fresh diagnostic log.
+                // Respects the user's 12h/24h Settings choice, unlike the diagnostic log line
+                // above (an internal, always-24h debug artifact, not something the user reads).
+                val notificationTimeFormatter = DateTimeFormatter.ofPattern(
+                    settingsRepository.settings.first().timeFormat.timePattern(),
+                )
                 updateNotification(
                     glucoseText = runCatching { latestGlucoseText() }.getOrNull(),
-                    lastSyncText = "Last synced ${TIME_FORMATTER.format(LocalTime.now())}",
+                    lastSyncText = "Last synced ${notificationTimeFormatter.format(LocalTime.now())}",
                 )
                 delay(intervalMinutes * 60_000L)
             }
@@ -199,6 +205,6 @@ class RefreshForegroundService : Service() {
         // has its wake lock expire between two cycles — this is a leak safety net, not a
         // scheduling mechanism; re-acquiring every cycle is what actually keeps it fresh.
         private const val WAKE_LOCK_SAFETY_TIMEOUT_MILLIS = 45 * 60_000L
-        private val TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm")
+        private val DIAGNOSTIC_TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm")
     }
 }

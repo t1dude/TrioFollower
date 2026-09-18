@@ -185,6 +185,15 @@ class NightscoutRepositoryImpl @Inject constructor(
                 }.distinctBy { it.stableId }
                 val storedAdjustments = adjustmentDtos.mapNotNull { it.toEntity() }
                 treatmentDao.upsertAll(storedAdjustments)
+                // Trio deletes-and-replaces (under a new id) an override's Nightscout entry when
+                // it ends, rather than editing it in place — see deleteStaleAdjustments' doc
+                // comment. Without this, an ended override's old placeholder-duration entry
+                // lingers forever as a phantom duplicate alongside the real, terminated one.
+                treatmentDao.deleteStaleAdjustments(
+                    eventTypes = ADJUSTMENT_EVENT_TYPES,
+                    sinceMillis = lookbackMillis,
+                    keepIds = storedAdjustments.map { it.id },
+                )
                 storedAdjustments.size
             }.onSuccess { count ->
                 diagnosticLogger.log(TAG, "Adjustments: stored=$count")

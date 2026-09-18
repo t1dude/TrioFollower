@@ -361,7 +361,8 @@ fun GlucoseChart(
             if (basalSegments.isNotEmpty()) {
                 val stripTop = 0f
                 val stripBottom = basalStripPx
-                val maxRate = basalSegments.maxOf { it.rateUnitsPerHour }.coerceAtLeast(0.1)
+                // Independent of the current viewport — see basalDomainMaxRate's doc comment.
+                val maxRate = basalDomainMaxRate(System.currentTimeMillis(), insulinProfile, treatments)
 
                 fun basalYFor(rate: Double): Float {
                     val fraction = (rate / maxRate).coerceIn(0.0, 1.0)

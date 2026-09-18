@@ -74,7 +74,19 @@ fun computeBasalSegments(
         val segEnd = sortedPoints[i + 1]
         if (segStart >= segEnd) continue
         val midpoint = segStart + (segEnd - segStart) / 2
-        val overriding = tempBasals.firstOrNull { (start, end, _) -> midpoint in start until end }
+        // Mirrors Trio's own resolution (BasalChart.swift calculateTempBasals): the
+        // most-recently-*started* temp basal governs, superseding any earlier one immediately —
+        // even across a small gap between two re-announcements of the same temp — rather than
+        // picking whichever overlapping entry happens to come first in the treatments list. Only
+        // falls back to the scheduled rate once that latest entry's own duration has elapsed.
+        // (Nightscout/OpenAPS re-uploads an active temp basal's "Temp Basal" treatment
+        // periodically; the old firstOrNull-on-[start,end) logic could pick a stale superseded
+        // entry or land in a brief gap between re-announcements, producing phantom reversions to
+        // the scheduled rate — i.e. spikes — during what was actually a steady active temp.)
+        val overriding = tempBasals
+            .filter { (start, _, _) -> start <= midpoint }
+            .maxByOrNull { (start, _, _) -> start }
+            ?.takeIf { (_, end, _) -> midpoint < end }
         val rate = overriding?.third ?: scheduledRateAt(midpoint)
         rawSegments.add(BasalSegment(segStart, segEnd, rate))
     }
@@ -91,4 +103,30 @@ fun computeBasalSegments(
         }
     }
     return merged
+}
+
+private const val DOMAIN_MAX_LOOKBACK_HOURS = 24L
+
+/**
+ * The basal strip's y-axis ceiling: matches Trio's `basalDomainMax` (BasalChart.swift) — the max
+ * of recent temp basal rates and the profile's own scheduled rates, each a floor of 0.1. Crucially
+ * this is computed over a fixed recent lookback ending "now", independent of whatever time range
+ * the chart happens to be zoomed/panned to. Scaling to the current *viewport's* max instead (as an
+ * earlier version of this chart did) made the strip's scale jump around while zooming/panning, and
+ * exaggerated minor rate variations into visually oversized bars whenever the visible window
+ * didn't happen to include the day's actual peak rate.
+ */
+fun basalDomainMaxRate(
+    nowMillis: Long,
+    profile: InsulinProfile?,
+    treatments: List<Treatment>,
+): Double {
+    val domainStartMillis = nowMillis - DOMAIN_MAX_LOOKBACK_HOURS * 60 * 60 * 1000L
+    val recentTempMax = treatments
+        .asSequence()
+        .filter { it.eventType == TEMP_BASAL_EVENT_TYPE && it.timestamp.toEpochMilli() >= domainStartMillis }
+        .mapNotNull { it.basalRateUnitsPerHour }
+        .maxOrNull() ?: 0.0
+    val profileMax = profile?.basalSchedule?.maxOfOrNull { it.rateUnitsPerHour } ?: 0.0
+    return maxOf(recentTempMax, profileMax, 0.1)
 }

@@ -22,15 +22,16 @@ displays Trio's loop, it doesn't control the pump or the algorithm.
 **Home**
 - Glucose bubble: current reading, trend arrow, and ring gradient/colors matched pixel-for-pixel
   to Trio's `CurrentGlucoseView`
-- Scrollable, zoomable chart with basal (temp + scheduled), bolus, glucose, and IOB layered in
-  Trio's own visual arrangement
+- Scrollable, zoomable chart with basal (temp + scheduled), bolus, glucose, IOB, and active
+  overrides/temp targets layered in Trio's own visual arrangement
 - HUD pills: reservoir level, pump/CGM lifecycle countdowns, current IOB
 
 **History**
 - Treatments: all insulin delivery — temp basals, bolus, SMB, and external doses
 - Meals: all carb entries
 - Glucose: every cached reading, colored by range, with its trend arrow
-- Adjustments: placeholder for now (overrides/temp targets aren't modeled yet)
+- Adjustments: overrides and temp targets fetched from Nightscout, with their name, target (temp
+  targets only), and active period
 
 **Settings**
 - Nightscout URL + access token, with a connection test

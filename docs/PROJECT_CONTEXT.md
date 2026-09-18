@@ -119,6 +119,22 @@ these against ground truth rather than guessing. If the source isn't present, fe
   Trio's actual angles, not just visually eyeballed. If this ever needs re-deriving, work in the
   single "0°=East, positive=clockwise" frame both platforms share — don't re-derive SwiftUI's
   convention from memory.
+- **Adjustments (overrides/temp targets) on Nightscout**: verified against Trio's actual upload
+  code (`OverrideStorage.swift`, `TempTargetsStorage.swift`, `NightscoutAPI.swift`), not guessed.
+  Overrides upload under eventType **`"Exercise"`** (`OverrideStored.EventType.nsExercise` —
+  Nightscout's own long-standing convention inherited from AndroidAPS/Loop, not Trio-specific);
+  temp targets under **`"Temporary Target"`** (`PumpEventStored.EventType.nsTempTarget`). Neither
+  record has a dedicated name field — the override/temp-target's name (e.g. "Boost") is only ever
+  in `notes`. Only temp targets carry a target value (`targetTop`/`targetBottom`, Trio always
+  uploads them equal); Trio's own override upload model (`NightscoutExercise`) has **no target
+  field at all** — an active/indefinite override's `duration` is uploaded as a 30-day (43200 min)
+  placeholder, not some sentinel. This is why the chart and History treat overrides and temp
+  targets differently: temp targets draw/show at their real target; overrides can't, so they fall
+  back to a labeled band instead — matching how Nightscout's own classic chart
+  (`renderer.js`'s `fillColor`/`rectTranslate`) handles the same target-less-event case, verified
+  against `nightscout/cgm-remote-monitor`'s actual source, not assumed. Both eventTypes need the
+  same long (30-day) lookback as Site Change/Sensor Start (`NightscoutRepositoryImpl`'s
+  `ADJUSTMENT_LOOKBACK_DAYS`) since an override can be started long before it's queried.
 
 ## Feature status
 
@@ -153,13 +169,17 @@ Since, on top of the six milestones:
   (fetched from `nightscout/Trio` rather than guessed) — a segmented Treatments/Meals/Glucose/
   Adjustments picker, each a list of dot+label+value+timestamp rows. Treatments covers all insulin
   delivery (temp basal/bolus/SMB/external); Meals is carb entries; Glucose is every cached reading
-  colored by range; Adjustments is an empty placeholder (overrides/temp targets aren't modeled
-  yet). The old inline "Treatments (last 24h)" list that used to sit at the bottom of Home is gone
-  — History supersedes it with the full 30-day cache instead of a fixed 24h cutoff. The
-  bolus/temp-basal eventType classification (`isBolusEventType`, `isTempBasalEventType`, etc.) that
-  used to live privately in `GlucoseChart.kt` and `BasalSegmentCalculator.kt` separately is now
-  consolidated in `data/nightscout/TreatmentClassification.kt`, the single shared source now that
-  History is a third consumer.
+  colored by range. The old inline "Treatments (last 24h)" list that used to sit at the bottom of
+  Home is gone — History supersedes it with the full 30-day cache instead of a fixed 24h cutoff.
+  The bolus/temp-basal eventType classification (`isBolusEventType`, `isTempBasalEventType`, etc.)
+  that used to live privately in `GlucoseChart.kt` and `BasalSegmentCalculator.kt` separately is
+  now consolidated in `data/nightscout/TreatmentClassification.kt`, the single shared source now
+  that History is a third consumer.
+- History's Adjustments tab and the Home chart now both show overrides and temp targets, fetched
+  from Nightscout — see the new Trio-quirks bullet below for exactly how.
+- `TreatmentEntity`/`TrioDatabase` bumped to schema v4 (destructive migration, already configured
+  — this is a local cache, refetches automatically). `app/schemas/.../4.json` hasn't been generated
+  yet in this repo — Room writes it on the next Gradle build; commit it once it appears.
 
 ## Background-sync reliability issue — resolved, confirmed on-device
 

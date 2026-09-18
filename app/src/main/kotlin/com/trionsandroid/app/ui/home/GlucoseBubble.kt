@@ -64,12 +64,17 @@ fun GlucoseBubble(
             val trianglePx = TRIANGLE_SIZE.toPx()
             val triangleOffsetPx = TRIANGLE_OFFSET.toPx()
 
-            // Trio's AngularGradient sweeps counterclockwise starting at 9 o'clock
-            // (startAngle: 270°, endAngle: -90°), but Compose's sweepGradient always sweeps
-            // clockwise starting at 3 o'clock. Reversing the stop order flips the sweep
-            // direction to match, and rotating 225° re-aligns the phase — together they
-            // reproduce Trio's exact angle-to-color mapping (verified stop-by-stop).
-            rotateDrawScope(degrees = 225f) {
+            // SwiftUI's AngularGradient angle convention: 0° is 3 o'clock (East), positive angles
+            // sweep clockwise (confirmed against Apple's docs, not assumed) — the same convention
+            // Compose's sweepGradient uses. In that shared frame, Trio's startAngle: 270° is 12
+            // o'clock (top), and going to endAngle: -90° (≡270°) sweeps counterclockwise all the
+            // way back to top. Compose's sweepGradient always advances clockwise as the color list
+            // index increases, so reversing the stop order flips it to match Trio's
+            // counterclockwise sweep, and rotating 270° (270° CW moves Compose's East-anchored
+            // first stop to top) re-aligns the phase — together they reproduce Trio's exact
+            // angle-to-color mapping (verified stop-by-stop: all 5 distinct stops land on the
+            // same absolute angle as Trio's).
+            rotateDrawScope(degrees = 270f) {
                 drawCircle(
                     brush = Brush.sweepGradient(TrioRingGradient.asReversed()),
                     radius = ringRadiusPx,

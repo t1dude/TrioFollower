@@ -10,8 +10,9 @@ overview (use case, features, tech stack) — this doc is the implementation-det
 
 A native Android companion app for [Nightscout](https://nightscout.github.io/), visually modeled
 on the [Trio](https://github.com/nightscout/Trio) iOS looping app (Trio's own screenshots/source
-were used as the design reference throughout — see "Working style" below). Two tabs: **Home**
-(glucose bubble, HUD pills, glucose/basal/IOB chart) and **Settings** (Nightscout URL/token,
+were used as the design reference throughout — see "Working style" below). Three tabs: **Home**
+(glucose bubble, HUD pills, glucose/basal/IOB chart), **History** (Treatments/Meals/Glucose/
+Adjustments, modeled directly on Trio's own History tab), and **Settings** (Nightscout URL/token,
 units, background sync mode, alarms, permissions, diagnostics).
 
 The user (Magnus) has type 1 diabetes and uses Trio himself; this app is for his own daily use,
@@ -44,6 +45,7 @@ data/notification/ AlarmNotifier, AlarmAckReceiver (backs the alarm notification
 data/logging/      DiagnosticLogger (the exportable debug log), DiagnosticHttpLogger
 sync/              RefreshWorker (WorkManager), RefreshForegroundService, BackgroundSyncScheduler
 ui/home/           GlucoseChart, GlucoseBubble, GlucoseHud, IobCalculator, HomeViewModel
+ui/history/        History tab (Treatments/Meals/Glucose/Adjustments) + ViewModel
 ui/settings/       Settings screen + ViewModel
 ui/theme/          Colors ported from Trio's actual color assets (see below)
 di/                Hilt modules
@@ -88,8 +90,12 @@ these against ground truth rather than guessing. If the source isn't present, fe
   flagged there as a good candidate for a Settings field if they don't fit the user's hardware.
 - **Colors**: `TrioInsulin` (#1E96FC — blue, used for basal, bolus, and the HUD's IOB/reservoir
   icons), the bubble's 5-stop ring gradient, `TrioLoopGreen`/`TrioLoopRed`/`TrioWarningOrange`
-  (HUD pill thresholds) were all read directly out of Trio's `Assets.xcassets/Colors/*.colorset`
-  JSON and `DynamicGlucoseColor.swift`/`PumpView.swift`, not approximated.
+  (HUD pill thresholds), `TrioCarb` (#FFC145, History tab carb entries — matches `LoopYellow`,
+  path is `Trio/Resources/Assets.xcassets/Colors/*.colorset`, **not**
+  `Trio/Sources/Assets.xcassets/...` — the Watch App target has its own separate, differently
+  named copy of the same colorset filenames, easy to fetch the wrong one) were all read directly
+  out of Trio's asset catalog JSON and `DynamicGlucoseColor.swift`/`PumpView.swift`, not
+  approximated.
 - **Bubble arrow rotation**: matches Trio's `CurrentGlucoseView.swift` exactly — the ring and the
   trend triangle rotate together as one rigid unit (not independently), degrees per direction:
   flat=0, up=-90, 45up=-45, 45down=45, down=90.
@@ -139,6 +145,21 @@ Since, on top of the six milestones:
   floor) mode it means "the next check after 5 minutes have passed."
 - App icon is now Nightscout's own owl logo (adaptive icon, white-on-navy, monochrome layer for
   Android 13+ themed icons) instead of the earlier placeholder droplet.
+- Settings screen reorganized: every section is now collapsible (collapsed by default), Nightscout
+  + Units merged into "Basic Settings", the four alarm thresholds live in a nested "Alarm
+  Thresholds" subsection within Alarms, and "Permissions" was renamed "Android System Permissions"
+  (`SettingsSection`/`SettingsSubsection` in `SettingsComponents.kt`).
+- Added a third tab, **History**, built directly against Trio's own `HistoryRootView.swift`
+  (fetched from `nightscout/Trio` rather than guessed) — a segmented Treatments/Meals/Glucose/
+  Adjustments picker, each a list of dot+label+value+timestamp rows. Treatments covers all insulin
+  delivery (temp basal/bolus/SMB/external); Meals is carb entries; Glucose is every cached reading
+  colored by range; Adjustments is an empty placeholder (overrides/temp targets aren't modeled
+  yet). The old inline "Treatments (last 24h)" list that used to sit at the bottom of Home is gone
+  — History supersedes it with the full 30-day cache instead of a fixed 24h cutoff. The
+  bolus/temp-basal eventType classification (`isBolusEventType`, `isTempBasalEventType`, etc.) that
+  used to live privately in `GlucoseChart.kt` and `BasalSegmentCalculator.kt` separately is now
+  consolidated in `data/nightscout/TreatmentClassification.kt`, the single shared source now that
+  History is a third consumer.
 
 ## Background-sync reliability issue — resolved, confirmed on-device
 

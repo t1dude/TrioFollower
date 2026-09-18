@@ -26,6 +26,12 @@ displays Trio's loop, it doesn't control the pump or the algorithm.
   Trio's own visual arrangement
 - HUD pills: reservoir level, pump/CGM lifecycle countdowns, current IOB
 
+**History**
+- Treatments: all insulin delivery — temp basals, bolus, SMB, and external doses
+- Meals: all carb entries
+- Glucose: every cached reading, colored by range, with its trend arrow
+- Adjustments: placeholder for now (overrides/temp targets aren't modeled yet)
+
 **Settings**
 - Nightscout URL + access token, with a connection test
 - Glucose units: mg/dL or mmol/L
@@ -63,6 +69,7 @@ data/notification/ AlarmNotifier
 data/logging/      DiagnosticLogger (the exportable debug log), DiagnosticHttpLogger
 sync/              RefreshWorker (WorkManager), RefreshForegroundService, BackgroundSyncScheduler
 ui/home/           GlucoseChart, GlucoseBubble, GlucoseHud, IobCalculator, HomeViewModel
+ui/history/        History tab (Treatments/Meals/Glucose/Adjustments) + ViewModel
 ui/settings/       Settings screen + ViewModel
 ui/theme/          Colors ported directly from Trio's own asset catalog
 di/                Hilt modules

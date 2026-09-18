@@ -92,6 +92,16 @@ these against ground truth rather than guessing. If the source isn't present, fe
 - **Bubble arrow rotation**: matches Trio's `CurrentGlucoseView.swift` exactly — the ring and the
   trend triangle rotate together as one rigid unit (not independently), degrees per direction:
   flat=0, up=-90, 45up=-45, 45down=45, down=90.
+- **SwiftUI `AngularGradient` angle convention** (bit us twice — two wrong rotation values shipped
+  before this was pinned down): 0° is 3 o'clock (East), positive angles sweep clockwise, same as
+  Compose's `sweepGradient` — **not** 0°=top as first assumed. So Trio's ring gradient
+  (`startAngle: 270°, endAngle: -90°`) actually starts at 12 o'clock (top), sweeping
+  counterclockwise. `GlucoseBubble.kt`'s ring reproduces this with
+  `TrioRingGradient.asReversed()` (flips Compose's inherently-clockwise sweep to counterclockwise)
+  rotated `270°` (moves Compose's East-anchored first stop to top) — verified stop-by-stop against
+  Trio's actual angles, not just visually eyeballed. If this ever needs re-deriving, work in the
+  single "0°=East, positive=clockwise" frame both platforms share — don't re-derive SwiftUI's
+  convention from memory.
 
 ## Feature status
 

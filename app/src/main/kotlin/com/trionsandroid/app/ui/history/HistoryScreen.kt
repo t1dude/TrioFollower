@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -20,6 +21,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
@@ -62,7 +64,13 @@ fun HistoryScreen(viewModel: HistoryViewModel = hiltViewModel()) {
                         onClick = { mode = entry },
                         shape = SegmentedButtonDefaults.itemShape(index = index, count = HistoryMode.entries.size),
                     ) {
-                        Text(entry.label)
+                        // Shrinks to fit its own segment's width on narrower/smaller-scale
+                        // displays instead of wrapping "Adjustments" onto a second line.
+                        Text(
+                            text = entry.label,
+                            maxLines = 1,
+                            autoSize = TextAutoSize.StepBased(minFontSize = 9.sp, maxFontSize = 14.sp),
+                        )
                     }
                 }
             }

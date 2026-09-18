@@ -30,17 +30,39 @@ class AlarmCheckRunner @Inject constructor(
 
         val zone = evaluateAlarmZone(latest.mgDl, settings.alarms)
         val lastZone = alarmStateStore.getLastZone()
-        if (zone == lastZone) return
 
-        alarmStateStore.setLastZone(zone)
-        diagnosticLogger.log(TAG, "Alarm zone changed: $lastZone -> $zone (${latest.mgDl} mg/dL)")
-        if (zone != AlarmZone.NORMAL) {
-            alarmNotifier.notify(zone, latest, settings.glucoseUnit, settings.alarms)
+        if (zone != lastZone) {
+            // A fresh zone (including escalating from e.g. low to urgent-low) always notifies
+            // and resets acknowledgement, even if the previous zone's alarm was never acked.
+            alarmStateStore.setLastZone(zone)
+            alarmStateStore.setAcknowledged(zone == AlarmZone.NORMAL)
+            diagnosticLogger.log(TAG, "Alarm zone changed: $lastZone -> $zone (${latest.mgDl} mg/dL)")
+            if (zone != AlarmZone.NORMAL) {
+                alarmStateStore.setLastNotifiedAtMillis(System.currentTimeMillis())
+                alarmNotifier.notify(zone, latest, settings.glucoseUnit, settings.alarms)
+            }
+            return
         }
+
+        // Same zone as last check — the only reason to act again is repeating an unacknowledged
+        // alarm. Repeats can't fire more often than this is actually called, so with e.g. the
+        // WorkManager "battery friendly" mode's 15-minute floor, the 5-minute repeat interval
+        // below is really "next time we check after 5 minutes have passed."
+        if (zone == AlarmZone.NORMAL) return
+        if (!settings.alarms.requireAcknowledgement || !settings.alarms.repeatIfNotAcknowledged) return
+        if (alarmStateStore.isAcknowledged()) return
+
+        val now = System.currentTimeMillis()
+        if (now - alarmStateStore.getLastNotifiedAtMillis() < REPEAT_INTERVAL_MILLIS) return
+
+        diagnosticLogger.log(TAG, "Repeating unacknowledged $zone alarm (${latest.mgDl} mg/dL)")
+        alarmStateStore.setLastNotifiedAtMillis(now)
+        alarmNotifier.notify(zone, latest, settings.glucoseUnit, settings.alarms)
     }
 
     private companion object {
         const val TAG = "AlarmCheckRunner"
         const val RECENT_READING_WINDOW_MINUTES = 30L
+        val REPEAT_INTERVAL_MILLIS = TimeUnit.MINUTES.toMillis(5)
     }
 }

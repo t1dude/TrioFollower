@@ -171,6 +171,29 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                         checked = uiState.alarms.vibrationEnabled,
                         onCheckedChange = { viewModel.onAlarmSettingsChange(uiState.alarms.copy(vibrationEnabled = it)) },
                     )
+                    Spacer(Modifier.height(8.dp))
+                    LabeledSwitch(
+                        label = "Require acknowledgement",
+                        checked = uiState.alarms.requireAcknowledgement,
+                        onCheckedChange = {
+                            viewModel.onAlarmSettingsChange(
+                                uiState.alarms.copy(
+                                    requireAcknowledgement = it,
+                                    repeatIfNotAcknowledged = it && uiState.alarms.repeatIfNotAcknowledged,
+                                ),
+                            )
+                        },
+                    )
+                    if (uiState.alarms.requireAcknowledgement) {
+                        Spacer(Modifier.height(8.dp))
+                        LabeledSwitch(
+                            label = "Repeat if not acknowledged",
+                            checked = uiState.alarms.repeatIfNotAcknowledged,
+                            onCheckedChange = {
+                                viewModel.onAlarmSettingsChange(uiState.alarms.copy(repeatIfNotAcknowledged = it))
+                            },
+                        )
+                    }
                     Spacer(Modifier.height(16.dp))
                     ThresholdRow(
                         label = "Urgent high",

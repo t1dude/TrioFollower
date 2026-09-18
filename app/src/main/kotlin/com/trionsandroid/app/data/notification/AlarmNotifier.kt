@@ -3,12 +3,15 @@ package com.trionsandroid.app.data.notification
 import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import com.trionsandroid.app.MainActivity
 import com.trionsandroid.app.R
 import com.trionsandroid.app.data.alarm.AlarmZone
 import com.trionsandroid.app.data.nightscout.GlucoseReading
@@ -37,7 +40,18 @@ class AlarmNotifier @Inject constructor(
             .setContentText("${unit.format(reading.mgDl)} ${unit.label}")
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
-            .setAutoCancel(true)
+            .setContentIntent(openAppAndAcknowledgePendingIntent())
+        if (alarms.requireAcknowledgement) {
+            // setOngoing(true) is what makes this un-swipe-dismissible — the only ways off screen
+            // are the OK action below or tapping the notification to open the app, both of which
+            // route through AlarmAcknowledger and explicitly cancel it.
+            builder.setOngoing(true)
+            builder.setAutoCancel(false)
+            builder.addAction(0, "OK", acknowledgePendingIntent())
+        } else {
+            builder.setOngoing(false)
+            builder.setAutoCancel(true)
+        }
         // NotificationCompat can't independently silence sound vs. vibration on a shared
         // channel — only both together via setSilent. Good enough: the common cases are
         // "alert me" (both on) and "just show it" (both off).
@@ -46,6 +60,37 @@ class AlarmNotifier @Inject constructor(
         }
 
         NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, builder.build())
+    }
+
+    fun cancel() {
+        NotificationManagerCompat.from(context).cancel(NOTIFICATION_ID)
+    }
+
+    private fun openAppAndAcknowledgePendingIntent(): PendingIntent {
+        val intent = Intent(context, MainActivity::class.java).apply {
+            action = Intent.ACTION_MAIN
+            addCategory(Intent.CATEGORY_LAUNCHER)
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra(MainActivity.EXTRA_ACKNOWLEDGE_ALARM, true)
+        }
+        return PendingIntent.getActivity(
+            context,
+            OPEN_APP_REQUEST_CODE,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+    }
+
+    private fun acknowledgePendingIntent(): PendingIntent {
+        val intent = Intent(context, AlarmAckReceiver::class.java).apply {
+            action = AlarmAckReceiver.ACTION_ACKNOWLEDGE
+        }
+        return PendingIntent.getBroadcast(
+            context,
+            ACKNOWLEDGE_REQUEST_CODE,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
     }
 
     private fun ensureChannel() {
@@ -60,5 +105,7 @@ class AlarmNotifier @Inject constructor(
     private companion object {
         const val CHANNEL_ID = "trio_glucose_alarms"
         const val NOTIFICATION_ID = 1001
+        const val OPEN_APP_REQUEST_CODE = 1002
+        const val ACKNOWLEDGE_REQUEST_CODE = 1003
     }
 }

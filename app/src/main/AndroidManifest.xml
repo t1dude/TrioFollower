@@ -57,6 +57,10 @@
             android:name=".sync.RefreshForegroundService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
+
+        <receiver
+            android:name=".data.notification.AlarmAckReceiver"
+            android:exported="false" />
     </application>
 
 </manifest>

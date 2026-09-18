@@ -12,4 +12,6 @@ data class TreatmentEntity(
     val carbsGrams: Double?,
     val durationMinutes: Double?,
     val basalRateUnitsPerHour: Double?,
+    val notes: String? = null,
+    val targetMgDl: Double? = null,
 )

@@ -163,6 +163,34 @@ class NightscoutRepositoryImpl @Inject constructor(
             }.onFailure { e ->
                 diagnosticLogger.logError(TAG, "Lifecycle events fetch failed (non-fatal)", e)
             }
+
+            // Isolated for the same reason as the lifecycle query above, and for the same reason:
+            // an override or temp target routinely started well outside the regular 24h window
+            // (a "Boost" override running right now may well have been activated yesterday).
+            runCatching {
+                val lookbackMillis = System.currentTimeMillis() - TimeUnit.DAYS.toMillis(ADJUSTMENT_LOOKBACK_DAYS)
+                val adjustmentDtos = ADJUSTMENT_EVENT_TYPES.flatMap { eventType ->
+                    val byDate = api.getAdjustments(
+                        bearerToken = bearer,
+                        eventType = eventType,
+                        sinceMillis = lookbackMillis,
+                    )
+                    val byCreatedAt = api.getAdjustmentsByCreatedAt(
+                        bearerToken = bearer,
+                        eventType = eventType,
+                        sinceMillis = lookbackMillis,
+                    )
+                    decodeResilient<TreatmentDto>("$TAG.Adjustments", byDate.result) +
+                        decodeResilient<TreatmentDto>("$TAG.Adjustments", byCreatedAt.result)
+                }.distinctBy { it.stableId }
+                val storedAdjustments = adjustmentDtos.mapNotNull { it.toEntity() }
+                treatmentDao.upsertAll(storedAdjustments)
+                storedAdjustments.size
+            }.onSuccess { count ->
+                diagnosticLogger.log(TAG, "Adjustments: stored=$count")
+            }.onFailure { e ->
+                diagnosticLogger.logError(TAG, "Adjustments fetch failed (non-fatal)", e)
+            }
             Unit
         }.onFailure { e ->
             diagnosticLogger.logError(TAG, "refresh() failed", e)
@@ -198,5 +226,6 @@ class NightscoutRepositoryImpl @Inject constructor(
         const val RETENTION_HOURS = 24L * 30
         const val LIFECYCLE_LOOKBACK_DAYS = 30L
         val LIFECYCLE_EVENT_TYPES = listOf("Site Change", "Sensor Start")
+        const val ADJUSTMENT_LOOKBACK_DAYS = 30L
     }
 }

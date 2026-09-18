@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
@@ -35,15 +36,19 @@ import com.trionsandroid.app.data.nightscout.DeviceStatusPoint
 import com.trionsandroid.app.data.nightscout.GlucoseReading
 import com.trionsandroid.app.data.nightscout.InsulinProfile
 import com.trionsandroid.app.data.nightscout.Treatment
+import com.trionsandroid.app.data.nightscout.isAdjustmentEventType
 import com.trionsandroid.app.data.nightscout.isBolusEventType
+import com.trionsandroid.app.data.nightscout.isTempTargetEventType
 import com.trionsandroid.app.data.settings.AlarmSettings
 import com.trionsandroid.app.data.settings.GlucoseUnit
 import com.trionsandroid.app.data.settings.format
+import com.trionsandroid.app.ui.theme.TrioAccentPurple
 import com.trionsandroid.app.ui.theme.TrioBasal
 import com.trionsandroid.app.ui.theme.TrioBolus
 import com.trionsandroid.app.ui.theme.TrioGlucoseHigh
 import com.trionsandroid.app.ui.theme.TrioGlucoseLow
 import com.trionsandroid.app.ui.theme.TrioIob
+import com.trionsandroid.app.ui.theme.TrioLoopGreen
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import java.time.Instant
@@ -51,6 +56,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.abs
+import kotlin.math.roundToInt
 
 private val Y_GRIDLINES_MGDL = listOf(50, 100, 150, 200, 250, 300)
 private const val Y_MIN_MGDL = 40f
@@ -73,6 +79,7 @@ private val GLUCOSE_AREA_HEIGHT = 180.dp
 private val GLUCOSE_TO_IOB_GAP = 8.dp
 private val IOB_STRIP_HEIGHT = 50.dp
 private val BOLUS_MARKER_TOP_MARGIN = 10.dp
+private val ADJUSTMENT_BAND_TOP_MARGIN = 10.dp
 
 // IOB_GAP_THRESHOLD_MILLIS lives in IobCalculator.kt, shared with the HUD's "current IOB" pill.
 private const val IOB_ESTIMATE_SAMPLE_INTERVAL_MILLIS = 5 * 60_000L
@@ -402,6 +409,57 @@ fun GlucoseChart(
                     radius = 3.dp.toPx(),
                     center = Offset(xFor(reading.timestamp.toEpochMilli()), yFor(reading.mgDl)),
                 )
+            }
+
+            // Adjustment overlays (overrides, temp targets) — matches Trio's OverrideView/
+            // TempTargetView chart elements: a thick translucent horizontal line spanning the
+            // adjustment's duration. Temp targets draw at their actual target value (Nightscout
+            // always has one — Trio uploads targetTop == targetBottom). Overrides never carry a
+            // target on Nightscout at all (see TreatmentDto's doc comment) — matching
+            // Nightscout's own classic chart (renderer.js's treatment-duration rects, which place
+            // target-less events in a fixed band with a text label rather than guessing a height),
+            // they're drawn as a labeled band near the top of the glucose area instead.
+            val adjustments = treatments.filter { treatment ->
+                if (!isAdjustmentEventType(treatment.eventType)) return@filter false
+                val start = treatment.timestamp.toEpochMilli()
+                val end = start + ((treatment.durationMinutes ?: 0.0) * 60_000).toLong()
+                end >= viewportStartMillis && start <= viewportEndMillis
+            }
+            adjustments.forEach { adjustment ->
+                val startMillis = adjustment.timestamp.toEpochMilli()
+                val endMillis = startMillis + ((adjustment.durationMinutes ?: 0.0) * 60_000).toLong()
+                val x1 = xFor(startMillis.coerceIn(viewportStartMillis, viewportEndMillis))
+                val x2 = xFor(endMillis.coerceIn(viewportStartMillis, viewportEndMillis))
+                val target = adjustment.targetMgDl
+                if (isTempTargetEventType(adjustment.eventType) && target != null) {
+                    val y = yFor(target.roundToInt())
+                    drawLine(
+                        color = TrioLoopGreen.copy(alpha = 0.4f),
+                        start = Offset(x1, y),
+                        end = Offset(x2, y),
+                        strokeWidth = 6.dp.toPx(),
+                        cap = StrokeCap.Round,
+                    )
+                } else {
+                    val y = glucoseTop + ADJUSTMENT_BAND_TOP_MARGIN.toPx()
+                    drawLine(
+                        color = TrioAccentPurple.copy(alpha = 0.5f),
+                        start = Offset(x1, y),
+                        end = Offset(x2, y),
+                        strokeWidth = 6.dp.toPx(),
+                        cap = StrokeCap.Round,
+                    )
+                    adjustment.notes?.takeIf { it.isNotBlank() }?.let { name ->
+                        val label = textMeasurer.measure(
+                            text = name,
+                            style = TextStyle(fontSize = 9.sp, color = TrioAccentPurple),
+                        )
+                        drawText(
+                            label,
+                            topLeft = Offset((x1 + x2) / 2f - label.size.width / 2f, y + 4.dp.toPx()),
+                        )
+                    }
+                }
             }
 
             // Bolus markers, pinned just above wherever the BG curve actually is at that moment

@@ -86,4 +86,29 @@ interface NightscoutDataApi {
         @Query("sort\$desc") sort: String = "created_at",
         @Query("limit") limit: Int = 1,
     ): NightscoutV3Envelope
+
+    /**
+     * Overrides ("Exercise") and temp targets ("Temporary Target") — unlike Site Change/Sensor
+     * Start, more than one of these can matter at a time (History wants the whole list, not just
+     * the latest), so this queries much further back than the regular 24h treatments window but
+     * with a real limit rather than 1.
+     */
+    @GET("api/v3/treatments")
+    suspend fun getAdjustments(
+        @Header("Authorization") bearerToken: String,
+        @Query("eventType\$eq") eventType: String,
+        @Query("date\$gte") sinceMillis: Long,
+        @Query("sort\$desc") sort: String = "date",
+        @Query("limit") limit: Int = 200,
+    ): NightscoutV3Envelope
+
+    /** See getAdjustments — same created_at fallback reason as treatments/devicestatus. */
+    @GET("api/v3/treatments")
+    suspend fun getAdjustmentsByCreatedAt(
+        @Header("Authorization") bearerToken: String,
+        @Query("eventType\$eq") eventType: String,
+        @Query("created_at\$gte") sinceMillis: Long,
+        @Query("sort\$desc") sort: String = "created_at",
+        @Query("limit") limit: Int = 200,
+    ): NightscoutV3Envelope
 }

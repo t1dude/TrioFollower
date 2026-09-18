@@ -21,18 +21,23 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.trionsandroid.app.data.nightscout.GlucoseReading
 import com.trionsandroid.app.data.nightscout.Treatment
+import com.trionsandroid.app.data.nightscout.isAdjustmentEventType
 import com.trionsandroid.app.data.nightscout.isBolusEventType
 import com.trionsandroid.app.data.nightscout.isExternalInsulinEventType
+import com.trionsandroid.app.data.nightscout.isOverrideEventType
 import com.trionsandroid.app.data.nightscout.isSmbEventType
 import com.trionsandroid.app.data.nightscout.isTempBasalEventType
 import com.trionsandroid.app.data.settings.AlarmSettings
 import com.trionsandroid.app.data.settings.GlucoseUnit
 import com.trionsandroid.app.data.settings.format
 import com.trionsandroid.app.ui.home.rangeColor
+import com.trionsandroid.app.ui.theme.TrioAccentPurple
 import com.trionsandroid.app.ui.theme.TrioCarb
 import com.trionsandroid.app.ui.theme.TrioInsulin
+import com.trionsandroid.app.ui.theme.TrioLoopGreen
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import kotlin.math.roundToInt
 
 // Includes the date, not just the time (unlike Trio's own history rows) — our History tab
 // observes a 30-day local cache, not Trio's ~24h-scoped fetches, so a bare time-of-day would be
@@ -162,7 +167,28 @@ fun LazyListScope.glucoseEntries(readings: List<GlucoseReading>, unit: GlucoseUn
     }
 }
 
-/** Overrides / temp targets — not implemented yet, left as an empty placeholder. */
-fun LazyListScope.adjustmentEntries() {
-    item { EmptyHistoryMessage("No adjustments yet.") }
+/** Overrides and temp targets, matching Trio's combined Adjustments list
+ *  (HistoryRootView+Adjustments.swift): dot + name + target (if any) + a start-end range instead
+ *  of a single timestamp, since an adjustment spans a duration rather than being instantaneous. */
+fun LazyListScope.adjustmentEntries(treatments: List<Treatment>, unit: GlucoseUnit) {
+    val adjustments = treatments.filter { isAdjustmentEventType(it.eventType) }
+    if (adjustments.isEmpty()) {
+        item { EmptyHistoryMessage("No adjustments yet.") }
+        return
+    }
+    items(adjustments, key = { it.id }) { treatment ->
+        val isOverride = isOverrideEventType(treatment.eventType)
+        val name = treatment.notes?.takeIf { it.isNotBlank() } ?: if (isOverride) "Override" else "Temp Target"
+        val value = treatment.targetMgDl?.let { "${unit.format(it.roundToInt())} ${unit.label}" }.orEmpty()
+        val endInstant = treatment.timestamp.plusSeconds(((treatment.durationMinutes ?: 0.0) * 60).toLong())
+        val range = "${timeFormatter.format(treatment.timestamp.atZone(ZoneId.systemDefault()))} – " +
+            timeFormatter.format(endInstant.atZone(ZoneId.systemDefault()))
+        HistoryEntryRow(
+            dotColor = if (isOverride) TrioAccentPurple else TrioLoopGreen,
+            label = name,
+            value = value,
+            timestamp = range,
+        )
+        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+    }
 }

@@ -50,6 +50,8 @@ fun TreatmentDto.toEntity(): TreatmentEntity? {
         carbsGrams = carbs,
         durationMinutes = duration,
         basalRateUnitsPerHour = absolute,
+        notes = notes,
+        targetMgDl = targetTop,
     )
 }
 
@@ -61,6 +63,8 @@ fun TreatmentEntity.toDomain(): Treatment = Treatment(
     carbsGrams = carbsGrams,
     durationMinutes = durationMinutes,
     basalRateUnitsPerHour = basalRateUnitsPerHour,
+    notes = notes,
+    targetMgDl = targetMgDl,
 )
 
 private const val DEFAULT_DIA_HOURS = 6.0

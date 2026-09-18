@@ -93,7 +93,7 @@ fun HistoryScreen(viewModel: HistoryViewModel = hiltViewModel()) {
                     HistoryMode.TREATMENTS -> treatmentEntries(uiState.treatments)
                     HistoryMode.MEALS -> mealEntries(uiState.treatments)
                     HistoryMode.GLUCOSE -> glucoseEntries(uiState.readings, uiState.glucoseUnit, uiState.alarms)
-                    HistoryMode.ADJUSTMENTS -> adjustmentEntries()
+                    HistoryMode.ADJUSTMENTS -> adjustmentEntries(uiState.treatments, uiState.glucoseUnit)
                 }
             }
         }

@@ -18,6 +18,14 @@ data class TreatmentDto(
     val duration: Double? = null,
     /** Temp basal absolute rate in U/hr. */
     val absolute: Double? = null,
+    /** The override/temp target's name/reason — the only place its name lives; see
+     *  NightscoutExercise/NightscoutTreatment in Trio's own upload code, which has no dedicated
+     *  name field. */
+    val notes: String? = null,
+    /** A temp target's target glucose value in mg/dL. Trio always uploads targetTop == targetBottom
+     *  (see TempTargetsStorage.swift); overrides never carry this — Trio's own upload model for
+     *  them (NightscoutExercise) simply has no target field at all. */
+    val targetTop: Double? = null,
 ) {
     val stableId: String get() = identifier ?: legacyId ?: "${date}_$eventType"
 }

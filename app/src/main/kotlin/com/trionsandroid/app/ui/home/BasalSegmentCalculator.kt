@@ -15,6 +15,11 @@ data class BasalSegment(
 private const val TEMP_BASAL_EVENT_TYPE = "Temp Basal"
 private const val DAY_MILLIS = 24 * 60 * 60 * 1000L
 
+// Generous enough to absorb normal loop-cycle upload jitter (Trio typically re-announces an
+// active temp basal every ~5 minutes) between two consecutive temp basals, without being so
+// wide it would bridge a genuine, longer return to scheduled/open-loop operation.
+private const val GRACE_PERIOD_MILLIS = 10 * 60 * 1000L
+
 /**
  * Builds the piecewise-constant basal rate over [viewportStartMillis, viewportEndMillis]: the
  * profile's repeating scheduled rate, overridden wherever a temp basal treatment is active.
@@ -77,16 +82,22 @@ fun computeBasalSegments(
         // Mirrors Trio's own resolution (BasalChart.swift calculateTempBasals): the
         // most-recently-*started* temp basal governs, superseding any earlier one immediately —
         // even across a small gap between two re-announcements of the same temp — rather than
-        // picking whichever overlapping entry happens to come first in the treatments list. Only
-        // falls back to the scheduled rate once that latest entry's own duration has elapsed.
+        // picking whichever overlapping entry happens to come first in the treatments list.
         // (Nightscout/OpenAPS re-uploads an active temp basal's "Temp Basal" treatment
         // periodically; the old firstOrNull-on-[start,end) logic could pick a stale superseded
-        // entry or land in a brief gap between re-announcements, producing phantom reversions to
-        // the scheduled rate — i.e. spikes — during what was actually a steady active temp.)
+        // entry, producing phantom reversions to the scheduled rate — i.e. spikes — during what
+        // was actually a steady active temp.)
+        //
+        // A GRACE_PERIOD_MILLIS tolerance past that temp's own nominal end absorbs ordinary
+        // announcement jitter between one temp basal ending and its successor's upload landing
+        // a couple of minutes late — without it, that brief gap falls through to the scheduled
+        // rate and shows up as its own short spike, even between two announcements of the exact
+        // same (e.g. zero) rate. Only a gap wider than the grace period is treated as a genuine
+        // return to scheduled/open-loop operation.
         val overriding = tempBasals
             .filter { (start, _, _) -> start <= midpoint }
             .maxByOrNull { (start, _, _) -> start }
-            ?.takeIf { (_, end, _) -> midpoint < end }
+            ?.takeIf { (_, end, _) -> midpoint < end + GRACE_PERIOD_MILLIS }
         val rate = overriding?.third ?: scheduledRateAt(midpoint)
         rawSegments.add(BasalSegment(segStart, segEnd, rate))
     }

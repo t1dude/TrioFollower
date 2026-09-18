@@ -43,7 +43,7 @@ import com.trionsandroid.app.data.settings.AlarmSettings
 import com.trionsandroid.app.data.settings.GlucoseUnit
 import com.trionsandroid.app.data.settings.TimeFormat
 import com.trionsandroid.app.data.settings.format
-import com.trionsandroid.app.data.settings.hourPattern
+import com.trionsandroid.app.data.settings.hourFormatter
 import com.trionsandroid.app.ui.theme.TrioAccentPurple
 import com.trionsandroid.app.ui.theme.TrioBasal
 import com.trionsandroid.app.ui.theme.TrioBolus
@@ -139,7 +139,7 @@ fun GlucoseChart(
     val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
     val gridColor = MaterialTheme.colorScheme.outline
     val lineColor = MaterialTheme.colorScheme.onSurfaceVariant
-    val hourFormatter = remember(timeFormat) { DateTimeFormatter.ofPattern(timeFormat.hourPattern()) }
+    val hourFormatter = remember(timeFormat) { timeFormat.hourFormatter() }
     val coroutineScope = rememberCoroutineScope()
 
     // Reserve exactly as much bottom space as the x-axis labels actually need, rather than a

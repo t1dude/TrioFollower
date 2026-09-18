@@ -18,7 +18,7 @@ import com.trionsandroid.app.data.logging.DiagnosticLogger
 import com.trionsandroid.app.data.nightscout.NightscoutRepository
 import com.trionsandroid.app.data.settings.SettingsRepository
 import com.trionsandroid.app.data.settings.format
-import com.trionsandroid.app.data.settings.timePattern
+import com.trionsandroid.app.data.settings.timeFormatter
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -109,9 +109,7 @@ class RefreshForegroundService : Service() {
                 // tell the loop is actually still ticking, without needing a fresh diagnostic log.
                 // Respects the user's 12h/24h Settings choice, unlike the diagnostic log line
                 // above (an internal, always-24h debug artifact, not something the user reads).
-                val notificationTimeFormatter = DateTimeFormatter.ofPattern(
-                    settingsRepository.settings.first().timeFormat.timePattern(),
-                )
+                val notificationTimeFormatter = settingsRepository.settings.first().timeFormat.timeFormatter()
                 updateNotification(
                     glucoseText = runCatching { latestGlucoseText() }.getOrNull(),
                     lastSyncText = "Last synced ${notificationTimeFormatter.format(LocalTime.now())}",

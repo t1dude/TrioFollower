@@ -24,8 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.trionsandroid.app.data.settings.dateTimePattern
-import java.time.format.DateTimeFormatter
+import com.trionsandroid.app.data.settings.dateTimeFormatter
 
 /** Mirrors Trio's History.Mode (HistoryDataFlow.swift): Treatments / Glucose / Meals /
  *  Adjustments, picked with a segmented control above the list. */
@@ -43,7 +42,7 @@ fun HistoryScreen(viewModel: HistoryViewModel = hiltViewModel()) {
     // Includes the date, not just the time (unlike Trio's own history rows) — History observes
     // a 30-day local cache, not Trio's ~24h-scoped fetches, so a bare time-of-day would be
     // ambiguous for older entries.
-    val timeFormatter = remember(uiState.timeFormat) { DateTimeFormatter.ofPattern(uiState.timeFormat.dateTimePattern()) }
+    val timeFormatter = remember(uiState.timeFormat) { uiState.timeFormat.dateTimeFormatter() }
 
     PullToRefreshBox(
         isRefreshing = uiState.isLoading,

@@ -9,7 +9,6 @@ import com.trionsandroid.app.data.settings.BackgroundMode
 import com.trionsandroid.app.data.settings.GlucoseUnit
 import com.trionsandroid.app.data.settings.SecureTokenStore
 import com.trionsandroid.app.data.settings.SettingsRepository
-import com.trionsandroid.app.data.settings.allowedRefreshIntervals
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -85,13 +84,16 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun onBackgroundModeChange(mode: BackgroundMode) {
-        viewModelScope.launch {
-            settingsRepository.setBackgroundMode(mode)
-            val allowed = mode.allowedRefreshIntervals()
-            if (uiState.value.refreshIntervalMinutes !in allowed) {
-                settingsRepository.setRefreshIntervalMinutes(allowed.first())
-            }
-        }
+        // Deliberately doesn't touch refreshIntervalMinutes here, even if the current value isn't
+        // in mode.allowedRefreshIntervals() for the newly selected mode. This used to clamp-and-
+        // persist a default (e.g. 15) on every switch, which permanently overwrote a value like
+        // "5" the user had chosen for Real-time — since 15 is *also* valid for Real-time, that
+        // overwrite never self-corrected on switching back, silently losing the real preference.
+        // BackgroundSyncScheduler.apply() already defensively coerces for WorkManager's 15-minute
+        // floor, so no schedule ever actually runs at an invalid interval; only the segmented
+        // button's selection state is affected, and it's fine for it to show nothing selected
+        // until the user explicitly picks an interval for the newly active mode.
+        viewModelScope.launch { settingsRepository.setBackgroundMode(mode) }
     }
 
     fun onAlarmSettingsChange(alarms: AlarmSettings) {

@@ -8,6 +8,7 @@ import android.app.Service
 import android.content.Intent
 import android.os.Build
 import android.os.IBinder
+import android.os.PowerManager
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.trionsandroid.app.MainActivity
@@ -49,6 +50,21 @@ class RefreshForegroundService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var loopJob: Job? = null
 
+    // A foreground service alone doesn't guarantee the OS lets its coroutine timers fire on
+    // schedule — confirmed via a diagnostic log where this service ran continuously for 2.5 hours
+    // with no restarts at all, yet delay(5 minutes) actually resumed after anywhere from 13 to 39
+    // minutes (only the very last of 7 cycles landed near the configured interval). That's Samsung
+    // One UI (and Doze-like power management generally) deprioritizing the process's CPU/timer
+    // scheduling despite the active foreground service and "Unrestricted" battery setting. Holding
+    // a partial wake lock for as long as the loop is running is the standard fix. setReferenceCounted(false)
+    // because acquire() is called idempotently (re-acquiring just refreshes the safety timeout).
+    private val wakeLock: PowerManager.WakeLock by lazy {
+        val powerManager = getSystemService(POWER_SERVICE) as PowerManager
+        powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "$packageName:RefreshForegroundService").apply {
+            setReferenceCounted(false)
+        }
+    }
+
     override fun onCreate() {
         super.onCreate()
         // A fresh onCreate() means a brand-new Service instance — the OS destroyed the previous
@@ -69,6 +85,9 @@ class RefreshForegroundService : Service() {
                 "hadRunningLoop=${loopJob?.isActive == true}",
         )
         startForeground(NOTIFICATION_ID, buildNotification(glucoseText = null, lastSyncText = "Not synced yet"))
+        // Refreshes the safety-timeout window on every (re)configuration; see the wakeLock's own
+        // doc comment for why this is held at all.
+        wakeLock.acquire(WAKE_LOCK_SAFETY_TIMEOUT_MILLIS)
 
         loopJob?.cancel()
         loopJob = scope.launch {
@@ -76,6 +95,9 @@ class RefreshForegroundService : Service() {
             var cycle = 0
             while (isActive) {
                 cycle++
+                // Re-acquiring (not just once up front) keeps the safety-timeout window comfortably
+                // ahead of the loop for as long as it keeps running, however many cycles that is.
+                wakeLock.acquire(WAKE_LOCK_SAFETY_TIMEOUT_MILLIS)
                 diagnosticLogger.log(TAG, "Cycle $cycle starting at ${TIME_FORMATTER.format(LocalTime.now())}")
                 runCatching {
                     nightscoutRepository.refresh()
@@ -98,6 +120,7 @@ class RefreshForegroundService : Service() {
     override fun onDestroy() {
         loopJob?.cancel()
         scope.cancel()
+        if (wakeLock.isHeld) wakeLock.release()
         diagnosticLogger.log(TAG, "Foreground sync service stopped")
         super.onDestroy()
     }
@@ -171,6 +194,11 @@ class RefreshForegroundService : Service() {
         private const val NOTIFICATION_ID = 42
         private const val OPEN_APP_REQUEST_CODE = 43
         private const val LATEST_READING_LOOKBACK_HOURS = 24L
+        // Comfortably longer than the slowest allowed real-time interval (30m, see
+        // BackgroundMode.allowedRefreshIntervals) so a legitimately slow-but-healthy loop never
+        // has its wake lock expire between two cycles — this is a leak safety net, not a
+        // scheduling mechanism; re-acquiring every cycle is what actually keeps it fresh.
+        private const val WAKE_LOCK_SAFETY_TIMEOUT_MILLIS = 45 * 60_000L
         private val TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm")
     }
 }

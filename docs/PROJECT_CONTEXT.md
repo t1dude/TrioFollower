@@ -124,8 +124,8 @@ All six original MVP milestones are implemented:
 4. Insulin/IOB overlay (devicestatus-sourced + local gap-fill fallback) — done
 5. Bubble/HUD visual redesign to match Trio (ring gradient, arrow, pill stacks, Material 3 cards) — done
 6. Background sync (WorkManager "battery friendly" + foreground-service "real-time" modes) +
-   alarm notifications — implemented; real-time mode's reliability issue has a root cause and a
-   fix shipped but not yet confirmed on-device, see below
+   alarm notifications — done; real-time mode's reliability issue is resolved and confirmed
+   on-device, see below
 
 Since, on top of the six milestones:
 - The real-time-mode notification shows the current glucose reading (value/unit/trend arrow) and
@@ -140,32 +140,34 @@ Since, on top of the six milestones:
 - App icon is now Nightscout's own owl logo (adaptive icon, white-on-navy, monochrome layer for
   Android 13+ themed icons) instead of the earlier placeholder droplet.
 
-## Background-sync reliability issue — root cause found, fix shipped, not yet confirmed on-device
+## Background-sync reliability issue — resolved, confirmed on-device
 
 Original symptom: **"Real-time" (foreground service) background mode appears to run exactly one
 sync cycle and then stop**, even though it's supposed to loop every N minutes indefinitely.
 
 **Root cause, confirmed against a real diagnostic log** (`trio-debug (9).log`, 2026-09-18,
-10:30–13:06, real-time mode at 5m): after a brief, benign startup burst (the user trying a few
-Settings combinations, each correctly and immediately reconfiguring scheduling — noisy in the log
-but not a bug), the service ran **continuously for 2.5 hours with zero restarts** (no further
-`Service onCreate`/`onStartCommand` at all) — ruling out "OS killing and restarting the service."
-But its `delay(5 minutes)` calls resumed after 13–39 minutes each (only 1 of 7 gaps landed near 5m,
-average ~22m), all cycles that *did* run completed successfully with no errors. So the loop itself
-was alive the whole time, just severely throttled: an active foreground service does **not**
-guarantee the OS lets its coroutine timers fire on schedule — Samsung One UI (and Doze-like power
-management generally) deprioritizes the process's CPU/timer scheduling regardless, and the app's
-battery setting already being "Unrestricted" (checked earlier) isn't sufficient on its own.
+10:30–13:06, real-time mode at 5m): the service ran **continuously for 2.5 hours with zero
+restarts** (no further `Service onCreate`/`onStartCommand` at all) — ruling out "OS killing and
+restarting the service." But its `delay(5 minutes)` calls resumed after 13–39 minutes each (only 1
+of 7 gaps landed near 5m), all cycles that *did* run completed successfully with no errors. So the
+loop itself was alive the whole time, just severely throttled: an active foreground service does
+**not** guarantee the OS lets its coroutine timers fire on schedule — Samsung One UI (and
+Doze-like power management generally) deprioritizes the process's CPU/timer scheduling regardless,
+and the app's battery setting already being "Unrestricted" (checked earlier) isn't sufficient on
+its own.
 
-**Fix shipped** (commit `04972d8`): `RefreshForegroundService` now holds a `PARTIAL_WAKE_LOCK` for
-as long as its loop is running (acquired on every `onStartCommand` and at the start of every
-cycle — idempotent, `setReferenceCounted(false)`; a 45-minute timeout is a leak safety net, not
-the scheduling mechanism), released in `onDestroy`. This is the standard fix for exactly this
-symptom. **Not yet confirmed working on-device** — pick this up by asking for a fresh diagnostic
-log after another ~15-20 minute real-time-mode test if one hasn't been provided since commit
-`04972d8`, and check the cycle-to-cycle gaps the same way the original diagnosis did.
+**Fix** (commit `04972d8`): `RefreshForegroundService` now holds a `PARTIAL_WAKE_LOCK` for as long
+as its loop is running (acquired on every `onStartCommand` and at the start of every cycle —
+idempotent, `setReferenceCounted(false)`; a 45-minute timeout is a leak safety net, not the
+scheduling mechanism), released in `onDestroy`.
 
-Separately, a real but likely-secondary bug was found and fixed along the way (commit `fd3b8ff`):
+**Confirmed fixed** against a follow-up diagnostic log (`trio-debug (10).log`, same day): the old
+pre-fix service instance showed the same erratic 6–39-minute gaps through 13:29, then a fresh
+`Service onCreate` at 13:29:22 (the rebuilt app installing) was followed by **12 consecutive
+cycles over a full hour, every single gap landing at ~5m 1s** (13:29→13:34→...→14:29), zero errors,
+zero restarts. Wake lock confirmed as the correct fix — no further action needed here.
+
+Separately, a real but likely-unrelated bug was found and fixed along the way (commit `fd3b8ff`):
 switching background mode in Settings used to silently and permanently clamp
 `refreshIntervalMinutes` down to the new mode's lowest allowed value (e.g. Real-time's 5m → 15m on
 a switch to Battery-friendly), never restoring it on switching back since 15m is valid for both

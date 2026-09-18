@@ -180,6 +180,14 @@ Since, on top of the six milestones:
 - `TreatmentEntity`/`TrioDatabase` bumped to schema v4 (destructive migration, already configured
   — this is a local cache, refetches automatically). `app/schemas/.../4.json` hasn't been generated
   yet in this repo — Room writes it on the next Gradle build; commit it once it appears.
+- Added a 12h/24h time format setting under Basic Settings (`TimeFormat` enum in
+  `data/settings/`, persisted like `GlucoseUnit`). Applied everywhere a clock time is displayed:
+  `GlucoseChart`'s x-axis hour ticks, History's row timestamps and adjustment ranges, and the
+  real-time notification's "Last synced" text — each builds its own `DateTimeFormatter` from
+  `TimeFormat.timePattern()`/`dateTimePattern()`/`hourPattern()` rather than duplicating pattern
+  logic. Deliberately *not* applied to `DiagnosticLogger`'s log-file timestamps (an internal
+  debug artifact, not a screen) or any relative/duration text (bubble's "Xm ago", HUD's pump/
+  sensor countdowns).
 
 ## Background-sync reliability issue — resolved, confirmed on-device
 

@@ -36,6 +36,8 @@ displays Trio's loop, it doesn't control the pump or the algorithm.
 **Settings**
 - Nightscout URL + access token, with a connection test
 - Glucose units: mg/dL or mmol/L
+- Time format: 12-hour or 24-hour, applied everywhere a clock time is shown (chart axis, History
+  rows, the real-time sync notification)
 - Background sync mode: battery-friendly (WorkManager, 15+ minute floor) or real-time (a
   foreground service polling as often as every minute), with a configurable refresh interval and
   an ongoing notification showing the current glucose and last sync time in real-time mode

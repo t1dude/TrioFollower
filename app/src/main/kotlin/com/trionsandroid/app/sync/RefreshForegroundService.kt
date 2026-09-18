@@ -3,16 +3,20 @@ package com.trionsandroid.app.sync
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import com.trionsandroid.app.MainActivity
 import com.trionsandroid.app.R
 import com.trionsandroid.app.data.alarm.AlarmCheckRunner
 import com.trionsandroid.app.data.logging.DiagnosticLogger
 import com.trionsandroid.app.data.nightscout.NightscoutRepository
+import com.trionsandroid.app.data.settings.SettingsRepository
+import com.trionsandroid.app.data.settings.format
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -20,10 +24,12 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
 /**
@@ -37,6 +43,7 @@ class RefreshForegroundService : Service() {
 
     @Inject lateinit var nightscoutRepository: NightscoutRepository
     @Inject lateinit var alarmCheckRunner: AlarmCheckRunner
+    @Inject lateinit var settingsRepository: SettingsRepository
     @Inject lateinit var diagnosticLogger: DiagnosticLogger
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -61,7 +68,7 @@ class RefreshForegroundService : Service() {
             "onStartCommand startId=$startId intent=${if (intent == null) "null (likely a START_STICKY restart)" else "explicit"} " +
                 "hadRunningLoop=${loopJob?.isActive == true}",
         )
-        startForeground(NOTIFICATION_ID, buildNotification(lastSyncText = "not synced yet"))
+        startForeground(NOTIFICATION_ID, buildNotification(glucoseText = null, lastSyncText = "Not synced yet"))
 
         loopJob?.cancel()
         loopJob = scope.launch {
@@ -74,10 +81,13 @@ class RefreshForegroundService : Service() {
                     nightscoutRepository.refresh()
                     alarmCheckRunner.checkAndNotify()
                 }.onFailure { diagnosticLogger.logError(TAG, "Foreground sync cycle failed", it) }
-                // Updates the ongoing notification with the last sync time on every cycle,
-                // successful or not — this doubles as a live, always-visible way to tell the
-                // loop is actually still ticking, without needing a fresh diagnostic log.
-                updateNotification("last synced ${TIME_FORMATTER.format(LocalTime.now())}")
+                // Updates the ongoing notification with the current glucose and last sync time on
+                // every cycle, successful or not — this doubles as a live, always-visible way to
+                // tell the loop is actually still ticking, without needing a fresh diagnostic log.
+                updateNotification(
+                    glucoseText = runCatching { latestGlucoseText() }.getOrNull(),
+                    lastSyncText = "Last synced ${TIME_FORMATTER.format(LocalTime.now())}",
+                )
                 delay(intervalMinutes * 60_000L)
             }
             diagnosticLogger.log(TAG, "Loop exited after cycle $cycle (isActive became false)")
@@ -103,17 +113,45 @@ class RefreshForegroundService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
-    private fun buildNotification(lastSyncText: String): Notification =
+    private fun buildNotification(glucoseText: String?, lastSyncText: String): Notification =
         NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentTitle("TrioNS syncing")
-            .setContentText("Watching your glucose in the background — $lastSyncText")
+            .setContentTitle(glucoseText ?: "TrioNS syncing")
+            .setContentText(lastSyncText)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOngoing(true)
+            .setContentIntent(openAppPendingIntent())
             .build()
 
-    private fun updateNotification(lastSyncText: String) {
-        NotificationManagerCompat.from(this).notify(NOTIFICATION_ID, buildNotification(lastSyncText))
+    private fun updateNotification(glucoseText: String?, lastSyncText: String) {
+        NotificationManagerCompat.from(this).notify(NOTIFICATION_ID, buildNotification(glucoseText, lastSyncText))
+    }
+
+    /** e.g. "128 mg/dL ↗", matching the format used elsewhere (AlarmNotifier, GlucoseBubble). */
+    private suspend fun latestGlucoseText(): String? {
+        val sinceMillis = System.currentTimeMillis() - TimeUnit.HOURS.toMillis(LATEST_READING_LOOKBACK_HOURS)
+        val latest = nightscoutRepository.observeGlucoseEntries(sinceMillis).first().maxByOrNull { it.timestamp }
+            ?: return null
+        val unit = settingsRepository.settings.first().glucoseUnit
+        return "${unit.format(latest.mgDl)} ${unit.label} ${latest.trend.arrow}"
+    }
+
+    // Tapping the notification opens/foregrounds MainActivity and asks it to trigger a fresh
+    // refresh (see MainActivity.EXTRA_REFRESH_ON_OPEN) rather than just showing whatever the
+    // last background cycle happened to fetch.
+    private fun openAppPendingIntent(): PendingIntent {
+        val intent = Intent(this, MainActivity::class.java).apply {
+            action = Intent.ACTION_MAIN
+            addCategory(Intent.CATEGORY_LAUNCHER)
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra(MainActivity.EXTRA_REFRESH_ON_OPEN, true)
+        }
+        return PendingIntent.getActivity(
+            this,
+            OPEN_APP_REQUEST_CODE,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
     }
 
     private fun ensureChannel() {
@@ -131,6 +169,8 @@ class RefreshForegroundService : Service() {
         private const val TAG = "RefreshForegroundService"
         private const val CHANNEL_ID = "trio_sync_service"
         private const val NOTIFICATION_ID = 42
+        private const val OPEN_APP_REQUEST_CODE = 43
+        private const val LATEST_READING_LOOKBACK_HOURS = 24L
         private val TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm")
     }
 }

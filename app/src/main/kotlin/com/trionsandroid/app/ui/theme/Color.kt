@@ -36,6 +36,10 @@ val TrioLoopGreen = Color(0xFF6FCF97)
 val TrioLoopRed = Color(0xFFEB5757)
 val TrioWarningOrange = Color(0xFFFF9500)
 
+// Carb entries in the History tab — matches Trio's Color.loopYellow asset colorset (dark
+// appearance: srgb 1.000/0.757/0.271) exactly.
+val TrioCarb = Color(0xFFFFC145)
+
 // Glucose bubble ring gradient — the exact 5-stop AngularGradient from Trio's
 // CurrentGlucoseView.swift (purple sweeping through to blue and back to purple). The trend arrow
 // triangle reuses the gradient's blue end (its fixed `triangleColor`).

@@ -35,6 +35,7 @@ import com.trionsandroid.app.data.nightscout.DeviceStatusPoint
 import com.trionsandroid.app.data.nightscout.GlucoseReading
 import com.trionsandroid.app.data.nightscout.InsulinProfile
 import com.trionsandroid.app.data.nightscout.Treatment
+import com.trionsandroid.app.data.nightscout.isBolusEventType
 import com.trionsandroid.app.data.settings.AlarmSettings
 import com.trionsandroid.app.data.settings.GlucoseUnit
 import com.trionsandroid.app.data.settings.format
@@ -65,17 +66,6 @@ private val BOTTOM_LABEL_GAP = 4.dp
 private val BOTTOM_SAFETY_MARGIN = 6.dp
 private val hourFormatter = DateTimeFormatter.ofPattern("HH")
 private val dayFormatter = DateTimeFormatter.ofPattern("dd.MM")
-
-// "Bolus" substring catches Correction/Meal/Snack/Combo Bolus etc. across uploaders, but Trio
-// itself (see PumpHistoryStorage.swift's determineBolusEventType) uploads SMB and manually
-// administered doses under eventType "SMB" / "External Insulin" specifically — neither contains
-// "Bolus", so they need an explicit match alongside the substring heuristic.
-private const val BOLUS_EVENT_TYPE_SUBSTRING = "Bolus"
-private val EXACT_BOLUS_EVENT_TYPES = setOf("SMB", "External Insulin")
-
-private fun isBolusEventType(eventType: String): Boolean =
-    eventType.contains(BOLUS_EVENT_TYPE_SUBSTRING, ignoreCase = true) ||
-        EXACT_BOLUS_EVENT_TYPES.any { it.equals(eventType, ignoreCase = true) }
 
 private val BASAL_STRIP_HEIGHT = 40.dp
 private val STRIP_TO_GLUCOSE_GAP = 8.dp

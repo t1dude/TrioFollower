@@ -10,6 +10,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.compose.runtime.getValue
+import com.trionsandroid.app.ui.history.HistoryScreen
 import com.trionsandroid.app.ui.home.HomeScreen
 import com.trionsandroid.app.ui.settings.SettingsScreen
 
@@ -42,6 +43,7 @@ fun TrioNavHost(navController: NavHostController = rememberNavController()) {
             modifier = Modifier.padding(innerPadding),
         ) {
             composable(TrioDestination.Home.route) { HomeScreen() }
+            composable(TrioDestination.History.route) { HistoryScreen() }
             composable(TrioDestination.Settings.route) { SettingsScreen() }
         }
     }

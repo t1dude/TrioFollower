@@ -2,6 +2,7 @@ package com.trionsandroid.app.ui.home
 
 import com.trionsandroid.app.data.nightscout.InsulinProfile
 import com.trionsandroid.app.data.nightscout.Treatment
+import com.trionsandroid.app.data.nightscout.isTempBasalEventType
 import java.time.Instant
 import java.time.ZoneId
 import kotlin.math.abs
@@ -12,7 +13,6 @@ data class BasalSegment(
     val rateUnitsPerHour: Double,
 )
 
-private const val TEMP_BASAL_EVENT_TYPE = "Temp Basal"
 private const val DAY_MILLIS = 24 * 60 * 60 * 1000L
 
 // Generous enough to absorb normal loop-cycle upload jitter (Trio typically re-announces an
@@ -36,7 +36,7 @@ fun computeBasalSegments(
     if (viewportEndMillis <= viewportStartMillis) return emptyList()
 
     val tempBasals = treatments
-        .filter { it.eventType == TEMP_BASAL_EVENT_TYPE }
+        .filter { isTempBasalEventType(it.eventType) }
         .mapNotNull { treatment ->
             val rate = treatment.basalRateUnitsPerHour ?: return@mapNotNull null
             val durationMillis = treatment.durationMinutes?.let { (it * 60_000).toLong() } ?: return@mapNotNull null
@@ -135,7 +135,7 @@ fun basalDomainMaxRate(
     val domainStartMillis = nowMillis - DOMAIN_MAX_LOOKBACK_HOURS * 60 * 60 * 1000L
     val recentTempMax = treatments
         .asSequence()
-        .filter { it.eventType == TEMP_BASAL_EVENT_TYPE && it.timestamp.toEpochMilli() >= domainStartMillis }
+        .filter { isTempBasalEventType(it.eventType) && it.timestamp.toEpochMilli() >= domainStartMillis }
         .mapNotNull { it.basalRateUnitsPerHour }
         .maxOrNull() ?: 0.0
     val profileMax = profile?.basalSchedule?.maxOfOrNull { it.rateUnitsPerHour } ?: 0.0

@@ -9,11 +9,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -24,12 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.trionsandroid.app.data.nightscout.Treatment
 import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-
-private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
 
 @Composable
 fun HomeScreen(viewModel: HomeViewModel = hiltViewModel()) {
@@ -119,21 +112,6 @@ fun HomeScreen(viewModel: HomeViewModel = hiltViewModel()) {
                 }
             }
 
-            if (uiState.treatments.isNotEmpty()) {
-                item {
-                    Text(
-                        text = "Treatments (last 24h)",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onBackground,
-                        modifier = Modifier.padding(top = 16.dp, bottom = 8.dp),
-                    )
-                }
-                items(uiState.treatments, key = { it.id }) { treatment ->
-                    TreatmentRow(treatment)
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
-                }
-            }
-
             if (!uiState.isLoading && uiState.readings.isEmpty() && uiState.errorMessage == null) {
                 item {
                     Text(
@@ -144,32 +122,5 @@ fun HomeScreen(viewModel: HomeViewModel = hiltViewModel()) {
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun TreatmentRow(treatment: Treatment) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Text(
-            text = timeFormatter.format(treatment.timestamp.atZone(ZoneId.systemDefault())),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-            text = treatment.eventType,
-            color = MaterialTheme.colorScheme.onBackground,
-        )
-        Text(
-            text = buildString {
-                treatment.insulinUnits?.let { append("${it}U ") }
-                treatment.carbsGrams?.let { append("${it}g ") }
-                treatment.basalRateUnitsPerHour?.let { append("${it}U/hr") }
-            }.trim(),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
     }
 }

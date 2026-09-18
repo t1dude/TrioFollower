@@ -92,6 +92,16 @@ these against ground truth rather than guessing. If the source isn't present, fe
 - **Bubble arrow rotation**: matches Trio's `CurrentGlucoseView.swift` exactly — the ring and the
   trend triangle rotate together as one rigid unit (not independently), degrees per direction:
   flat=0, up=-90, 45up=-45, 45down=45, down=90.
+- **Basal chart** (`BasalSegmentCalculator.kt`/`GlucoseChart.kt`, verified against Trio's
+  `BasalChart.swift`): (1) which temp basal rate applies at a given moment is resolved by
+  "most-recently-*started* temp basal governs, until its own duration elapses" — **not** "the
+  temp basal whose [start,end) window contains this moment," which can pick a stale superseded
+  entry or land in a gap between Nightscout's periodic re-announcements of the same active temp,
+  producing phantom reversions to the scheduled rate (`computeBasalSegments`'s `overriding`
+  logic). (2) The strip's y-axis ceiling (`basalDomainMaxRate`) is the max of recent (24h) temp
+  rates and the profile's scheduled rates — always computed independent of whatever range the
+  chart is currently zoomed/panned to (matches Trio's `basalDomainMax`), otherwise minor rate
+  variations get visually exaggerated whenever the visible window excludes the day's peak rate.
 - **SwiftUI `AngularGradient` angle convention** (bit us twice — two wrong rotation values shipped
   before this was pinned down): 0° is 3 o'clock (East), positive angles sweep clockwise, same as
   Compose's `sweepGradient` — **not** 0°=top as first assumed. So Trio's ring gradient

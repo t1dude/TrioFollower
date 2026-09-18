@@ -2,14 +2,12 @@ package com.trionsandroid.app.ui.home
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Card
@@ -26,11 +24,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import java.time.Instant
 
-// The bubble is a fixed 208dp (GlucoseBubble.BUBBLE_CANVAS_SIZE — matches Trio's own sizing
-// exactly, not something to shrink to fit). Comfortably fitting it beside two ~95dp-wide pill
-// stacks (reservoir/IOB text can run a bit long, e.g. "50+ U") plus their 12dp gaps needs
-// roughly 208 + 2*(95+12) ≈ 422dp of card width — rounded up for a little headroom.
-private val HUD_SIDE_BY_SIDE_MIN_WIDTH = 430.dp
+// Floor so the bubble never shrinks past legibility on a pathologically narrow screen — in
+// practice the pill stacks alone are nowhere near wide enough to force this.
+private val MIN_BUBBLE_SIZE = 140.dp
 
 @Composable
 fun HomeScreen(viewModel: HomeViewModel = hiltViewModel()) {
@@ -79,51 +75,36 @@ fun HomeScreen(viewModel: HomeViewModel = hiltViewModel()) {
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                 ) {
-                    // A FlowRow here (tried first) centers each of its own lines independently,
-                    // so when the stacks didn't fit beside the bubble it split them apart — one
-                    // stayed beside the bubble (shifting it off-center), the other wrapped below
-                    // alone. Measuring available width up front instead keeps the bubble always
-                    // dead-center: side by side with both stacks when there's room (the original,
-                    // Trio-matched layout — fits the wide unfolded screen this was tuned against),
-                    // or the bubble alone with both stacks moving together as a pair below it when
-                    // there isn't (a standard phone).
-                    BoxWithConstraints(
+                    // Two width-threshold-guessing attempts before this one both misjudged
+                    // available width (one relied on a hidden horizontalScroll that read as
+                    // cropped content; the next used a hardcoded Dp threshold that made the wrong
+                    // call even on a wide unfolded screen). This drops estimating entirely: the
+                    // pill stacks always keep their natural width and always stay beside the
+                    // bubble, and the bubble's container gets weight(1f) — whatever width is
+                    // actually left over after the stacks, measured for real via
+                    // BoxWithConstraints — clamped to Trio's original 208dp as a ceiling (so it
+                    // doesn't balloon on a very wide screen) and MIN_BUBBLE_SIZE as a legibility
+                    // floor. The ring/triangle/text inside GlucoseBubble scale together with it.
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(vertical = 16.dp, horizontal = 8.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        val fitsSideBySide = maxWidth >= HUD_SIDE_BY_SIDE_MIN_WIDTH
-                        val bubble = @Composable {
-                            GlucoseBubble(
-                                latest = latest,
-                                previous = previous,
-                                unit = uiState.glucoseUnit,
-                                alarms = uiState.alarms,
-                            )
-                        }
-                        if (fitsSideBySide) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.Center,
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                PumpHudStackLeft(state = hudState, modifier = Modifier.padding(end = 12.dp))
-                                bubble()
-                                PumpHudStackRight(state = hudState, modifier = Modifier.padding(start = 12.dp))
-                            }
-                        } else {
-                            Column(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                            ) {
-                                bubble()
-                                Spacer(Modifier.height(12.dp))
-                                Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                                    PumpHudStackLeft(state = hudState)
-                                    PumpHudStackRight(state = hudState)
-                                }
+                        PumpHudStackLeft(state = hudState, modifier = Modifier.padding(end = 12.dp))
+                        Box(modifier = Modifier.weight(1f, fill = false), contentAlignment = Alignment.Center) {
+                            BoxWithConstraints {
+                                GlucoseBubble(
+                                    latest = latest,
+                                    previous = previous,
+                                    unit = uiState.glucoseUnit,
+                                    alarms = uiState.alarms,
+                                    size = maxWidth.coerceIn(MIN_BUBBLE_SIZE, DEFAULT_BUBBLE_SIZE),
+                                )
                             }
                         }
+                        PumpHudStackRight(state = hudState, modifier = Modifier.padding(start = 12.dp))
                     }
                 }
             }

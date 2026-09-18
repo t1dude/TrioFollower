@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate as rotateDrawScope
 import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.trionsandroid.app.data.nightscout.GlucoseReading
@@ -34,13 +35,16 @@ import java.time.Instant
 import kotlin.math.abs
 
 // Sizes match Trio's CurrentGlucoseView.swift CircleShape/TriangleShape exactly (130pt ring, 6pt
-// stroke, 35pt triangle offset 85pt from center). BUBBLE_CANVAS_SIZE is sized to fully contain
-// the triangle at any rotation (2 * (offset + size/2) = 205dp) without clipping it.
-private val RING_DIAMETER = 130.dp
-private val RING_STROKE_WIDTH = 6.dp
-private val TRIANGLE_SIZE = 35.dp
-private val TRIANGLE_OFFSET = 85.dp
-private val BUBBLE_CANVAS_SIZE = 208.dp
+// stroke, 35pt triangle offset 85pt from center) at the DEFAULT_BUBBLE_SIZE. BUBBLE_CANVAS_SIZE
+// is sized to fully contain the triangle at any rotation (2 * (offset + size/2) = 205dp) without
+// clipping it. When [GlucoseBubble] is asked for a different [size] (there's no room for the full
+// size beside the HUD pill stacks — see HomeScreen.kt), every one of these is scaled by the same
+// factor so the ring/triangle/text proportions stay exactly Trio's, just smaller as a whole.
+val DEFAULT_BUBBLE_SIZE = 208.dp
+private const val RING_DIAMETER_RATIO = 130f / 208f
+private const val RING_STROKE_WIDTH_RATIO = 6f / 208f
+private const val TRIANGLE_SIZE_RATIO = 35f / 208f
+private const val TRIANGLE_OFFSET_RATIO = 85f / 208f
 
 @Composable
 fun GlucoseBubble(
@@ -49,20 +53,27 @@ fun GlucoseBubble(
     unit: GlucoseUnit,
     alarms: AlarmSettings,
     modifier: Modifier = Modifier,
+    size: Dp = DEFAULT_BUBBLE_SIZE,
 ) {
-    Box(modifier = modifier.size(BUBBLE_CANVAS_SIZE), contentAlignment = Alignment.Center) {
+    val ringDiameter = size * RING_DIAMETER_RATIO
+    val ringStrokeWidth = size * RING_STROKE_WIDTH_RATIO
+    val triangleSize = size * TRIANGLE_SIZE_RATIO
+    val triangleOffset = size * TRIANGLE_OFFSET_RATIO
+    val scale = size / DEFAULT_BUBBLE_SIZE
+
+    Box(modifier = modifier.size(size), contentAlignment = Alignment.Center) {
         // Ring + trend triangle are drawn together and rotated as one rigid unit, mirroring
         // Trio's TrendShape(...).rotationEffect(...) — the gradient's "seam" moving with the
         // arrow is intentional, not an artifact.
         Canvas(
             modifier = Modifier
-                .size(BUBBLE_CANVAS_SIZE)
+                .size(size)
                 .rotate(latest?.trend?.rotationDegrees ?: 0f),
         ) {
-            val ringRadiusPx = RING_DIAMETER.toPx() / 2f
-            val strokePx = RING_STROKE_WIDTH.toPx()
-            val trianglePx = TRIANGLE_SIZE.toPx()
-            val triangleOffsetPx = TRIANGLE_OFFSET.toPx()
+            val ringRadiusPx = ringDiameter.toPx() / 2f
+            val strokePx = ringStrokeWidth.toPx()
+            val trianglePx = triangleSize.toPx()
+            val triangleOffsetPx = triangleOffset.toPx()
 
             // SwiftUI's AngularGradient angle convention: 0° is 3 o'clock (East), positive angles
             // sweep clockwise (confirmed against Apple's docs, not assumed) — the same convention
@@ -103,7 +114,7 @@ fun GlucoseBubble(
         // matching Trio's ZStack, where only TrendShape carries the rotationEffect.
         Box(
             modifier = Modifier
-                .size(RING_DIAMETER - RING_STROKE_WIDTH)
+                .size(ringDiameter - ringStrokeWidth)
                 .clip(CircleShape)
                 .background(MaterialTheme.colorScheme.background),
             contentAlignment = Alignment.Center,
@@ -111,28 +122,28 @@ fun GlucoseBubble(
             if (latest == null) {
                 Text(
                     text = "--",
-                    fontSize = 36.sp,
+                    fontSize = 36.sp * scale,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             } else {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
                         text = unit.format(latest.mgDl),
-                        fontSize = 40.sp,
+                        fontSize = 40.sp * scale,
                         fontWeight = FontWeight.Bold,
                         color = rangeColor(latest.mgDl, alarms),
                     )
                     Row {
                         Text(
                             text = minutesAgoLabel(latest.timestamp),
-                            fontSize = 13.sp,
+                            fontSize = 13.sp * scale,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         if (previous != null) {
                             Text(
                                 text = "  ${deltaLabel(latest, previous, unit)}",
-                                fontSize = 13.sp,
+                                fontSize = 13.sp * scale,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )

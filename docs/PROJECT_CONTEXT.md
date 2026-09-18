@@ -124,7 +124,8 @@ All six original MVP milestones are implemented:
 4. Insulin/IOB overlay (devicestatus-sourced + local gap-fill fallback) — done
 5. Bubble/HUD visual redesign to match Trio (ring gradient, arrow, pill stacks, Material 3 cards) — done
 6. Background sync (WorkManager "battery friendly" + foreground-service "real-time" modes) +
-   alarm notifications — implemented, **but see Known Issue below, not yet confirmed working**
+   alarm notifications — implemented; real-time mode's reliability issue has a root cause and a
+   fix shipped but not yet confirmed on-device, see below
 
 Since, on top of the six milestones:
 - The real-time-mode notification shows the current glucose reading (value/unit/trend arrow) and
@@ -139,50 +140,37 @@ Since, on top of the six milestones:
 - App icon is now Nightscout's own owl logo (adaptive icon, white-on-navy, monochrome layer for
   Android 13+ themed icons) instead of the earlier placeholder droplet.
 
-## Known issue in progress (as of commit `2b2bdc7`)
+## Background-sync reliability issue — root cause found, fix shipped, not yet confirmed on-device
 
-**"Real-time" (foreground service) background mode appears to run exactly one sync cycle and
-then stop**, even though it's supposed to loop every N minutes indefinitely. Reproduced twice:
-once over ~90 minutes, once over ~7 minutes past the expected next cycle — in both cases the
-ongoing notification's "last synced" time froze after one update rather than advancing.
+Original symptom: **"Real-time" (foreground service) background mode appears to run exactly one
+sync cycle and then stop**, even though it's supposed to loop every N minutes indefinitely.
 
-Ruled out so far:
-- Not the foreground service dying outright — the *service* (and its notification) persisted;
-  it's the internal refresh loop that stopped advancing.
-- Confirmed the device (Samsung Galaxy Z Fold 8 / One UI) had the app's battery setting already
-  set to "Unrestricted" before the second reproduction — problem persisted anyway, so this is
-  either not a (pure) Samsung battery-management issue, or that setting alone isn't sufficient.
-- The `distinctUntilChangedBy { backgroundMode to refreshIntervalMinutes }` guard in
-  `TrioNSApplication.onCreate()` was checked and should correctly prevent `AlarmStateStore`
-  writes (which share the same DataStore file as `SettingsRepositoryImpl`) from spuriously
-  re-triggering `BackgroundSyncScheduler.apply()` — reasoned through, not yet proven with a log.
+**Root cause, confirmed against a real diagnostic log** (`trio-debug (9).log`, 2026-09-18,
+10:30–13:06, real-time mode at 5m): after a brief, benign startup burst (the user trying a few
+Settings combinations, each correctly and immediately reconfiguring scheduling — noisy in the log
+but not a bug), the service ran **continuously for 2.5 hours with zero restarts** (no further
+`Service onCreate`/`onStartCommand` at all) — ruling out "OS killing and restarting the service."
+But its `delay(5 minutes)` calls resumed after 13–39 minutes each (only 1 of 7 gaps landed near 5m,
+average ~22m), all cycles that *did* run completed successfully with no errors. So the loop itself
+was alive the whole time, just severely throttled: an active foreground service does **not**
+guarantee the OS lets its coroutine timers fire on schedule — Samsung One UI (and Doze-like power
+management generally) deprioritizes the process's CPU/timer scheduling regardless, and the app's
+battery setting already being "Unrestricted" (checked earlier) isn't sufficient on its own.
 
-Not yet ruled out / next steps: commit `2b2bdc7` added logging specifically to distinguish two
-remaining hypotheses without more guessing:
-- **OS killing and restarting the service** (each restart doing exactly one cycle before being
-  killed again) — would show a fresh `"Service onCreate"` and/or `"onStartCommand ... intent=null
-  (likely a START_STICKY restart)"` recurring roughly every cycle interval.
-- **The coroutine loop itself hanging** (most likely `delay()` never resuming, or the scope
-  getting cancelled some other way) — would show only one `onCreate`/`onStartCommand`, with
-  `"Cycle N starting at HH:mm"` lines simply stopping after cycle 1 and no `"Loop exited"` line
-  either.
+**Fix shipped** (commit `04972d8`): `RefreshForegroundService` now holds a `PARTIAL_WAKE_LOCK` for
+as long as its loop is running (acquired on every `onStartCommand` and at the start of every
+cycle — idempotent, `setReferenceCounted(false)`; a 45-minute timeout is a leak safety net, not
+the scheduling mechanism), released in `onDestroy`. This is the standard fix for exactly this
+symptom. **Not yet confirmed working on-device** — pick this up by asking for a fresh diagnostic
+log after another ~15-20 minute real-time-mode test if one hasn't been provided since commit
+`04972d8`, and check the cycle-to-cycle gaps the same way the original diagnosis did.
 
-**New lead worth checking against the next log, found since** (commit `fd3b8ff`): a real, separate
-bug was found where switching background mode in Settings silently and permanently clamped
-`refreshIntervalMinutes` down to whatever the newly-selected mode's lowest allowed value was (e.g.
-Real-time's 5m → 15m on a switch to Battery-friendly), and switching back never restored it, since
-15m is valid for both modes. Fixed by no longer persisting that clamp
-(`SettingsViewModel.onBackgroundModeChange`). It's plausible earlier reproductions of the "loop
-stops after one cycle" symptom were partly or wholly this bug instead — e.g. an earlier session's
-own testing/mode-switching silently changed the interval to something much longer than expected,
-making the loop look "stopped" when it just hadn't reached its (longer than assumed) next cycle
-yet. Worth explicitly ruling in/out on the next fresh log rather than assumed fixed — the ~90
-minute reproduction in particular doesn't fully fit (even a 15-minute cadence should have advanced
-several times in that window), so this likely doesn't explain everything on its own.
-
-**Waiting on**: a fresh diagnostic log from the user after another ~15-20 minute test with
-Real-time mode active, to read off which of the two patterns above actually shows up. Pick this up
-by asking for that log if it hasn't been provided yet, or reading it if it has.
+Separately, a real but likely-secondary bug was found and fixed along the way (commit `fd3b8ff`):
+switching background mode in Settings used to silently and permanently clamp
+`refreshIntervalMinutes` down to the new mode's lowest allowed value (e.g. Real-time's 5m → 15m on
+a switch to Battery-friendly), never restoring it on switching back since 15m is valid for both
+modes. Worth keeping in mind if a future log ever shows a suspiciously long interval that doesn't
+match what the user thinks they configured.
 
 ## Working style / preferences (read before doing anything non-trivial)
 

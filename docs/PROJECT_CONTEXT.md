@@ -1,9 +1,10 @@
 # TrioNSAndroid — project context
 
-Written 2026-08-28 to let a fresh Claude session (possibly on a different computer) pick up
-where this one left off. If you're reading this at the start of a new session: read this whole
-file before touching code, then check `git log --oneline -20` for anything more recent than what's
-described here.
+Written 2026-08-28, refreshed 2026-09-18, to let a fresh Claude session (possibly on a different
+computer) pick up where this one left off. If you're reading this at the start of a new session:
+read this whole file before touching code, then check `git log --oneline -20` for anything more
+recent than what's described here. See also [`README.md`](../README.md) for the user-facing
+overview (use case, features, tech stack) — this doc is the implementation-detail companion to it.
 
 ## What this is
 
@@ -38,8 +39,8 @@ data/nightscout/   domain models + NightscoutRepository (fetch/cache orchestrati
 data/remote/       Retrofit API interface + DTOs
 data/local/        Room entities/DAOs/Database
 data/settings/     UserSettings/AlarmSettings + DataStore-backed repository
-data/alarm/        AlarmZone evaluation, AlarmStateStore, AlarmCheckRunner
-data/notification/ AlarmNotifier
+data/alarm/        AlarmZone evaluation, AlarmStateStore, AlarmCheckRunner, AlarmAcknowledger
+data/notification/ AlarmNotifier, AlarmAckReceiver (backs the alarm notification's OK action)
 data/logging/      DiagnosticLogger (the exportable debug log), DiagnosticHttpLogger
 sync/              RefreshWorker (WorkManager), RefreshForegroundService, BackgroundSyncScheduler
 ui/home/           GlucoseChart, GlucoseBubble, GlucoseHud, IobCalculator, HomeViewModel
@@ -125,6 +126,19 @@ All six original MVP milestones are implemented:
 6. Background sync (WorkManager "battery friendly" + foreground-service "real-time" modes) +
    alarm notifications — implemented, **but see Known Issue below, not yet confirmed working**
 
+Since, on top of the six milestones:
+- The real-time-mode notification shows the current glucose reading (value/unit/trend arrow) and
+  last sync time, and tapping it opens the app and triggers an immediate refresh
+  (`RefreshForegroundService`, `MainActivity.EXTRA_REFRESH_ON_OPEN`).
+- Alarms gained two settings: **require acknowledgement** (the notification becomes ongoing —
+  can't be swiped away — until its OK action or a tap dismisses it via `AlarmAcknowledger`) and
+  **repeat if not acknowledged** (re-fires every 5 minutes while unacknowledged, only shown/usable
+  alongside the first). The repeat cadence is bounded by how often `AlarmCheckRunner` actually
+  runs, so it's a true 5 minutes only in real-time mode — in battery-friendly (WorkManager, 15min
+  floor) mode it means "the next check after 5 minutes have passed."
+- App icon is now Nightscout's own owl logo (adaptive icon, white-on-navy, monochrome layer for
+  Android 13+ themed icons) instead of the earlier placeholder droplet.
+
 ## Known issue in progress (as of commit `2b2bdc7`)
 
 **"Real-time" (foreground service) background mode appears to run exactly one sync cycle and
@@ -153,6 +167,19 @@ remaining hypotheses without more guessing:
   `"Cycle N starting at HH:mm"` lines simply stopping after cycle 1 and no `"Loop exited"` line
   either.
 
+**New lead worth checking against the next log, found since** (commit `fd3b8ff`): a real, separate
+bug was found where switching background mode in Settings silently and permanently clamped
+`refreshIntervalMinutes` down to whatever the newly-selected mode's lowest allowed value was (e.g.
+Real-time's 5m → 15m on a switch to Battery-friendly), and switching back never restored it, since
+15m is valid for both modes. Fixed by no longer persisting that clamp
+(`SettingsViewModel.onBackgroundModeChange`). It's plausible earlier reproductions of the "loop
+stops after one cycle" symptom were partly or wholly this bug instead — e.g. an earlier session's
+own testing/mode-switching silently changed the interval to something much longer than expected,
+making the loop look "stopped" when it just hadn't reached its (longer than assumed) next cycle
+yet. Worth explicitly ruling in/out on the next fresh log rather than assumed fixed — the ~90
+minute reproduction in particular doesn't fully fit (even a 15-minute cadence should have advanced
+several times in that window), so this likely doesn't explain everything on its own.
+
 **Waiting on**: a fresh diagnostic log from the user after another ~15-20 minute test with
 Real-time mode active, to read off which of the two patterns above actually shows up. Pick this up
 by asking for that log if it hasn't been provided yet, or reading it if it has.
@@ -166,9 +193,16 @@ by asking for that log if it hasn't been provided yet, or reading it if it has.
 - **Never build/run the app** — the user does this themselves in Android Studio and reports back.
   Don't claim something works without on-device confirmation.
 - **Commit after each logical change** (this has been the norm all session, done proactively
-  without being asked each time — `git -c user.name="Magnus Reintz" -c user.email=...` since no
-  global git identity is configured on this machine). Write commit messages that explain *why*,
-  referencing what was verified against Trio's source where relevant.
+  without being asked each time). Author every commit as `t1dude <magnus.reintz@gmail.com>`
+  (`git commit --author="t1dude <magnus.reintz@gmail.com>"`), per the user's global CLAUDE.md —
+  never add a Claude co-author line. Write commit messages that explain *why*, referencing what
+  was verified against Trio's source where relevant.
+- **Check `git status` before every commit**, even after an explicit single-file `git add` —
+  Android Studio runs concurrently on the same repo and can pre-stage its own changes to `.idea/*`
+  files (`deploymentTargetSelector.xml`, `misc.xml`) directly in the index, which a plain
+  `git commit` would otherwise sweep in unreviewed (this happened once — caught and fixed with a
+  follow-up commit before pushing). Leave `.idea/*` churn alone; it's the user's live local state,
+  not something to commit or revert.
 - **Verify against Trio's actual source before implementing anything Trio-visual or
   Nightscout-data-shape related** — guessing has repeatedly been wrong and cost cycles (the
   reservoir sentinel bug is a direct example: guessed from the wrong Swift file, wasted a round

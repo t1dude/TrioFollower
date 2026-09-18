@@ -65,7 +65,13 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
         }
 
         item {
-            SettingsSection(title = "Nightscout") {
+            SettingsSection(title = "Basic Settings") {
+                Text(
+                    text = "Nightscout",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(8.dp))
                 OutlinedTextField(
                     value = uiState.nightscoutUrl,
                     onValueChange = viewModel::onNightscoutUrlChange,
@@ -98,11 +104,14 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                     Text("Test connection")
                 }
                 ConnectionStatusRow(uiState.connectionTestState)
-            }
-        }
 
-        item {
-            SettingsSection(title = "Units") {
+                Spacer(Modifier.height(20.dp))
+                Text(
+                    text = "Units",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(8.dp))
                 SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                     GlucoseUnit.entries.forEachIndexed { index, unit ->
                         SegmentedButton(
@@ -195,75 +204,74 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                         )
                     }
                     Spacer(Modifier.height(16.dp))
-                    ThresholdRow(
-                        label = "Urgent high",
-                        dotColor = TrioGlucoseUrgent,
-                        enabled = uiState.alarms.urgentHigh.enabled,
-                        onEnabledChange = {
-                            viewModel.onAlarmSettingsChange(
-                                uiState.alarms.copy(urgentHigh = uiState.alarms.urgentHigh.copy(enabled = it)),
-                            )
-                        },
-                        valueMgDl = uiState.alarms.urgentHigh.thresholdMgDl,
-                        unit = uiState.glucoseUnit,
-                        onValueChange = {
-                            viewModel.onAlarmSettingsChange(
-                                uiState.alarms.copy(urgentHigh = uiState.alarms.urgentHigh.copy(thresholdMgDl = it)),
-                            )
-                        },
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    ThresholdRow(
-                        label = "High",
-                        dotColor = TrioGlucoseHigh,
-                        enabled = uiState.alarms.high.enabled,
-                        onEnabledChange = {
-                            viewModel.onAlarmSettingsChange(uiState.alarms.copy(high = uiState.alarms.high.copy(enabled = it)))
-                        },
-                        valueMgDl = uiState.alarms.high.thresholdMgDl,
-                        unit = uiState.glucoseUnit,
-                        onValueChange = {
-                            viewModel.onAlarmSettingsChange(uiState.alarms.copy(high = uiState.alarms.high.copy(thresholdMgDl = it)))
-                        },
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    ThresholdRow(
-                        label = "Low",
-                        dotColor = TrioGlucoseLow,
-                        enabled = uiState.alarms.low.enabled,
-                        onEnabledChange = {
-                            viewModel.onAlarmSettingsChange(uiState.alarms.copy(low = uiState.alarms.low.copy(enabled = it)))
-                        },
-                        valueMgDl = uiState.alarms.low.thresholdMgDl,
-                        unit = uiState.glucoseUnit,
-                        onValueChange = {
-                            viewModel.onAlarmSettingsChange(uiState.alarms.copy(low = uiState.alarms.low.copy(thresholdMgDl = it)))
-                        },
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    ThresholdRow(
-                        label = "Urgent low",
-                        dotColor = TrioGlucoseUrgent,
-                        enabled = uiState.alarms.urgentLow.enabled,
-                        onEnabledChange = {
-                            viewModel.onAlarmSettingsChange(
-                                uiState.alarms.copy(urgentLow = uiState.alarms.urgentLow.copy(enabled = it)),
-                            )
-                        },
-                        valueMgDl = uiState.alarms.urgentLow.thresholdMgDl,
-                        unit = uiState.glucoseUnit,
-                        onValueChange = {
-                            viewModel.onAlarmSettingsChange(
-                                uiState.alarms.copy(urgentLow = uiState.alarms.urgentLow.copy(thresholdMgDl = it)),
-                            )
-                        },
-                    )
+                    SettingsSubsection(title = "Alarm Thresholds") {
+                        ThresholdRow(
+                            label = "Urgent high",
+                            dotColor = TrioGlucoseUrgent,
+                            enabled = uiState.alarms.urgentHigh.enabled,
+                            onEnabledChange = {
+                                viewModel.onAlarmSettingsChange(
+                                    uiState.alarms.copy(urgentHigh = uiState.alarms.urgentHigh.copy(enabled = it)),
+                                )
+                            },
+                            valueMgDl = uiState.alarms.urgentHigh.thresholdMgDl,
+                            unit = uiState.glucoseUnit,
+                            onValueChange = {
+                                viewModel.onAlarmSettingsChange(
+                                    uiState.alarms.copy(urgentHigh = uiState.alarms.urgentHigh.copy(thresholdMgDl = it)),
+                                )
+                            },
+                        )
+                        ThresholdRow(
+                            label = "High",
+                            dotColor = TrioGlucoseHigh,
+                            enabled = uiState.alarms.high.enabled,
+                            onEnabledChange = {
+                                viewModel.onAlarmSettingsChange(uiState.alarms.copy(high = uiState.alarms.high.copy(enabled = it)))
+                            },
+                            valueMgDl = uiState.alarms.high.thresholdMgDl,
+                            unit = uiState.glucoseUnit,
+                            onValueChange = {
+                                viewModel.onAlarmSettingsChange(uiState.alarms.copy(high = uiState.alarms.high.copy(thresholdMgDl = it)))
+                            },
+                        )
+                        ThresholdRow(
+                            label = "Low",
+                            dotColor = TrioGlucoseLow,
+                            enabled = uiState.alarms.low.enabled,
+                            onEnabledChange = {
+                                viewModel.onAlarmSettingsChange(uiState.alarms.copy(low = uiState.alarms.low.copy(enabled = it)))
+                            },
+                            valueMgDl = uiState.alarms.low.thresholdMgDl,
+                            unit = uiState.glucoseUnit,
+                            onValueChange = {
+                                viewModel.onAlarmSettingsChange(uiState.alarms.copy(low = uiState.alarms.low.copy(thresholdMgDl = it)))
+                            },
+                        )
+                        ThresholdRow(
+                            label = "Urgent low",
+                            dotColor = TrioGlucoseUrgent,
+                            enabled = uiState.alarms.urgentLow.enabled,
+                            onEnabledChange = {
+                                viewModel.onAlarmSettingsChange(
+                                    uiState.alarms.copy(urgentLow = uiState.alarms.urgentLow.copy(enabled = it)),
+                                )
+                            },
+                            valueMgDl = uiState.alarms.urgentLow.thresholdMgDl,
+                            unit = uiState.glucoseUnit,
+                            onValueChange = {
+                                viewModel.onAlarmSettingsChange(
+                                    uiState.alarms.copy(urgentLow = uiState.alarms.urgentLow.copy(thresholdMgDl = it)),
+                                )
+                            },
+                        )
+                    }
                 }
             }
         }
 
         item {
-            SettingsSection(title = "Permissions") {
+            SettingsSection(title = "Android System Permissions") {
                 PermissionsSection()
             }
         }

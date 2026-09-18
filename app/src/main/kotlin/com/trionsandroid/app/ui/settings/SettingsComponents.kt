@@ -9,7 +9,9 @@ import android.os.PowerManager
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -25,6 +27,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
@@ -54,17 +58,66 @@ import com.trionsandroid.app.data.settings.GlucoseUnit
 import com.trionsandroid.app.data.settings.format
 import java.io.File
 
+/** A top-level, card-styled settings group. Collapsed by default so the screen has room to grow
+ *  without becoming an ever-longer scroll — expand state is local to the composable, so it
+ *  resets to collapsed each time the Settings screen is (re)entered. */
 @Composable
-fun SettingsSection(title: String, content: @Composable ColumnScope.() -> Unit) {
+fun SettingsSection(title: String, initiallyExpanded: Boolean = false, content: @Composable ColumnScope.() -> Unit) {
+    var expanded by remember { mutableStateOf(initiallyExpanded) }
     Surface(
         shape = RoundedCornerShape(20.dp),
         color = MaterialTheme.colorScheme.surface,
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text(title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
-            Spacer(Modifier.height(12.dp))
-            content()
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { expanded = !expanded },
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+                Icon(
+                    imageVector = if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                    contentDescription = if (expanded) "Collapse $title" else "Expand $title",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            AnimatedVisibility(visible = expanded) {
+                Column(modifier = Modifier.padding(top = 12.dp)) {
+                    content()
+                }
+            }
+        }
+    }
+}
+
+/** A lighter-weight collapsible group nested *inside* a [SettingsSection] (no card of its own —
+ *  stacking cards inside cards reads as noisy). Collapsed by default, same as the top-level ones. */
+@Composable
+fun SettingsSubsection(title: String, initiallyExpanded: Boolean = false, content: @Composable ColumnScope.() -> Unit) {
+    var expanded by remember { mutableStateOf(initiallyExpanded) }
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { expanded = !expanded },
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(title, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Icon(
+                imageVector = if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                contentDescription = if (expanded) "Collapse $title" else "Expand $title",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp),
+            )
+        }
+        AnimatedVisibility(visible = expanded) {
+            Column(modifier = Modifier.padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                content()
+            }
         }
     }
 }

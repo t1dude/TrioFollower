@@ -1,15 +1,14 @@
 package com.trionsandroid.app.ui.home
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
@@ -24,6 +23,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import java.time.Instant
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun HomeScreen(viewModel: HomeViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -71,13 +71,18 @@ fun HomeScreen(viewModel: HomeViewModel = hiltViewModel()) {
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                 ) {
-                    Row(
+                    // FlowRow instead of a fixed Row + horizontalScroll: on a screen too narrow
+                    // to fit both pill stacks beside the bubble (e.g. a standard phone, vs. the
+                    // much wider unfolded screen this was originally tuned against), one stack
+                    // wraps onto its own line below instead of being scrolled off-screen and
+                    // reading as cropped/cut-off content.
+                    FlowRow(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 16.dp, horizontal = 8.dp)
-                            .horizontalScroll(rememberScrollState()),
+                            .padding(vertical = 16.dp, horizontal = 8.dp),
                         horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically,
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        itemVerticalAlignment = Alignment.CenterVertically,
                     ) {
                         PumpHudStackLeft(state = hudState, modifier = Modifier.padding(end = 12.dp))
                         GlucoseBubble(

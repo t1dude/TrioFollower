@@ -1,6 +1,9 @@
 package com.trionsandroid.app.ui.history
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -45,34 +48,39 @@ import kotlin.math.roundToInt
 private val timeFormatter = DateTimeFormatter.ofPattern("dd.MM HH:mm")
 
 /** Every History row shares this shape: a colored dot, a primary label, a secondary value, and a
- *  timestamp — mirrors Trio's own HistoryRootView row layout (dot + label + value + time). */
+ *  timestamp — mirrors Trio's own HistoryRootView row layout (dot + label + value + time).
+ *  FlowRow (not a plain Row) so a long value/timestamp — e.g. an adjustment's full start-end
+ *  range — wraps onto its own line on a narrow screen instead of overflowing past the edge. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun HistoryEntryRow(dotColor: Color, label: String, value: String, timestamp: String) {
-    Row(
+    FlowRow(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+        itemVerticalAlignment = Alignment.CenterVertically,
     ) {
-        Spacer(
-            modifier = Modifier
-                .size(10.dp)
-                .background(dotColor, CircleShape),
-        )
-        Spacer(Modifier.width(12.dp))
-        Text(label, modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurface)
-        if (value.isNotEmpty()) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Spacer(
+                modifier = Modifier
+                    .size(10.dp)
+                    .background(dotColor, CircleShape),
+            )
+            Spacer(Modifier.width(12.dp))
+            Text(label, color = MaterialTheme.colorScheme.onSurface)
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (value.isNotEmpty()) {
+                Text(text = value, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
             Text(
-                text = value,
+                text = timestamp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(end = 12.dp),
+                style = MaterialTheme.typography.bodySmall,
             )
         }
-        Text(
-            text = timestamp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.bodySmall,
-        )
     }
 }
 

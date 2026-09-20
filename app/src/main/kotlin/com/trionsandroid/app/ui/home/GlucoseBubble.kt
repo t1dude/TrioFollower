@@ -6,7 +6,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -160,11 +162,15 @@ fun GlucoseBubble(
                         }
                     }
                     // The reading's own timestamp as reported by Nightscout, not the local fetch time.
-                    Text(
-                        text = timeFormatter.format(latest.timestamp.atZone(ZoneId.systemDefault())),
-                        fontSize = 11.sp * scale,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    // Sits in a zero-height slot so it hangs below the minutes-ago/delta line without
+                    // adding to the column's height — otherwise the centered value would be pushed up.
+                    Box(Modifier.height(0.dp).wrapContentHeight(align = Alignment.Top, unbounded = true)) {
+                        Text(
+                            text = timeFormatter.format(latest.timestamp.atZone(ZoneId.systemDefault())),
+                            fontSize = 11.sp * scale,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
         }

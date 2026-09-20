@@ -22,6 +22,7 @@ import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.decodeFromJsonElement
+import com.trionsandroid.app.widget.WidgetUpdater
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
@@ -33,6 +34,7 @@ class NightscoutRepositoryImpl @Inject constructor(
     private val glucoseEntryDao: GlucoseEntryDao,
     private val treatmentDao: TreatmentDao,
     private val deviceStatusDao: DeviceStatusDao,
+    private val widgetUpdater: WidgetUpdater,
     private val diagnosticLogger: DiagnosticLogger,
     private val json: Json,
 ) : NightscoutRepository {
@@ -202,6 +204,8 @@ class NightscoutRepositoryImpl @Inject constructor(
             }.onFailure { e ->
                 diagnosticLogger.logError(TAG, "Adjustments fetch failed (non-fatal)", e)
             }
+            // Redraw the home screen widgets with the new data.
+            runCatching { widgetUpdater.updateAll() }
             Unit
         }.onFailure { e ->
             diagnosticLogger.logError(TAG, "refresh() failed", e)

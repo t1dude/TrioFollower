@@ -330,6 +330,20 @@ Since, on top of the six milestones:
   Each disappears as soon as the permission is back. Only new users get the first-run prompts;
   existing users see the warnings if anything is missing. Not compile-checked or device-tested.
 
+- **Home screen widgets** (added 2026-09-20): `widget/` — `BubbleWidgetProvider` (2x2, bubble only) and
+  `GraphWidgetProvider` (4x2, bubble + 3h past / 2h forecast graph). Classic `AppWidgetProvider` +
+  `RemoteViews` with a single `ImageView` (`layout/widget_image.xml`); the whole widget, background
+  included, is drawn into a bitmap by `WidgetRenderer` (Android Canvas, not Compose, since
+  RemoteViews can't host it; bubble and graph drawing mirror `GlucoseBubble`/`GlucoseChart`). Bitmap
+  size comes from the widget's min width/height options. `WidgetUpdater` reads the DAOs directly and
+  is called at the end of every successful `NightscoutRepositoryImpl.refresh()` (so foreground
+  service, worker and app refreshes all update widgets), when a widget is added/resized, when the
+  transparency changes, plus the 30-minute system `updatePeriodMillis` fallback. Setting:
+  `widgetTransparencyPercent` (Settings > Basic > slider; 0 = solid black, 100 = fully
+  transparent, shared by both widgets). The graph honours the Predictions setting (Off = no forecast) and
+  the current-time-line setting. Other setting changes (units, colors) show up on the next refresh.
+  Not compile-checked or device-tested when committed.
+
 ## Background-sync reliability issue — resolved, confirmed on-device
 
 Original symptom: **"Real-time" (foreground service) background mode appears to run exactly one

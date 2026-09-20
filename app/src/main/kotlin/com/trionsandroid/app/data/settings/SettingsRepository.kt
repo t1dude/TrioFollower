@@ -12,6 +12,7 @@ interface SettingsRepository {
     suspend fun setGlucoseColorScheme(scheme: GlucoseColorScheme)
     suspend fun setHomeStatsFace(face: HomeStatsFace)
     suspend fun setForecastDisplay(display: ForecastDisplay)
+    suspend fun setWidgetTransparencyPercent(percent: Int)
     suspend fun setShowNowLine(show: Boolean)
     suspend fun setKeepScreenOn(enabled: Boolean)
     suspend fun setRefreshIntervalMinutes(minutes: Int)

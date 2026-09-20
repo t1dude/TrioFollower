@@ -2,6 +2,10 @@
     <string name="app_name">TrioFollower</string>
     <!-- Shown under the launcher icon. -->
     <string name="launcher_label">Trio Follower</string>
+    <string name="widget_bubble_name">Glucose</string>
+    <string name="widget_bubble_description">Current glucose with trend, minutes since reading and change</string>
+    <string name="widget_graph_name">Glucose and graph</string>
+    <string name="widget_graph_description">Glucose bubble with a 3 hour history and 2 hour forecast graph</string>
     <string name="nav_home">Home</string>
     <string name="nav_history">History</string>
     <string name="nav_settings">Settings</string>

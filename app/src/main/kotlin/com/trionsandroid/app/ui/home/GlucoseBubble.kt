@@ -31,7 +31,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.trionsandroid.app.data.nightscout.GlucoseReading
 import com.trionsandroid.app.data.settings.AlarmSettings
-import com.trionsandroid.app.data.settings.GlucoseColorScheme
 import com.trionsandroid.app.data.settings.GlucoseUnit
 import com.trionsandroid.app.data.settings.TimeFormat
 import com.trionsandroid.app.data.settings.timeFormatter
@@ -61,7 +60,6 @@ fun GlucoseBubble(
     previous: GlucoseReading?,
     unit: GlucoseUnit,
     alarms: AlarmSettings,
-    colorScheme: GlucoseColorScheme = GlucoseColorScheme.DYNAMIC,
     timeFormat: TimeFormat = TimeFormat.HOUR_24,
     /** Tapping the bubble (only when there's a reading) — opens the algorithm reasoning. */
     onClick: (() -> Unit)? = null,
@@ -146,7 +144,7 @@ fun GlucoseBubble(
                         text = unit.format(latest.mgDl),
                         fontSize = 40.sp * scale,
                         fontWeight = FontWeight.Bold,
-                        color = rangeColor(latest.mgDl, alarms, colorScheme),
+                        color = MaterialTheme.colorScheme.onSurface,
                     )
                     Row {
                         Text(

@@ -23,12 +23,6 @@ fun TimeFormat.timeFormatter(): DateTimeFormatter = when (this) {
     TimeFormat.HOUR_12 -> DateTimeFormatterBuilder().appendPatternThenAmPm("h:mm")
 }
 
-/** Date + time, e.g. "18.09 14:05" or "18.09 2:05pm". */
-fun TimeFormat.dateTimeFormatter(): DateTimeFormatter = when (this) {
-    TimeFormat.HOUR_24 -> DateTimeFormatter.ofPattern("dd.MM HH:mm")
-    TimeFormat.HOUR_12 -> DateTimeFormatterBuilder().appendPatternThenAmPm("dd.MM h:mm")
-}
-
 /** Hour-only chart axis tick, e.g. "14" or "2pm". */
 fun TimeFormat.hourFormatter(): DateTimeFormatter = when (this) {
     TimeFormat.HOUR_24 -> DateTimeFormatter.ofPattern("HH")

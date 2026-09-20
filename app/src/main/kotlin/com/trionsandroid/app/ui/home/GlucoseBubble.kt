@@ -169,8 +169,11 @@ fun GlucoseBubble(
                         Text(
                             text = timeFormatter.format(latest.timestamp.atZone(ZoneId.systemDefault())),
                             fontSize = 11.sp * scale,
+                            // Tight line height + upward offset close the gap under the minutes-ago/delta
+                            // line, so the text stays inside the circle even on the smallest bubble.
+                            lineHeight = 11.sp * scale,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.offset(y = -3.dp * scale),
+                            modifier = Modifier.offset(y = -7.dp * scale),
                         )
                     }
                 }

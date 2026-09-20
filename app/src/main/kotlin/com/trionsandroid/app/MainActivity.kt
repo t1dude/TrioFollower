@@ -2,15 +2,19 @@ package com.trionsandroid.app
 
 import android.content.Intent
 import android.os.Bundle
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.lifecycle.lifecycleScope
 import com.trionsandroid.app.data.alarm.AlarmAcknowledger
 import com.trionsandroid.app.data.nightscout.NightscoutRepository
+import com.trionsandroid.app.data.settings.SettingsRepository
 import com.trionsandroid.app.ui.navigation.TrioNavHost
 import com.trionsandroid.app.ui.theme.TrioNSTheme
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -19,6 +23,7 @@ class MainActivity : ComponentActivity() {
 
     @Inject lateinit var nightscoutRepository: NightscoutRepository
     @Inject lateinit var alarmAcknowledger: AlarmAcknowledger
+    @Inject lateinit var settingsRepository: SettingsRepository
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -26,6 +31,17 @@ class MainActivity : ComponentActivity() {
         setContent {
             TrioNSTheme {
                 TrioNavHost()
+            }
+        }
+        // FLAG_KEEP_SCREEN_ON only holds while this window is visible, so backgrounding the app
+        // releases it automatically — no manual cleanup needed.
+        lifecycleScope.launch {
+            settingsRepository.settings.map { it.keepScreenOn }.distinctUntilChanged().collect { keepOn ->
+                if (keepOn) {
+                    window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                } else {
+                    window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                }
             }
         }
         handleIntent(intent)

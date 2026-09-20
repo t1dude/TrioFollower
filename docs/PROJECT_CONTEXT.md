@@ -229,6 +229,11 @@ Since, on top of the six milestones:
   the check even after a failed refresh, which is the main real-world cause. Not compile-checked
   or device-tested when committed.
 
+- **Keep display awake** (added 2026-09-20; off by default): `UserSettings.keepScreenOn`, switch
+  under Basic Settings. `MainActivity` collects the setting and toggles `FLAG_KEEP_SCREEN_ON` on
+  its window — applies app-wide while the app is visible and releases automatically when
+  backgrounded. Not compile-checked or device-tested when committed.
+
 ## Background-sync reliability issue — resolved, confirmed on-device
 
 Original symptom: **"Real-time" (foreground service) background mode appears to run exactly one

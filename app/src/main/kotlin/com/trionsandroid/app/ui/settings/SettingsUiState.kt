@@ -10,6 +10,7 @@ data class SettingsUiState(
     val accessToken: String = "",
     val glucoseUnit: GlucoseUnit = GlucoseUnit.MMOL_L,
     val timeFormat: TimeFormat = TimeFormat.HOUR_24,
+    val keepScreenOn: Boolean = false,
     val refreshIntervalMinutes: Int = 5,
     val backgroundMode: BackgroundMode = BackgroundMode.WORK_MANAGER,
     val alarms: AlarmSettings = AlarmSettings(),

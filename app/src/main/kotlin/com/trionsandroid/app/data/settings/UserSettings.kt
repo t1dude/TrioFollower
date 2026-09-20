@@ -6,6 +6,8 @@ data class UserSettings(
     // 24-hour default preserves existing behavior for anyone who doesn't touch the setting —
     // every timestamp already displayed as HH:mm before this setting existed.
     val timeFormat: TimeFormat = TimeFormat.HOUR_24,
+    // Off by default: holding the screen on drains battery, so it has to be a deliberate choice.
+    val keepScreenOn: Boolean = false,
     val refreshIntervalMinutes: Int = 5,
     val backgroundMode: BackgroundMode = BackgroundMode.WORK_MANAGER,
     val alarms: AlarmSettings = AlarmSettings(),

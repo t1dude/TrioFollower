@@ -51,6 +51,7 @@ class SettingsViewModel @Inject constructor(
             accessToken = token,
             glucoseUnit = settings.glucoseUnit,
             timeFormat = settings.timeFormat,
+            keepScreenOn = settings.keepScreenOn,
             refreshIntervalMinutes = settings.refreshIntervalMinutes,
             backgroundMode = settings.backgroundMode,
             alarms = settings.alarms,
@@ -79,6 +80,10 @@ class SettingsViewModel @Inject constructor(
 
     fun onGlucoseUnitChange(unit: GlucoseUnit) {
         viewModelScope.launch { settingsRepository.setGlucoseUnit(unit) }
+    }
+
+    fun onKeepScreenOnChange(enabled: Boolean) {
+        viewModelScope.launch { settingsRepository.setKeepScreenOn(enabled) }
     }
 
     fun onTimeFormatChange(format: TimeFormat) {

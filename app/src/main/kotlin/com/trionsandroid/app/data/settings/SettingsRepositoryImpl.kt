@@ -28,6 +28,10 @@ class SettingsRepositoryImpl @Inject constructor(
         dataStore.edit { it[Keys.TIME_FORMAT] = format.name }
     }
 
+    override suspend fun setKeepScreenOn(enabled: Boolean) {
+        dataStore.edit { it[Keys.KEEP_SCREEN_ON] = enabled }
+    }
+
     override suspend fun setRefreshIntervalMinutes(minutes: Int) {
         dataStore.edit { it[Keys.REFRESH_INTERVAL_MINUTES] = minutes }
     }
@@ -70,6 +74,7 @@ class SettingsRepositoryImpl @Inject constructor(
             nightscoutUrl = this[Keys.NIGHTSCOUT_URL] ?: defaults.nightscoutUrl,
             glucoseUnit = unit,
             timeFormat = timeFormat,
+            keepScreenOn = this[Keys.KEEP_SCREEN_ON] ?: defaults.keepScreenOn,
             refreshIntervalMinutes = this[Keys.REFRESH_INTERVAL_MINUTES] ?: defaults.refreshIntervalMinutes,
             backgroundMode = mode,
             alarms = AlarmSettings(
@@ -107,6 +112,7 @@ class SettingsRepositoryImpl @Inject constructor(
     private object Keys {
         val NIGHTSCOUT_URL = stringPreferencesKey("nightscout_url")
         val GLUCOSE_UNIT = stringPreferencesKey("glucose_unit")
+        val KEEP_SCREEN_ON = booleanPreferencesKey("keep_screen_on")
         val TIME_FORMAT = stringPreferencesKey("time_format")
         val REFRESH_INTERVAL_MINUTES = intPreferencesKey("refresh_interval_minutes")
         val BACKGROUND_MODE = stringPreferencesKey("background_mode")

@@ -146,6 +146,18 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                         }
                     }
                 }
+
+                Spacer(Modifier.height(20.dp))
+                LabeledSwitch(
+                    label = "Keep display awake",
+                    checked = uiState.keepScreenOn,
+                    onCheckedChange = viewModel::onKeepScreenOnChange,
+                )
+                Text(
+                    text = "Stops the screen from dimming or turning off while the app is open. Uses more battery.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
 

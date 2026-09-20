@@ -44,6 +44,10 @@ class SettingsRepositoryImpl @Inject constructor(
         dataStore.edit { it[Keys.FORECAST_DISPLAY] = display.name }
     }
 
+    override suspend fun setShowNowLine(show: Boolean) {
+        dataStore.edit { it[Keys.SHOW_NOW_LINE] = show }
+    }
+
     override suspend fun setKeepScreenOn(enabled: Boolean) {
         dataStore.edit { it[Keys.KEEP_SCREEN_ON] = enabled }
     }
@@ -92,6 +96,7 @@ class SettingsRepositoryImpl @Inject constructor(
             glucoseUnit = unit,
             timeFormat = timeFormat,
             keepScreenOn = this[Keys.KEEP_SCREEN_ON] ?: defaults.keepScreenOn,
+            showNowLine = this[Keys.SHOW_NOW_LINE] ?: defaults.showNowLine,
             glucoseColorScheme = this[Keys.GLUCOSE_COLOR_SCHEME]
                 ?.let { runCatching { GlucoseColorScheme.valueOf(it) }.getOrNull() } ?: defaults.glucoseColorScheme,
             homeStatsFace = this[Keys.HOME_STATS_FACE]
@@ -139,6 +144,7 @@ class SettingsRepositoryImpl @Inject constructor(
         val GLUCOSE_COLOR_SCHEME = stringPreferencesKey("glucose_color_scheme")
         val HOME_STATS_FACE = stringPreferencesKey("home_stats_face")
         val FORECAST_DISPLAY = stringPreferencesKey("forecast_display")
+        val SHOW_NOW_LINE = booleanPreferencesKey("show_now_line")
         val KEEP_SCREEN_ON = booleanPreferencesKey("keep_screen_on")
         val TIME_FORMAT = stringPreferencesKey("time_format")
         val REFRESH_INTERVAL_MINUTES = intPreferencesKey("refresh_interval_minutes")

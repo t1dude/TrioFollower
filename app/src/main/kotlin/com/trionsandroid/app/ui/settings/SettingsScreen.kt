@@ -217,6 +217,18 @@ fun SettingsScreen(expandBasicSettings: Boolean = false, viewModel: SettingsView
 
                 Spacer(Modifier.height(20.dp))
                 LabeledSwitch(
+                    label = "Show current time line",
+                    checked = uiState.showNowLine,
+                    onCheckedChange = viewModel::onShowNowLineChange,
+                )
+                Text(
+                    text = "Draws a vertical line on the chart at the current time.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+
+                Spacer(Modifier.height(20.dp))
+                LabeledSwitch(
                     label = "Keep display awake",
                     checked = uiState.keepScreenOn,
                     onCheckedChange = viewModel::onKeepScreenOnChange,

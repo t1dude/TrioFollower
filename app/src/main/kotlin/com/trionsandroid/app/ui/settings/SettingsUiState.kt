@@ -14,6 +14,7 @@ data class SettingsUiState(
     val glucoseUnit: GlucoseUnit = GlucoseUnit.MMOL_L,
     val timeFormat: TimeFormat = TimeFormat.HOUR_24,
     val keepScreenOn: Boolean = false,
+    val showNowLine: Boolean = true,
     val glucoseColorScheme: GlucoseColorScheme = GlucoseColorScheme.DYNAMIC,
     val homeStatsFace: HomeStatsFace = HomeStatsFace.TIME_IN_RANGE,
     val forecastDisplay: ForecastDisplay = ForecastDisplay.CONE,

@@ -54,6 +54,7 @@ class SettingsViewModel @Inject constructor(
             glucoseUnit = settings.glucoseUnit,
             timeFormat = settings.timeFormat,
             keepScreenOn = settings.keepScreenOn,
+            showNowLine = settings.showNowLine,
             glucoseColorScheme = settings.glucoseColorScheme,
             homeStatsFace = settings.homeStatsFace,
             forecastDisplay = settings.forecastDisplay,
@@ -97,6 +98,10 @@ class SettingsViewModel @Inject constructor(
 
     fun onForecastDisplayChange(display: ForecastDisplay) {
         viewModelScope.launch { settingsRepository.setForecastDisplay(display) }
+    }
+
+    fun onShowNowLineChange(show: Boolean) {
+        viewModelScope.launch { settingsRepository.setShowNowLine(show) }
     }
 
     fun onKeepScreenOnChange(enabled: Boolean) {

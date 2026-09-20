@@ -7,6 +7,8 @@ data class UserSettings(
     val timeFormat: TimeFormat = TimeFormat.HOUR_24,
     // Off by default: it costs battery.
     val keepScreenOn: Boolean = false,
+    // Vertical line marking the current time on the chart; on by default, as in Trio.
+    val showNowLine: Boolean = true,
     // Cone is Trio's default.
     val glucoseColorScheme: GlucoseColorScheme = GlucoseColorScheme.DYNAMIC,
     val homeStatsFace: HomeStatsFace = HomeStatsFace.TIME_IN_RANGE,

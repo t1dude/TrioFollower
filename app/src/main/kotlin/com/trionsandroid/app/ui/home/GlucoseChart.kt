@@ -144,6 +144,7 @@ fun GlucoseChart(
     unit: GlucoseUnit,
     alarms: AlarmSettings,
     colorScheme: GlucoseColorScheme = GlucoseColorScheme.DYNAMIC,
+    showNowLine: Boolean = true,
     timeFormat: TimeFormat = TimeFormat.HOUR_24,
     forecast: Forecast? = null,
     forecastDisplay: ForecastDisplay = ForecastDisplay.OFF,
@@ -388,6 +389,17 @@ fun GlucoseChart(
                 val label = textMeasurer.measure(text, style = TextStyle(fontSize = 10.sp, color = labelColor))
                 drawText(label, topLeft = Offset(x - label.size.width / 2f, iobBottom + BOTTOM_LABEL_GAP.toPx()))
                 tick = tick.plusHours(tickIntervalHours)
+            }
+
+            // Current time line.
+            if (showNowLine && nowMillis in viewportStartMillis..viewportEndMillis) {
+                val x = xFor(nowMillis)
+                drawLine(
+                    color = labelColor.copy(alpha = 0.7f),
+                    start = Offset(x, 0f),
+                    end = Offset(x, iobBottom),
+                    strokeWidth = 1.5.dp.toPx(),
+                )
             }
 
             // Basal strip: 0 U/hr at the top, filled area grows downward (as in Trio).

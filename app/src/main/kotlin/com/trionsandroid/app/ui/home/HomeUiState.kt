@@ -19,6 +19,7 @@ data class HomeUiState(
     val refreshCount: Int = 0,
     // True for open/pull refreshes (the chart jumps to the latest data even if panned away), false for automatic ones.
     val forceScrollToLatest: Boolean = true,
+    val showNowLine: Boolean = true,
     val glucoseColorScheme: GlucoseColorScheme = GlucoseColorScheme.DYNAMIC,
     val homeStatsFace: HomeStatsFace = HomeStatsFace.TIME_IN_RANGE,
     val forecast: Forecast? = null,

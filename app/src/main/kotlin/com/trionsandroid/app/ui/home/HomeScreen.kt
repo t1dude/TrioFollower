@@ -123,6 +123,7 @@ fun HomeScreen(viewModel: HomeViewModel = hiltViewModel()) {
                                     previous = previous,
                                     unit = uiState.glucoseUnit,
                                     alarms = uiState.alarms,
+                                    timeFormat = uiState.timeFormat,
                                     size = maxWidth.coerceIn(MIN_BUBBLE_SIZE, DEFAULT_BUBBLE_SIZE),
                                 )
                             }

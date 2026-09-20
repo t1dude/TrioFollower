@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -27,11 +28,14 @@ import androidx.compose.ui.unit.sp
 import com.trionsandroid.app.data.nightscout.GlucoseReading
 import com.trionsandroid.app.data.settings.AlarmSettings
 import com.trionsandroid.app.data.settings.GlucoseUnit
+import com.trionsandroid.app.data.settings.TimeFormat
+import com.trionsandroid.app.data.settings.timeFormatter
 import com.trionsandroid.app.data.settings.format
 import com.trionsandroid.app.ui.theme.TrioRingGradient
 import com.trionsandroid.app.ui.theme.TrioTrendArrowColor
 import java.time.Duration
 import java.time.Instant
+import java.time.ZoneId
 import kotlin.math.abs
 
 // Sizes match Trio's CurrentGlucoseView.swift CircleShape/TriangleShape exactly (130pt ring, 6pt
@@ -52,9 +56,11 @@ fun GlucoseBubble(
     previous: GlucoseReading?,
     unit: GlucoseUnit,
     alarms: AlarmSettings,
+    timeFormat: TimeFormat = TimeFormat.HOUR_24,
     modifier: Modifier = Modifier,
     size: Dp = DEFAULT_BUBBLE_SIZE,
 ) {
+    val timeFormatter = remember(timeFormat) { timeFormat.timeFormatter() }
     val ringDiameter = size * RING_DIAMETER_RATIO
     val ringStrokeWidth = size * RING_STROKE_WIDTH_RATIO
     val triangleSize = size * TRIANGLE_SIZE_RATIO
@@ -149,6 +155,12 @@ fun GlucoseBubble(
                             )
                         }
                     }
+                    // The reading's own timestamp as reported by Nightscout, not the local fetch time.
+                    Text(
+                        text = timeFormatter.format(latest.timestamp.atZone(ZoneId.systemDefault())),
+                        fontSize = 11.sp * scale,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
         }

@@ -70,11 +70,7 @@ private fun HistoryEntryRow(dotColor: Color, label: String, value: String, times
             if (value.isNotEmpty()) {
                 Text(text = value, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Text(
-                text = timestamp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodySmall,
-            )
+            Text(text = timestamp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

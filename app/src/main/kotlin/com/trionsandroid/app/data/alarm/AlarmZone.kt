@@ -6,6 +6,7 @@ enum class AlarmZone(val displayTitle: String) {
     URGENT_LOW("Urgent low"),
     LOW("Low"),
     NORMAL("In range"),
+    PREDICTED_HIGH("Predicted high"),
     HIGH("High"),
     URGENT_HIGH("Urgent high"),
 }

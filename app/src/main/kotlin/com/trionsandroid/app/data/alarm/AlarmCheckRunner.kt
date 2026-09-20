@@ -24,12 +24,26 @@ class AlarmCheckRunner @Inject constructor(
         val settings = settingsRepository.settings.first()
         if (!settings.alarms.alarmsEnabled) return
 
-        val sinceMillis = System.currentTimeMillis() - TimeUnit.MINUTES.toMillis(RECENT_READING_WINDOW_MINUTES)
-        val latest = nightscoutRepository.observeGlucoseEntries(sinceMillis).first().maxByOrNull { it.timestamp }
-            ?: return
+        val nowMillis = System.currentTimeMillis()
+        val sinceMillis = nowMillis - TimeUnit.MINUTES.toMillis(RECENT_READING_WINDOW_MINUTES)
+        val recent = nightscoutRepository.observeGlucoseEntries(sinceMillis).first()
+        val latest = recent.maxByOrNull { it.timestamp } ?: return
 
-        val zone = evaluateAlarmZone(latest.mgDl, settings.alarms)
+        var zone = evaluateAlarmZone(latest.mgDl, settings.alarms)
         val lastZone = alarmStateStore.getLastZone()
+
+        if (zone == AlarmZone.NORMAL && settings.alarms.predictedHighEnabled) {
+            val predictedSince = nowMillis - PREDICTED_HIGH_WINDOW_MILLIS - TimeUnit.MINUTES.toMillis(10)
+            val readings = nightscoutRepository.observeGlucoseEntries(predictedSince).first()
+            val treatments = nightscoutRepository.observeTreatments(predictedSince).first()
+            if (isPredictedHigh(readings, treatments, settings.alarms, nowMillis)) {
+                // Cooldown against flapping in and out of the predicate re-alerting every check:
+                // a fresh (not continuing) predicted-high alarm waits an hour after the last one.
+                val coolingDown = lastZone != AlarmZone.PREDICTED_HIGH &&
+                    nowMillis - alarmStateStore.getLastPredictedHighNotifiedAtMillis() < PREDICTED_HIGH_COOLDOWN_MILLIS
+                if (!coolingDown) zone = AlarmZone.PREDICTED_HIGH
+            }
+        }
 
         if (zone != lastZone) {
             // A fresh zone (including escalating from e.g. low to urgent-low) always notifies
@@ -39,6 +53,9 @@ class AlarmCheckRunner @Inject constructor(
             diagnosticLogger.log(TAG, "Alarm zone changed: $lastZone -> $zone (${latest.mgDl} mg/dL)")
             if (zone != AlarmZone.NORMAL) {
                 alarmStateStore.setLastNotifiedAtMillis(System.currentTimeMillis())
+                if (zone == AlarmZone.PREDICTED_HIGH) {
+                    alarmStateStore.setLastPredictedHighNotifiedAtMillis(System.currentTimeMillis())
+                }
                 alarmNotifier.notify(zone, latest, settings.glucoseUnit, settings.alarms)
             }
             return
@@ -63,6 +80,7 @@ class AlarmCheckRunner @Inject constructor(
     private companion object {
         const val TAG = "AlarmCheckRunner"
         const val RECENT_READING_WINDOW_MINUTES = 30L
+        val PREDICTED_HIGH_COOLDOWN_MILLIS = TimeUnit.MINUTES.toMillis(60)
         val REPEAT_INTERVAL_MILLIS = TimeUnit.MINUTES.toMillis(5)
     }
 }

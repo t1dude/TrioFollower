@@ -48,7 +48,15 @@ class AlarmStateStore @Inject constructor(
         dataStore.edit { it[Keys.LAST_NOTIFIED_AT_MILLIS] = millis }
     }
 
+    suspend fun getLastPredictedHighNotifiedAtMillis(): Long =
+        dataStore.data.map { it[Keys.LAST_PREDICTED_HIGH_NOTIFIED_AT_MILLIS] ?: 0L }.first()
+
+    suspend fun setLastPredictedHighNotifiedAtMillis(millis: Long) {
+        dataStore.edit { it[Keys.LAST_PREDICTED_HIGH_NOTIFIED_AT_MILLIS] = millis }
+    }
+
     private object Keys {
+        val LAST_PREDICTED_HIGH_NOTIFIED_AT_MILLIS = longPreferencesKey("alarm_last_predicted_high_notified_at_millis")
         val LAST_ZONE = stringPreferencesKey("last_alarm_zone")
         val ACKNOWLEDGED = booleanPreferencesKey("alarm_acknowledged")
         val LAST_NOTIFIED_AT_MILLIS = longPreferencesKey("alarm_last_notified_at_millis")

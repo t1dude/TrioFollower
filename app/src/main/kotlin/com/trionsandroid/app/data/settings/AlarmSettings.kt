@@ -13,6 +13,10 @@ data class AlarmSettings(
     val low: AlarmThreshold = AlarmThreshold(enabled = true, thresholdMgDl = 70),
     val high: AlarmThreshold = AlarmThreshold(enabled = true, thresholdMgDl = 180),
     val urgentHigh: AlarmThreshold = AlarmThreshold(enabled = true, thresholdMgDl = 250),
+    /** Fires when glucose is in range but has been climbing slowly and steadily toward the high
+     *  threshold for the past hour with no bolus/carbs logged — see PredictedHighEvaluator. Off by
+     *  default. */
+    val predictedHighEnabled: Boolean = false,
     /** Alarm notifications stay on screen (can't be swiped away) until OK is pressed or tapped. */
     val requireAcknowledgement: Boolean = false,
     /** Only meaningful alongside [requireAcknowledgement]: re-fires an unacknowledged alarm every

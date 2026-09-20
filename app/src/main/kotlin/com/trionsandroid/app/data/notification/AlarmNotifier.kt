@@ -37,7 +37,10 @@ class AlarmNotifier @Inject constructor(
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(zone.displayTitle)
-            .setContentText("${unit.format(reading.mgDl)} ${unit.label}")
+            .setContentText(
+                "${unit.format(reading.mgDl)} ${unit.label}" +
+                    if (zone == AlarmZone.PREDICTED_HIGH) " · climbing toward high" else "",
+            )
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setContentIntent(openAppAndAcknowledgePendingIntent())
@@ -97,7 +100,7 @@ class AlarmNotifier @Inject constructor(
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val manager = context.getSystemService(NotificationManager::class.java)
         val channel = NotificationChannel(CHANNEL_ID, "Glucose alarms", NotificationManager.IMPORTANCE_HIGH).apply {
-            description = "Urgent low, low, high, and urgent high glucose alerts"
+            description = "Urgent low, low, predicted high, high, and urgent high glucose alerts"
         }
         manager.createNotificationChannel(channel)
     }

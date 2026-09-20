@@ -49,6 +49,7 @@ class SettingsRepositoryImpl @Inject constructor(
             prefs[Keys.HIGH_THRESHOLD_MGDL] = alarms.high.thresholdMgDl
             prefs[Keys.URGENT_HIGH_ENABLED] = alarms.urgentHigh.enabled
             prefs[Keys.URGENT_HIGH_THRESHOLD_MGDL] = alarms.urgentHigh.thresholdMgDl
+            prefs[Keys.PREDICTED_HIGH_ENABLED] = alarms.predictedHighEnabled
             prefs[Keys.ALARM_REQUIRE_ACKNOWLEDGEMENT] = alarms.requireAcknowledgement
             prefs[Keys.ALARM_REPEAT_IF_NOT_ACKNOWLEDGED] = alarms.repeatIfNotAcknowledged
         }
@@ -89,6 +90,7 @@ class SettingsRepositoryImpl @Inject constructor(
                     enabled = this[Keys.URGENT_HIGH_ENABLED] ?: defaultAlarms.urgentHigh.enabled,
                     thresholdMgDl = this[Keys.URGENT_HIGH_THRESHOLD_MGDL] ?: defaultAlarms.urgentHigh.thresholdMgDl,
                 ),
+                predictedHighEnabled = this[Keys.PREDICTED_HIGH_ENABLED] ?: defaultAlarms.predictedHighEnabled,
                 requireAcknowledgement = this[Keys.ALARM_REQUIRE_ACKNOWLEDGEMENT]
                     ?: defaultAlarms.requireAcknowledgement,
                 repeatIfNotAcknowledged = this[Keys.ALARM_REPEAT_IF_NOT_ACKNOWLEDGED]
@@ -114,6 +116,7 @@ class SettingsRepositoryImpl @Inject constructor(
         val HIGH_THRESHOLD_MGDL = intPreferencesKey("high_threshold_mgdl")
         val URGENT_HIGH_ENABLED = booleanPreferencesKey("urgent_high_enabled")
         val URGENT_HIGH_THRESHOLD_MGDL = intPreferencesKey("urgent_high_threshold_mgdl")
+        val PREDICTED_HIGH_ENABLED = booleanPreferencesKey("predicted_high_enabled")
         val ALARM_REQUIRE_ACKNOWLEDGEMENT = booleanPreferencesKey("alarm_require_acknowledgement")
         val ALARM_REPEAT_IF_NOT_ACKNOWLEDGED = booleanPreferencesKey("alarm_repeat_if_not_acknowledged")
     }

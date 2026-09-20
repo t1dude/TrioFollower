@@ -111,7 +111,7 @@ fun SettingsSubsection(title: String, initiallyExpanded: Boolean = false, conten
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(title, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(title, color = MaterialTheme.colorScheme.onSurface)
             Icon(
                 imageVector = if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
                 contentDescription = if (expanded) "Collapse $title" else "Expand $title",

@@ -9,8 +9,6 @@ data class UserSettings(
     val keepScreenOn: Boolean = false,
     // Vertical line marking the current time on the chart; on by default, as in Trio.
     val showNowLine: Boolean = true,
-    // Widget background: 0 = solid black, 100 = fully transparent.
-    val widgetTransparencyPercent: Int = 0,
     // Cone is Trio's default.
     val glucoseColorScheme: GlucoseColorScheme = GlucoseColorScheme.DYNAMIC,
     val homeStatsFace: HomeStatsFace = HomeStatsFace.TIME_IN_RANGE,

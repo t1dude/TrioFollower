@@ -22,18 +22,15 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.Slider
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import kotlin.math.roundToInt
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.ImeAction
@@ -226,27 +223,6 @@ fun SettingsScreen(expandBasicSettings: Boolean = false, viewModel: SettingsView
                 )
                 Text(
                     text = "Draws a vertical line on the chart at the current time.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-
-                Spacer(Modifier.height(20.dp))
-                var transparency by remember(uiState.widgetTransparencyPercent) {
-                    mutableFloatStateOf(uiState.widgetTransparencyPercent.toFloat())
-                }
-                Text(
-                    text = "Widget transparency: ${transparency.roundToInt()}%",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Slider(
-                    value = transparency,
-                    onValueChange = { transparency = it },
-                    onValueChangeFinished = { viewModel.onWidgetTransparencyChange(transparency.roundToInt()) },
-                    valueRange = 0f..100f,
-                )
-                Text(
-                    text = "Background of the home screen widgets: 0% is solid black, 100% is fully transparent.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

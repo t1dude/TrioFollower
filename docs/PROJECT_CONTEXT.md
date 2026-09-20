@@ -332,17 +332,18 @@ Since, on top of the six milestones:
 
 - **Home screen widgets** (added 2026-09-20): `widget/` — `BubbleWidgetProvider` (2x2, bubble only) and
   `GraphWidgetProvider` (4x2, bubble + 3h past / 2h forecast graph). Classic `AppWidgetProvider` +
-  `RemoteViews` with a single `ImageView` (`layout/widget_image.xml`); the whole widget, background
-  included, is drawn into a bitmap by `WidgetRenderer` (Android Canvas, not Compose, since
-  RemoteViews can't host it; bubble and graph drawing mirror `GlucoseBubble`/`GlucoseChart`). Bitmap
-  size comes from the widget's min width/height options. `WidgetUpdater` reads the DAOs directly and
-  is called at the end of every successful `NightscoutRepositoryImpl.refresh()` (so foreground
-  service, worker and app refreshes all update widgets), when a widget is added/resized, when the
-  transparency changes, plus the 30-minute system `updatePeriodMillis` fallback. Setting:
-  `widgetTransparencyPercent` (Settings > Basic > slider; 0 = solid black, 100 = fully
-  transparent, shared by both widgets). The graph honours the Predictions setting (Off = no forecast) and
-  the current-time-line setting. Other setting changes (units, colors) show up on the next refresh.
-  Not compile-checked or device-tested when committed.
+  `RemoteViews` with one `ImageView` (`layout/widget_image.xml`); the whole widget, background
+  included, is drawn into a bitmap by `WidgetRenderer` (Android Canvas, since RemoteViews can't host
+  Compose; drawing mirrors `GlucoseBubble`/`GlucoseChart`). One bitmap is rendered per launcher size
+  (`OPTION_APPWIDGET_SIZES`, wrapped as a size-mapped `RemoteViews`), each at its own aspect ratio;
+  a single stretched bitmap made the bubble oval. `WidgetUpdater` reads the DAOs directly and runs at
+  the end of every successful `NightscoutRepositoryImpl.refresh()`, on add/resize, when a widget is
+  configured, plus the 30-minute `updatePeriodMillis` fallback. Transparency is per widget (0 = solid
+  black, 100 = fully transparent), stored in `WidgetPrefs` by widget id and set in
+  `WidgetConfigActivity` (shown on add, and via Reconfigure on Android 12+; live preview). There is no
+  Settings slider any more; widgets that existed before this default to 0%. The graph honours the
+  Predictions and current-time-line settings; other setting changes show on the next refresh. Not
+  compile-checked or device-tested when committed.
 
 ## Background-sync reliability issue — resolved, confirmed on-device
 

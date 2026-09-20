@@ -16,6 +16,7 @@ import kotlinx.coroutines.launch
 @InstallIn(SingletonComponent::class)
 interface WidgetEntryPoint {
     fun widgetUpdater(): WidgetUpdater
+    fun widgetPrefs(): WidgetPrefs
 }
 
 abstract class BaseWidgetProvider(private val kind: WidgetKind) : AppWidgetProvider() {
@@ -32,6 +33,12 @@ abstract class BaseWidgetProvider(private val kind: WidgetKind) : AppWidgetProvi
         newOptions: Bundle,
     ) {
         refresh(context, intArrayOf(appWidgetId))
+    }
+
+    override fun onDeleted(context: Context, appWidgetIds: IntArray) {
+        EntryPointAccessors.fromApplication(context.applicationContext, WidgetEntryPoint::class.java)
+            .widgetPrefs()
+            .remove(appWidgetIds)
     }
 
     private fun refresh(context: Context, ids: IntArray) {

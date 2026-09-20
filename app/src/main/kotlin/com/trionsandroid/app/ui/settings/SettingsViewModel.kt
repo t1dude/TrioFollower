@@ -6,7 +6,6 @@ import com.trionsandroid.app.data.logging.DiagnosticLogger
 import com.trionsandroid.app.data.remote.NightscoutServiceFactory
 import com.trionsandroid.app.data.nightscout.ConnectionEvents
 import com.trionsandroid.app.data.settings.AlarmSettings
-import com.trionsandroid.app.widget.WidgetUpdater
 import com.trionsandroid.app.data.settings.BackgroundMode
 import com.trionsandroid.app.data.settings.ForecastDisplay
 import com.trionsandroid.app.data.settings.GlucoseColorScheme
@@ -35,7 +34,6 @@ class SettingsViewModel @Inject constructor(
     private val serviceFactory: NightscoutServiceFactory,
     private val diagnosticLogger: DiagnosticLogger,
     private val connectionEvents: ConnectionEvents,
-    private val widgetUpdater: WidgetUpdater,
 ) : ViewModel() {
 
     // Text fields are driven by these local flows, not by DataStore: a value that round-trips
@@ -57,7 +55,6 @@ class SettingsViewModel @Inject constructor(
             timeFormat = settings.timeFormat,
             keepScreenOn = settings.keepScreenOn,
             showNowLine = settings.showNowLine,
-            widgetTransparencyPercent = settings.widgetTransparencyPercent,
             glucoseColorScheme = settings.glucoseColorScheme,
             homeStatsFace = settings.homeStatsFace,
             forecastDisplay = settings.forecastDisplay,
@@ -101,13 +98,6 @@ class SettingsViewModel @Inject constructor(
 
     fun onForecastDisplayChange(display: ForecastDisplay) {
         viewModelScope.launch { settingsRepository.setForecastDisplay(display) }
-    }
-
-    fun onWidgetTransparencyChange(percent: Int) {
-        viewModelScope.launch {
-            settingsRepository.setWidgetTransparencyPercent(percent)
-            widgetUpdater.updateAll()
-        }
     }
 
     fun onShowNowLineChange(show: Boolean) {

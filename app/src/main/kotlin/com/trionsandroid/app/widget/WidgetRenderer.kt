@@ -61,6 +61,9 @@ private val MUTED = Color.argb(200, 200, 205, 220)
 /** Draws the widgets into bitmaps. Android Canvas is used because RemoteViews can't host Compose. */
 object WidgetRenderer {
 
+    fun renderPreview(data: WidgetData, kind: WidgetKind, widthPx: Int, heightPx: Int, density: Float): Bitmap =
+        if (kind == WidgetKind.BUBBLE) renderBubble(data, widthPx, heightPx, density) else renderGraph(data, widthPx, heightPx, density)
+
     fun renderBubble(data: WidgetData, widthPx: Int, heightPx: Int, density: Float): Bitmap {
         val bitmap = Bitmap.createBitmap(widthPx, heightPx, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)

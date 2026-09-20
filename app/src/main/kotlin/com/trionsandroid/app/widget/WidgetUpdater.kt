@@ -5,6 +5,8 @@ import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.os.Bundle
+import android.util.SizeF
 import android.widget.RemoteViews
 import com.trionsandroid.app.MainActivity
 import com.trionsandroid.app.R
@@ -34,6 +36,7 @@ class WidgetUpdater @Inject constructor(
     private val glucoseEntryDao: GlucoseEntryDao,
     private val deviceStatusDao: DeviceStatusDao,
     private val settingsRepository: SettingsRepository,
+    private val widgetPrefs: WidgetPrefs,
 ) {
     suspend fun updateAll() {
         val manager = AppWidgetManager.getInstance(context)
@@ -45,30 +48,44 @@ class WidgetUpdater @Inject constructor(
 
     suspend fun update(kind: WidgetKind, ids: IntArray) {
         val manager = AppWidgetManager.getInstance(context)
-        val data = loadData()
+        val baseData = loadData()
         val density = context.resources.displayMetrics.density
         withContext(Dispatchers.Default) {
             ids.forEach { id ->
-                val options = manager.getAppWidgetOptions(id)
-                val defaultW = if (kind == WidgetKind.BUBBLE) 110 else 250
-                val widthDp = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, defaultW).coerceAtLeast(60)
-                val heightDp = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 110).coerceAtLeast(60)
-                val w = (widthDp * density).toInt().coerceAtMost(MAX_BITMAP_SIDE)
-                val h = (heightDp * density).toInt().coerceAtMost(MAX_BITMAP_SIDE)
-                val bitmap = when (kind) {
-                    WidgetKind.BUBBLE -> WidgetRenderer.renderBubble(data, w, h, density)
-                    WidgetKind.GRAPH -> WidgetRenderer.renderGraph(data, w, h, density)
+                val data = baseData.copy(transparencyPercent = widgetPrefs.transparency(id))
+                // One bitmap per size the launcher may show the widget at, each drawn at exactly that
+                // aspect ratio: a single bitmap is stretched to fit and would distort the bubble.
+                val bySize = sizesFor(manager.getAppWidgetOptions(id), kind).associateWith { size ->
+                    val w = (size.width * density).toInt().coerceIn(60, MAX_BITMAP_SIDE)
+                    val h = (size.height * density).toInt().coerceIn(60, MAX_BITMAP_SIDE)
+                    val bitmap = when (kind) {
+                        WidgetKind.BUBBLE -> WidgetRenderer.renderBubble(data, w, h, density)
+                        WidgetKind.GRAPH -> WidgetRenderer.renderGraph(data, w, h, density)
+                    }
+                    RemoteViews(context.packageName, R.layout.widget_image).apply {
+                        setImageViewBitmap(R.id.widget_image, bitmap)
+                        setOnClickPendingIntent(R.id.widget_image, openAppIntent())
+                    }
                 }
-                val views = RemoteViews(context.packageName, R.layout.widget_image).apply {
-                    setImageViewBitmap(R.id.widget_image, bitmap)
-                    setOnClickPendingIntent(R.id.widget_image, openAppIntent())
-                }
-                manager.updateAppWidget(id, views)
+                manager.updateAppWidget(id, RemoteViews(bySize))
             }
         }
     }
 
-    private suspend fun loadData(): WidgetData {
+    @Suppress("DEPRECATION")
+    private fun sizesFor(options: Bundle, kind: WidgetKind): List<SizeF> {
+        val sizes = options.getParcelableArrayList<SizeF>(AppWidgetManager.OPTION_APPWIDGET_SIZES)
+        if (!sizes.isNullOrEmpty()) return sizes
+        val defaultW = if (kind == WidgetKind.BUBBLE) 110 else 250
+        return listOf(
+            SizeF(
+                options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, defaultW).toFloat(),
+                options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 110).toFloat(),
+            ),
+        )
+    }
+
+    suspend fun loadData(): WidgetData {
         val now = System.currentTimeMillis()
         val since = now - TimeUnit.HOURS.toMillis(4)
         val settings = settingsRepository.settings.first()
@@ -83,7 +100,7 @@ class WidgetUpdater @Inject constructor(
             colorScheme = settings.glucoseColorScheme,
             forecastDisplay = settings.forecastDisplay,
             showNowLine = settings.showNowLine,
-            transparencyPercent = settings.widgetTransparencyPercent,
+            transparencyPercent = 0,
             nowMillis = now,
         )
     }

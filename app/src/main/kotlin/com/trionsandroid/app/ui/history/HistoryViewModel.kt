@@ -65,6 +65,9 @@ class HistoryViewModel @Inject constructor(
         refresh()
     }
 
+    suspend fun reasoningFor(reading: GlucoseReading) =
+        nightscoutRepository.getReasoningForReading(reading.timestamp)
+
     fun refresh() {
         viewModelScope.launch {
             isLoading.value = true

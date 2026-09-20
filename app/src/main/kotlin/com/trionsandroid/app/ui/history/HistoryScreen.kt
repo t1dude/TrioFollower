@@ -24,7 +24,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.trionsandroid.app.data.nightscout.GlucoseReading
 import com.trionsandroid.app.data.settings.timeFormatter
+import com.trionsandroid.app.ui.reasoning.ReasoningSheet
 
 /** Mirrors Trio's History.Mode (HistoryDataFlow.swift): Treatments / Glucose / Meals /
  *  Adjustments, picked with a segmented control above the list. */
@@ -39,6 +41,16 @@ private enum class HistoryMode(val label: String) {
 fun HistoryScreen(viewModel: HistoryViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var mode by remember { mutableStateOf(HistoryMode.TREATMENTS) }
+    var reasoningReading by remember { mutableStateOf<GlucoseReading?>(null) }
+    reasoningReading?.let { reading ->
+        ReasoningSheet(
+            reading = reading,
+            unit = uiState.glucoseUnit,
+            timeFormat = uiState.timeFormat,
+            load = viewModel::reasoningFor,
+            onDismiss = { reasoningReading = null },
+        )
+    }
     val timeFormatter = remember(uiState.timeFormat) { uiState.timeFormat.timeFormatter() }
 
     PullToRefreshBox(
@@ -101,7 +113,13 @@ fun HistoryScreen(viewModel: HistoryViewModel = hiltViewModel()) {
                 when (mode) {
                     HistoryMode.TREATMENTS -> treatmentEntries(uiState.treatments, timeFormatter)
                     HistoryMode.MEALS -> mealEntries(uiState.treatments, timeFormatter)
-                    HistoryMode.GLUCOSE -> glucoseEntries(uiState.readings, uiState.glucoseUnit, uiState.alarms, timeFormatter)
+                    HistoryMode.GLUCOSE -> glucoseEntries(
+                        uiState.readings,
+                        uiState.glucoseUnit,
+                        uiState.alarms,
+                        timeFormatter,
+                        onReadingClick = { reasoningReading = it },
+                    )
                     HistoryMode.ADJUSTMENTS -> adjustmentEntries(uiState.treatments, uiState.glucoseUnit, timeFormatter)
                 }
             }

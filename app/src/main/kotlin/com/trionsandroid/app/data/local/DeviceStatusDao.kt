@@ -13,6 +13,13 @@ interface DeviceStatusDao {
     @Query("SELECT * FROM device_status WHERE dateMillis >= :sinceMillis ORDER BY dateMillis ASC")
     fun observeSince(sinceMillis: Long): Flow<List<DeviceStatusEntity>>
 
+    /** Earliest determination with reasoning text in [fromMillis, toMillis). */
+    @Query(
+        "SELECT * FROM device_status WHERE reason IS NOT NULL AND dateMillis >= :fromMillis " +
+            "AND dateMillis < :toMillis ORDER BY dateMillis ASC LIMIT 1",
+    )
+    suspend fun firstWithReasonBetween(fromMillis: Long, toMillis: Long): DeviceStatusEntity?
+
     @Query("DELETE FROM device_status WHERE dateMillis < :beforeMillis")
     suspend fun deleteOlderThan(beforeMillis: Long)
 }

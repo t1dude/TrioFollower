@@ -55,4 +55,6 @@ data class OpenApsStatusDto(
 data class DeterminationDto(
     @SerialName("IOB") val iob: Double? = null,
     @SerialName("COB") val cob: Double? = null,
+    // The loop's plain-text explanation of the decision (Determination.reason in Trio).
+    val reason: String? = null,
 )

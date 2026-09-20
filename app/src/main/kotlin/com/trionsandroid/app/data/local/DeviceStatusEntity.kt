@@ -10,4 +10,5 @@ data class DeviceStatusEntity(
     val iobUnits: Double?,
     val cobGrams: Double?,
     val reservoirUnits: Double?,
+    val reason: String? = null,
 )

@@ -234,6 +234,18 @@ Since, on top of the six milestones:
   its window — applies app-wide while the app is visible and releases automatically when
   backgrounded. Not compile-checked or device-tested when committed.
 
+- **Algorithm reasoning** (added 2026-09-20): tapping the Home glucose bubble (latest reading) or a
+  row in History > Glucose opens `ReasoningSheet` (`ui/reasoning/`) with the loop's plain-text
+  `reason`. Source: `devicestatus.openaps.suggested.reason` (falling back to `enacted.reason`;
+  field names verified against Trio's `Determination.swift`), stored in the new
+  `DeviceStatusEntity.reason` column (Room schema v5 — destructive migration wipes the cache, which
+  refetches; only the last 24h refetches, so older readings show "no reasoning found").
+  Matching reading→reasoning is by time, not by id: `NightscoutRepository.getReasoningForReading`
+  returns the first determination received in [reading−60s, reading+270s], since the loop runs
+  right after each new reading. Looked up lazily on tap via `DeviceStatusDao.firstWithReasonBetween`
+  rather than kept in the UI state lists. No settings toggle. Not compile-checked or device-tested
+  when committed; `app/schemas/.../5.json` will appear on the next Gradle build — commit it.
+
 ## Background-sync reliability issue — resolved, confirmed on-device
 
 Original symptom: **"Real-time" (foreground service) background mode appears to run exactly one

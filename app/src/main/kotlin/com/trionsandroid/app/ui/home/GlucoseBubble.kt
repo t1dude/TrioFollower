@@ -2,6 +2,7 @@ package com.trionsandroid.app.ui.home
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -57,6 +58,8 @@ fun GlucoseBubble(
     unit: GlucoseUnit,
     alarms: AlarmSettings,
     timeFormat: TimeFormat = TimeFormat.HOUR_24,
+    /** Tapping the bubble (only when there's a reading) — opens the algorithm reasoning. */
+    onClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     size: Dp = DEFAULT_BUBBLE_SIZE,
 ) {
@@ -67,7 +70,8 @@ fun GlucoseBubble(
     val triangleOffset = size * TRIANGLE_OFFSET_RATIO
     val scale = size / DEFAULT_BUBBLE_SIZE
 
-    Box(modifier = modifier.size(size), contentAlignment = Alignment.Center) {
+    val clickModifier = if (onClick != null && latest != null) Modifier.clip(CircleShape).clickable(onClick = onClick) else Modifier
+    Box(modifier = modifier.size(size).then(clickModifier), contentAlignment = Alignment.Center) {
         // Ring + trend triangle are drawn together and rotated as one rigid unit, mirroring
         // Trio's TrendShape(...).rotationEffect(...) — the gradient's "seam" moving with the
         // arrow is intentional, not an artifact.

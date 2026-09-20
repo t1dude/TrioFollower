@@ -126,13 +126,16 @@ fun DeviceStatusDto.toEntity(): DeviceStatusEntity? {
         pump.reservoir == RESERVOIR_UNKNOWN_FULL_SENTINEL -> Double.POSITIVE_INFINITY
         else -> pump.reservoir
     }
-    if (iob == null && cob == null && reservoir == null) return null
+    // suggested is always present on a loop cycle; enacted only when a dose was actually sent.
+    val reason = openaps?.suggested?.reason ?: openaps?.enacted?.reason
+    if (iob == null && cob == null && reservoir == null && reason == null) return null
     return DeviceStatusEntity(
         id = stableId,
         dateMillis = dateMillis,
         iobUnits = iob,
         cobGrams = cob,
         reservoirUnits = reservoir,
+        reason = reason,
     )
 }
 

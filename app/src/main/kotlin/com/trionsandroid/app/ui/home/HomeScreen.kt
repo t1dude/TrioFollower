@@ -18,6 +18,9 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -28,6 +31,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.delay
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.trionsandroid.app.ui.reasoning.ReasoningSheet
 import java.time.Instant
 
 // Floor so the bubble never shrinks past legibility on a pathologically narrow screen — in
@@ -39,6 +43,16 @@ fun HomeScreen(viewModel: HomeViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val latest = uiState.readings.firstOrNull()
     val previous = uiState.readings.getOrNull(1)
+    var showReasoning by remember { mutableStateOf(false) }
+    if (showReasoning && latest != null) {
+        ReasoningSheet(
+            reading = latest,
+            unit = uiState.glucoseUnit,
+            timeFormat = uiState.timeFormat,
+            load = viewModel::reasoningFor,
+            onDismiss = { showReasoning = false },
+        )
+    }
 
     // Refresh whenever the app is opened (cold start or returning from the background).
     LifecycleEventEffect(Lifecycle.Event.ON_START) { viewModel.refresh() }
@@ -124,6 +138,7 @@ fun HomeScreen(viewModel: HomeViewModel = hiltViewModel()) {
                                     unit = uiState.glucoseUnit,
                                     alarms = uiState.alarms,
                                     timeFormat = uiState.timeFormat,
+                                    onClick = { showReasoning = true },
                                     size = maxWidth.coerceIn(MIN_BUBBLE_SIZE, DEFAULT_BUBBLE_SIZE),
                                 )
                             }

@@ -1,5 +1,6 @@
 package com.trionsandroid.app.data.nightscout
 
+import java.time.Instant
 import com.trionsandroid.app.data.local.DeviceStatusDao
 import com.trionsandroid.app.data.local.GlucoseEntryDao
 import com.trionsandroid.app.data.local.TreatmentDao
@@ -45,6 +46,15 @@ class NightscoutRepositoryImpl @Inject constructor(
 
     override fun observeDeviceStatus(sinceMillis: Long): Flow<List<DeviceStatusPoint>> =
         deviceStatusDao.observeSince(sinceMillis).map { points -> points.map { it.toDomain() } }
+
+    override suspend fun getReasoningForReading(readingTimestamp: Instant): Reasoning? {
+        val readingMillis = readingTimestamp.toEpochMilli()
+        val entity = deviceStatusDao.firstWithReasonBetween(
+            fromMillis = readingMillis - REASONING_SLACK_BEFORE_MILLIS,
+            toMillis = readingMillis + REASONING_WINDOW_AFTER_MILLIS,
+        ) ?: return null
+        return Reasoning(Instant.ofEpochMilli(entity.dateMillis), entity.reason ?: return null)
+    }
 
     override fun observeInsulinProfile(): Flow<InsulinProfile?> = insulinProfile.asStateFlow()
 
@@ -233,6 +243,11 @@ class NightscoutRepositoryImpl @Inject constructor(
         // query below (up to LIFECYCLE_LOOKBACK_DAYS old) doesn't get deleted by this same
         // refresh moments after being stored.
         const val RETENTION_HOURS = 24L * 30
+        // Loop runs right after each new reading (every ~5 min), so a determination belongs to
+        // the reading it follows: allow a little clock slack before, and just under one reading
+        // interval after.
+        const val REASONING_SLACK_BEFORE_MILLIS = 60_000L
+        const val REASONING_WINDOW_AFTER_MILLIS = 270_000L
         const val LIFECYCLE_LOOKBACK_DAYS = 30L
         val LIFECYCLE_EVENT_TYPES = listOf("Site Change", "Sensor Start")
         const val ADJUSTMENT_LOOKBACK_DAYS = 30L

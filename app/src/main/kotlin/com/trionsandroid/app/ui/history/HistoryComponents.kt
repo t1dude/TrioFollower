@@ -1,6 +1,7 @@
 package com.trionsandroid.app.ui.history
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -48,10 +49,17 @@ import kotlin.math.roundToInt
  *  range — wraps onto its own line on a narrow screen instead of overflowing past the edge. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun HistoryEntryRow(dotColor: Color, label: String, value: String, timestamp: String) {
+private fun HistoryEntryRow(
+    dotColor: Color,
+    label: String,
+    value: String,
+    timestamp: String,
+    onClick: (() -> Unit)? = null,
+) {
     FlowRow(
         modifier = Modifier
             .fillMaxWidth()
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(vertical = 10.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalArrangement = Arrangement.spacedBy(2.dp),
@@ -155,6 +163,7 @@ fun LazyListScope.glucoseEntries(
     unit: GlucoseUnit,
     alarms: AlarmSettings,
     timeFormatter: DateTimeFormatter,
+    onReadingClick: (GlucoseReading) -> Unit,
 ) {
     if (readings.isEmpty()) {
         item { EmptyHistoryMessage("No glucose readings yet.") }
@@ -166,6 +175,7 @@ fun LazyListScope.glucoseEntries(
             label = "${unit.format(reading.mgDl)} ${unit.label}",
             value = reading.trend.arrow,
             timestamp = formatTimestamp(reading, timeFormatter),
+            onClick = { onReadingClick(reading) },
         )
         HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
     }

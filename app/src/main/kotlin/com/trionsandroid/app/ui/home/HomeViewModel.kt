@@ -80,6 +80,9 @@ class HomeViewModel @Inject constructor(
 
     /** [userInitiated] is false for the automatic foreground ticks, which shouldn't yank the chart
      *  back to the live edge if the user has deliberately scrolled into history. */
+    suspend fun reasoningFor(reading: GlucoseReading) =
+        nightscoutRepository.getReasoningForReading(reading.timestamp)
+
     fun refresh(userInitiated: Boolean = true) {
         viewModelScope.launch {
             isLoading.value = true

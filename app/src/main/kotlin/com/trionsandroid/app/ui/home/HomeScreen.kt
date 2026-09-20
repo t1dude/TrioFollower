@@ -144,7 +144,7 @@ fun HomeScreen(viewModel: HomeViewModel = hiltViewModel()) {
                                 )
                             }
                         }
-                        PumpHudStackRight(state = hudState, modifier = Modifier.padding(start = 12.dp))
+                        PumpHudStackRight(state = hudState, unit = uiState.glucoseUnit, modifier = Modifier.padding(start = 12.dp))
                     }
                 }
             }

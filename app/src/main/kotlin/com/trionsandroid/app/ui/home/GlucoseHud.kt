@@ -5,18 +5,25 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowCircleRight
 import androidx.compose.material.icons.filled.HourglassBottom
 import androidx.compose.material.icons.filled.Medication
+import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Sensors
 import androidx.compose.material.icons.filled.Vaccines
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -33,6 +40,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
+import com.trionsandroid.app.data.settings.GlucoseUnit
+import com.trionsandroid.app.data.settings.format
+import com.trionsandroid.app.ui.theme.TrioCob
+import kotlin.math.roundToInt
 import com.trionsandroid.app.data.nightscout.DeviceStatusPoint
 import com.trionsandroid.app.data.nightscout.InsulinProfile
 import com.trionsandroid.app.data.nightscout.Treatment
@@ -61,6 +73,9 @@ private const val LEGEND_HANG_MILLIS = 1500L
 
 data class PumpCgmHudState(
     val currentIobUnits: Double?,
+    // 0 when no carbs are on board (or none are ever logged); null only when there's no recent data.
+    val currentCobGrams: Double?,
+    val eventualBgMgDl: Int?,
     val reservoirUnits: Double?,
     val siteRemaining: Duration?,
     val sensorRemaining: Duration?,
@@ -78,9 +93,9 @@ fun computePumpCgmHudState(
     insulinProfile: InsulinProfile?,
 ): PumpCgmHudState {
     val latestDeviceStatus = deviceStatusPoints.maxByOrNull { it.timestamp.toEpochMilli() }
-    val currentIobUnits = if (latestDeviceStatus != null &&
+    val latestIsFresh = latestDeviceStatus != null &&
         nowMillis - latestDeviceStatus.timestamp.toEpochMilli() <= IOB_GAP_THRESHOLD_MILLIS
-    ) {
+    val currentIobUnits = if (latestIsFresh && latestDeviceStatus != null) {
         latestDeviceStatus.iobUnits
     } else {
         val diaHours = insulinProfile?.diaHours ?: DEFAULT_DIA_HOURS
@@ -105,7 +120,12 @@ fun computePumpCgmHudState(
     val siteRemaining = siteChangedAt?.let { Duration.ofDays(SITE_CHANGE_INTERVAL_DAYS) - Duration.between(it, now) }
     val sensorRemaining = sensorStartedAt?.let { Duration.ofDays(SENSOR_DURATION_DAYS) - Duration.between(it, now) }
 
-    return PumpCgmHudState(currentIobUnits, reservoirUnits, siteRemaining, sensorRemaining)
+    // COB and the eventual prediction only come from the loop's own upload, so they go blank
+    // (rather than showing something stale) when the latest status is old.
+    val currentCobGrams = if (latestIsFresh) latestDeviceStatus?.cobGrams else null
+    val eventualBgMgDl = if (latestIsFresh) latestDeviceStatus?.eventualBgMgDl else null
+
+    return PumpCgmHudState(currentIobUnits, currentCobGrams, eventualBgMgDl, reservoirUnits, siteRemaining, sensorRemaining)
 }
 
 /** Matches Trio's PumpView.timerColor: red once under 8h left, orange under a day, green beyond. */
@@ -144,10 +164,13 @@ private fun formatUnits(units: Double?): String = when {
     else -> String.format(Locale.getDefault(), "%.1f", units)
 }
 
-/** Reservoir and IOB pills, stacked vertically — placed to the left of the bubble. */
+private val HUD_PILL_SPACING = 6.dp
+
+/** Reservoir, IOB and COB pills, stacked vertically — placed to the left of the bubble. With three
+ *  equal-height pills the middle one (IOB) sits on the bubble's center line. */
 @Composable
 fun PumpHudStackLeft(state: PumpCgmHudState, modifier: Modifier = Modifier) {
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(HUD_PILL_SPACING), horizontalAlignment = Alignment.CenterHorizontally) {
         HudPill(
             icon = Icons.Filled.Medication,
             label = "${formatUnits(state.reservoirUnits)} U",
@@ -160,13 +183,20 @@ fun PumpHudStackLeft(state: PumpCgmHudState, modifier: Modifier = Modifier) {
             legend = "Insulin on board",
             color = if (state.currentIobUnits != null) TrioInsulin else TrioOnSurfaceMuted,
         )
+        HudPill(
+            icon = Icons.Filled.Restaurant,
+            label = state.currentCobGrams?.let { "${it.roundToInt()} g" } ?: "-- g",
+            legend = "Carbs on board",
+            color = if (state.currentCobGrams != null) TrioCob else TrioOnSurfaceMuted,
+        )
     }
 }
 
-/** Sensor and pump-site time-remaining pills, stacked vertically — placed to the right of the bubble. */
+/** Sensor, pump-site and eventual-glucose pills, stacked vertically — placed to the right of the
+ *  bubble. The middle one (pump site) sits on the bubble's center line. */
 @Composable
-fun PumpHudStackRight(state: PumpCgmHudState, modifier: Modifier = Modifier) {
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+fun PumpHudStackRight(state: PumpCgmHudState, unit: GlucoseUnit, modifier: Modifier = Modifier) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(HUD_PILL_SPACING), horizontalAlignment = Alignment.CenterHorizontally) {
         HudPill(
             icon = Icons.Filled.Sensors,
             label = state.sensorRemaining?.let(::formatRemaining) ?: "--",
@@ -178,6 +208,14 @@ fun PumpHudStackRight(state: PumpCgmHudState, modifier: Modifier = Modifier) {
             label = state.siteRemaining?.let(::formatRemaining) ?: "--",
             legend = "Pump site time left",
             color = remainingTimeColor(state.siteRemaining),
+        )
+        // Trio's "eventual glucose" (arrow.right.circle + number) beside its bubble: the loop's
+        // own eventualBG, not a mix or minimum of the IOB/COB/UAM forecast curves.
+        HudPill(
+            icon = Icons.Filled.ArrowCircleRight,
+            label = state.eventualBgMgDl?.let { unit.format(it) } ?: "--",
+            legend = "Eventual glucose",
+            color = if (state.eventualBgMgDl != null) MaterialTheme.colorScheme.onSurface else TrioOnSurfaceMuted,
         )
     }
 }
@@ -193,7 +231,9 @@ private fun HudPill(icon: ImageVector, label: String, legend: String, color: Col
         }
     }
 
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+    // The legend hangs below the pill in a zero-height slot, so showing it never changes the
+    // stack's height (which would re-center it and make every pill jump).
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.zIndex(if (showLegend) 1f else 0f)) {
         OutlinedCard(
             onClick = { showLegend = true },
             shape = RoundedCornerShape(50),
@@ -209,14 +249,19 @@ private fun HudPill(icon: ImageVector, label: String, legend: String, color: Col
                 Text(label, color = color, fontWeight = FontWeight.Bold, fontSize = 13.sp)
             }
         }
-        AnimatedVisibility(visible = showLegend, enter = fadeIn(), exit = fadeOut()) {
-            Text(
-                text = legend,
-                color = color,
-                fontSize = 11.sp,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.padding(top = 2.dp),
-            )
+        Box(Modifier.height(0.dp).wrapContentHeight(align = Alignment.Top, unbounded = true)) {
+            AnimatedVisibility(visible = showLegend, enter = fadeIn(), exit = fadeOut()) {
+                Text(
+                    text = legend,
+                    color = color,
+                    fontSize = 11.sp,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .padding(top = 2.dp)
+                        .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(6.dp))
+                        .padding(horizontal = 4.dp),
+                )
+            }
         }
     }
 }

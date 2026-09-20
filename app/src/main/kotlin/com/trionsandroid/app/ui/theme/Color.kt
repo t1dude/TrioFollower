@@ -35,6 +35,8 @@ val TrioIob = Color(0xFF3355C9)
 val TrioLoopGreen = Color(0xFF6FCF97)
 val TrioLoopRed = Color(0xFFEB5757)
 val TrioWarningOrange = Color(0xFFFF9500)
+// Trio draws carb markers and the COB curve in plain orange (Color.orange), same as this.
+val TrioCob = TrioWarningOrange
 
 // Carb entries in the History tab — matches Trio's Color.loopYellow asset colorset (dark
 // appearance: srgb 1.000/0.757/0.271) exactly.

@@ -57,6 +57,9 @@ data class DeterminationDto(
     @SerialName("COB") val cob: Double? = null,
     // The loop's plain-text explanation of the decision (Determination.reason in Trio).
     val reason: String? = null,
+    // Trio's headline prediction (shown beside its glucose bubble): where glucose is expected to
+    // end up given current insulin and carbs. mg/dL.
+    val eventualBG: Double? = null,
     val predBGs: PredictionsDto? = null,
     // ISO-8601 timestamps; deliverAt is what Trio itself anchors the forecast to.
     val deliverAt: String? = null,

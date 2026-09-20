@@ -52,6 +52,7 @@ import com.trionsandroid.app.data.settings.hourFormatter
 import com.trionsandroid.app.ui.theme.TrioAccentPurple
 import com.trionsandroid.app.ui.theme.TrioBasal
 import com.trionsandroid.app.ui.theme.TrioBolus
+import com.trionsandroid.app.ui.theme.TrioCob
 import com.trionsandroid.app.ui.theme.TrioGlucoseHigh
 import com.trionsandroid.app.ui.theme.TrioGlucoseLow
 import com.trionsandroid.app.ui.theme.TrioInsulin
@@ -609,6 +610,70 @@ fun GlucoseChart(
                     amountLabel,
                     topLeft = Offset(x - amountLabel.size.width / 2f, apexY - 8.dp.toPx() - amountLabel.size.height - 2.dp.toPx()),
                 )
+            }
+
+            // Carb markers (Trio's CarbView): an upward triangle in orange sitting just below the
+            // BG curve at that moment (20 mg/dL below the nearest reading, like Trio's bolusOffset),
+            // sized by the amount, with the grams underneath. Entries without carbs are skipped,
+            // so users who never log carbs simply see none.
+            treatments.filter { t ->
+                (t.carbsGrams ?: 0.0) > 0.0 && t.timestamp.toEpochMilli() in viewportStartMillis..viewportEndMillis
+            }.forEach { carb ->
+                val carbMillis = carb.timestamp.toEpochMilli()
+                val x = xFor(carbMillis)
+                val grams = carb.carbsGrams ?: 0.0
+                val nearbyMgDl = sorted.minByOrNull { abs(it.timestamp.toEpochMilli() - carbMillis) }?.mgDl
+                val centerY = nearbyMgDl?.let { yFor(it - 20) } ?: (glucoseBottom - 20.dp.toPx())
+                val width = minOf(6.0 + grams * 0.25, 20.0).dp.toPx()
+                val height = width * 0.9f
+                val gramsLabel = textMeasurer.measure(
+                    text = grams.roundToInt().toString(),
+                    style = TextStyle(fontSize = 9.sp, color = TrioCob),
+                )
+                // Keep the marker + label inside the glucose area even for very low readings.
+                val topY = (centerY - height / 2f).coerceAtMost(glucoseBottom - height - gramsLabel.size.height - 2.dp.toPx())
+                    .coerceAtLeast(glucoseTop)
+                val markerPath = Path().apply {
+                    moveTo(x, topY)
+                    lineTo(x + width / 2f, topY + height)
+                    lineTo(x - width / 2f, topY + height)
+                    close()
+                }
+                drawPath(markerPath, color = TrioCob)
+                drawText(gramsLabel, topLeft = Offset(x - gramsLabel.size.width / 2f, topY + height + 1.dp.toPx()))
+            }
+
+            // COB curve, sharing the IOB strip like Trio's combined COB/IOB pane: orange line and
+            // faint fill from the loop's own COB uploads, plotted against its own grams scale
+            // (0 at the bottom). Drawn first so the blue IOB curve sits on top. All-zero COB
+            // (nobody logging carbs, or nothing on board) draws nothing at all. Trio also draws a
+            // dashed future decay from a local projection file that isn't uploaded to Nightscout,
+            // so only the actual COB history — which is the decay — is shown here.
+            val cobPoints = deviceStatusPoints
+                .filter { it.cobGrams != null && it.timestamp.toEpochMilli() in viewportStartMillis..viewportEndMillis }
+                .sortedBy { it.timestamp }
+            val maxCobGrams = cobPoints.maxOfOrNull { it.cobGrams ?: 0.0 } ?: 0.0
+            if (cobPoints.size >= 2 && maxCobGrams > 0.0) {
+                val cobScale = maxCobGrams.coerceAtLeast(10.0)
+                val fillPath = Path()
+                val linePath = Path()
+                cobPoints.forEachIndexed { index, point ->
+                    val x = xFor(point.timestamp.toEpochMilli())
+                    val fraction = ((point.cobGrams ?: 0.0) / cobScale).coerceIn(0.0, 1.0)
+                    val y = iobBottom - (fraction * (iobBottom - iobTop)).toFloat()
+                    if (index == 0) {
+                        fillPath.moveTo(x, iobBottom)
+                        fillPath.lineTo(x, y)
+                        linePath.moveTo(x, y)
+                    } else {
+                        fillPath.lineTo(x, y)
+                        linePath.lineTo(x, y)
+                    }
+                }
+                fillPath.lineTo(xFor(cobPoints.last().timestamp.toEpochMilli()), iobBottom)
+                fillPath.close()
+                drawPath(fillPath, color = TrioCob.copy(alpha = 0.2f))
+                drawPath(linePath, color = TrioCob, style = Stroke(width = 1.5.dp.toPx()))
             }
 
             // IOB curve, in the reserved strip below the glucose area. Normal orientation (0u at

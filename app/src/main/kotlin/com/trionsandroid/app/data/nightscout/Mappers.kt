@@ -18,6 +18,7 @@ import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import java.time.Instant
+import kotlin.math.roundToInt
 import java.time.OffsetDateTime
 
 fun EntryDto.toEntity(): GlucoseEntryEntity? {
@@ -140,7 +141,8 @@ fun DeviceStatusDto.toEntity(): DeviceStatusEntity? {
     } else {
         null
     }
-    if (iob == null && cob == null && reservoir == null && reason == null && !hasForecast) return null
+    val eventualBg = (openaps?.suggested?.eventualBG ?: openaps?.enacted?.eventualBG)?.roundToInt()
+    if (iob == null && cob == null && reservoir == null && reason == null && !hasForecast && eventualBg == null) return null
     return DeviceStatusEntity(
         id = stableId,
         dateMillis = dateMillis,
@@ -148,6 +150,7 @@ fun DeviceStatusDto.toEntity(): DeviceStatusEntity? {
         cobGrams = cob,
         reservoirUnits = reservoir,
         reason = reason,
+        eventualBgMgDl = eventualBg,
         forecastStartMillis = forecastStart,
         predIob = predictions?.iob.toCsv(),
         predZt = predictions?.zt.toCsv(),
@@ -184,6 +187,7 @@ fun DeviceStatusEntity.toDomain(): DeviceStatusPoint = DeviceStatusPoint(
     iobUnits = iobUnits,
     cobGrams = cobGrams,
     reservoirUnits = reservoirUnits,
+    eventualBgMgDl = eventualBgMgDl,
 )
 
 /**

@@ -22,10 +22,11 @@ The app only shows data and sends alerts. It cannot control a pump or change any
 **Home**
 - Glucose bubble with the current value, trend arrow, minutes since the reading and the change
   since the last one. Tap it to read the loop's reasoning for that reading.
-- A chart you can scroll and zoom. It shows glucose, basal, boluses, insulin on board, overrides
-  and temp targets.
+- A chart you can scroll and zoom. It shows glucose, basal, boluses, carb entries, insulin on board,
+  carbs on board, overrides and temp targets.
 - Predictions on the chart, drawn as lines or as a cone. You can also turn them off.
-- Small status pills for reservoir, pump and sensor age, and insulin on board.
+- Small status pills for reservoir, insulin on board, carbs on board, pump and sensor age, and the
+  loop's eventual glucose, like Trio shows next to its bubble.
 - A statistics bar with today's time in range, or your average glucose.
 
 **History**

@@ -293,6 +293,21 @@ Since, on top of the six milestones:
   profile target, which we don't have); static = red ≤ alarm low, purple ≥ alarm high, else green.
   Not compile-checked or device-tested when committed.
 
+- **Carbs, COB and eventual glucose** (added 2026-09-20; checked against Trio's `CarbView.swift`,
+  `CobIobChart.swift`, `HomeRootView+Header.swift`): (1) carb markers on the chart: orange upward
+  triangle 20 mg/dL below the nearest reading, sized by grams, gram label underneath; entries
+  without carbs are skipped. (2) COB curve in the IOB strip (orange line + faint fill from
+  `DeviceStatusPoint.cobGrams`, own grams scale, min scale 10 g; nothing drawn when all COB is 0,
+  so users who don't log carbs see nothing). Trio's dashed *future* COB/IOB decay comes from local
+  projection files that Nightscout never receives, so it isn't shown. (3) HUD: left stack is
+  reservoir / IOB / COB, right stack is sensor / pump site / eventual glucose; pills are 6dp apart,
+  the middle pill of each stack sits on the bubble's center line, and pill legends hang in a
+  zero-height slot so they never re-center the stack. Trio's number beside its bubble is simply
+  the determination's `eventualBG` (not the min of IOB/COB/UAM curves); stored as
+  `DeviceStatusEntity.eventualBgMgDl` (Room schema v7). COB and eventual go to "--" when the
+  latest device status is older than `IOB_GAP_THRESHOLD_MILLIS`. Not compile-checked or
+  device-tested when committed; `app/schemas/.../7.json` will appear on the next build.
+
 ## Background-sync reliability issue — resolved, confirmed on-device
 
 Original symptom: **"Real-time" (foreground service) background mode appears to run exactly one

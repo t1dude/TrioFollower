@@ -31,6 +31,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.delay
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.trionsandroid.app.ui.permissions.PermissionWarnings
 import com.trionsandroid.app.ui.reasoning.ReasoningSheet
 import com.trionsandroid.app.data.settings.HomeStatsFace
 import java.time.Instant
@@ -87,6 +88,8 @@ fun HomeScreen(viewModel: HomeViewModel = hiltViewModel()) {
             contentPadding = PaddingValues(top = 8.dp, bottom = 96.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            item { PermissionWarnings(alarmsEnabled = uiState.alarms.alarmsEnabled) }
+
             uiState.errorMessage?.let { message ->
                 item {
                     Text(

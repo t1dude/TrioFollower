@@ -1,6 +1,13 @@
 package com.trionsandroid.app.ui.navigation
 
+import android.Manifest
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.platform.LocalContext
+import com.trionsandroid.app.ui.permissions.notificationsAllowed
+import com.trionsandroid.app.ui.permissions.requestBatteryExemption
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -37,6 +44,20 @@ fun TrioNavHost(navController: NavHostController = rememberNavController()) {
     val showWelcome by onboarding.showWelcome.collectAsStateWithLifecycle()
     var onboardingStep by rememberSaveable { mutableStateOf(OnboardingStep.WELCOME) }
     var expandBasicSettings by remember { mutableStateOf(false) }
+
+    // Permissions are asked for right after onboarding, one system prompt at a time: notifications
+    // first, then the battery-optimization exemption once that prompt has been answered.
+    val context = LocalContext.current
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { context.requestBatteryExemption() }
+    fun requestInitialPermissions() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !context.notificationsAllowed()) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            context.requestBatteryExemption()
+        }
+    }
     if (showWelcome) {
         when (onboardingStep) {
             OnboardingStep.WELCOME -> WelcomeDialog(onOk = { onboardingStep = OnboardingStep.CONNECT })
@@ -47,6 +68,7 @@ fun TrioNavHost(navController: NavHostController = rememberNavController()) {
                     popUpTo(navController.graph.startDestinationId) { saveState = true }
                     launchSingleTop = true
                 }
+                requestInitialPermissions()
             })
         }
     }

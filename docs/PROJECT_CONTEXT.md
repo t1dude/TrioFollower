@@ -320,6 +320,16 @@ Since, on top of the six milestones:
   the next refresh. Not compile-checked or device-tested when committed (the Gradle copy task /
   `sourceSets` wiring is the most likely thing to need a tweak).
 
+- **Permissions on first run + revoked warnings** (added 2026-09-20): after the onboarding
+  "Connect to Nightscout" OK, `TrioNavHost` asks for POST_NOTIFICATIONS and, once that prompt is
+  answered, opens the battery-optimization exemption prompt. On Home, `PermissionWarnings`
+  (`ui/permissions/`) re-checks on every resume and shows a red "Notifications are off" card
+  (`NotificationManagerCompat.areNotificationsEnabled()`, so it also catches notifications blocked
+  in system settings; tap opens the app's notification settings) and an orange "Battery
+  optimization is on" card (only while alarms are enabled; tap reopens the exemption prompt).
+  Each disappears as soon as the permission is back. Only new users get the first-run prompts;
+  existing users see the warnings if anything is missing. Not compile-checked or device-tested.
+
 ## Background-sync reliability issue — resolved, confirmed on-device
 
 Original symptom: **"Real-time" (foreground service) background mode appears to run exactly one

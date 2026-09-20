@@ -1,6 +1,9 @@
 package com.trionsandroid.app.ui.home
 
 import androidx.compose.animation.core.AnimationState
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.animateDecay
 import androidx.compose.animation.core.exponentialDecay
 import androidx.compose.foundation.Canvas
@@ -9,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -72,6 +76,8 @@ private const val MIN_FLING_VELOCITY_PX_PER_SEC = 50f
 private val LEFT_GUTTER = 40.dp
 private val BOTTOM_LABEL_GAP = 4.dp
 private val BOTTOM_SAFETY_MARGIN = 6.dp
+private const val SCROLL_TO_LATEST_MILLIS = 700
+
 private val dayFormatter = DateTimeFormatter.ofPattern("dd.MM")
 
 private val BASAL_STRIP_HEIGHT = 40.dp
@@ -132,6 +138,7 @@ fun GlucoseChart(
     unit: GlucoseUnit,
     alarms: AlarmSettings,
     timeFormat: TimeFormat = TimeFormat.HOUR_24,
+    scrollToLatestKey: Int = 0,
     modifier: Modifier = Modifier,
 ) {
     val density = LocalDensity.current
@@ -192,6 +199,19 @@ fun GlucoseChart(
         newStart = newStart.coerceAtLeast(currentDataMinMillis)
         viewportDurationMillis = newEnd - newStart
         viewportEndMillis = newEnd
+    }
+
+    // Each time scrollToLatestKey changes (a refresh finished), visibly glide the viewport to
+    // the newest data, keeping the current zoom level.
+    LaunchedEffect(scrollToLatestKey) {
+        flingJob?.cancel()
+        val startEnd = viewportEndMillis
+        val targetEnd = System.currentTimeMillis()
+        if (targetEnd > startEnd) {
+            animate(0f, 1f, animationSpec = tween(SCROLL_TO_LATEST_MILLIS, easing = FastOutSlowInEasing)) { fraction, _ ->
+                viewportEndMillis = startEnd + ((targetEnd - startEnd) * fraction).toLong()
+            }
+        }
     }
 
     Box(

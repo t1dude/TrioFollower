@@ -11,6 +11,8 @@ import com.trionsandroid.app.data.settings.TimeFormat
 data class HomeUiState(
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
+    // Bumped each time a refresh finishes, so the chart can scroll to the newest data.
+    val refreshCount: Int = 0,
     val glucoseUnit: GlucoseUnit = GlucoseUnit.MMOL_L,
     val timeFormat: TimeFormat = TimeFormat.HOUR_24,
     val alarms: AlarmSettings = AlarmSettings(),

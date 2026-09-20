@@ -21,6 +21,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import java.time.Instant
 
@@ -33,6 +35,9 @@ fun HomeScreen(viewModel: HomeViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val latest = uiState.readings.firstOrNull()
     val previous = uiState.readings.getOrNull(1)
+
+    // Refresh whenever the app is opened (cold start or returning from the background).
+    LifecycleEventEffect(Lifecycle.Event.ON_START) { viewModel.refresh() }
 
     // No header/refresh button — pull-to-refresh replaces the button, freeing up vertical space
     // so the chart (and its x-axis labels) sits higher without needing to scroll for it.
@@ -125,6 +130,7 @@ fun HomeScreen(viewModel: HomeViewModel = hiltViewModel()) {
                             unit = uiState.glucoseUnit,
                             alarms = uiState.alarms,
                             timeFormat = uiState.timeFormat,
+                            scrollToLatestKey = uiState.refreshCount,
                             modifier = Modifier.padding(12.dp),
                         )
                     }

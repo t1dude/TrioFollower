@@ -209,6 +209,17 @@ Since, on top of the six milestones:
   Written without a JDK on the dev machine, so not compile-checked when committed — if the build
   fails, look here first.
 
+- **Predicted High alarm** (added 2026-09-20, user-approved calculation; off by default, toggle
+  under Alarms): new `AlarmZone.PREDICTED_HIGH`, decided in `AlarmCheckRunner` only when the normal
+  evaluation says NORMAL, via `isPredictedHigh()` in `data/alarm/PredictedHighEvaluator.kt`. Over the
+  last 60 min: ≥8 readings spanning ≥55 min with no gap >15 min; all readings strictly between the
+  low and high thresholds; least-squares slope +10..+45 mg/dL/h; four 15-min segments each change
+  in [-2, +20]; latest + slope×1h ≥ high threshold; and no carbs or non-SMB bolus (External
+  Insulin counts) in the window. Constants are deliberately not settings. A fresh predicted-high
+  alarm has a 60-minute cooldown (`AlarmStateStore`) so flapping in/out of the predicate can't
+  re-alert every check. Uses the low/high threshold *values* even if those tiers are disabled.
+  Not compile-checked or device-tested when committed.
+
 ## Background-sync reliability issue — resolved, confirmed on-device
 
 Original symptom: **"Real-time" (foreground service) background mode appears to run exactly one

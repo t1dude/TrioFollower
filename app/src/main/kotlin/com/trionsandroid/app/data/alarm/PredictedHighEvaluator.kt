@@ -12,7 +12,7 @@ import kotlin.math.abs
  *  supply at least this much (plus a little slack) of both. */
 val PREDICTED_HIGH_WINDOW_MILLIS: Long = TimeUnit.MINUTES.toMillis(60)
 
-private val PROJECTION_MINUTES = 60.0
+private const val PROJECTION_MINUTES = 60.0
 private val MAX_GAP_MILLIS = TimeUnit.MINUTES.toMillis(15)
 private val MIN_COVERAGE_MILLIS = TimeUnit.MINUTES.toMillis(55)
 private val SEGMENT_MILLIS = TimeUnit.MINUTES.toMillis(15)

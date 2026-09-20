@@ -1,8 +1,6 @@
 package com.trionsandroid.app.ui.home
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.background
@@ -34,6 +32,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -231,6 +230,8 @@ private fun HudPill(icon: ImageVector, label: String, legend: String, color: Col
         }
     }
 
+    val legendAlpha by animateFloatAsState(if (showLegend) 1f else 0f, label = "legendAlpha")
+
     // The legend hangs below the pill in a zero-height slot, so showing it never changes the
     // stack's height (which would re-center it and make every pill jump).
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.zIndex(if (showLegend) 1f else 0f)) {
@@ -250,13 +251,16 @@ private fun HudPill(icon: ImageVector, label: String, legend: String, color: Col
             }
         }
         Box(Modifier.height(0.dp).wrapContentHeight(align = Alignment.Top, unbounded = true)) {
-            AnimatedVisibility(visible = showLegend, enter = fadeIn(), exit = fadeOut()) {
+            // Fades via animated alpha rather than AnimatedVisibility, which can't be called from
+            // a Box nested inside this Column (it would resolve to Column's scoped overload).
+            if (legendAlpha > 0f) {
                 Text(
                     text = legend,
                     color = color,
                     fontSize = 11.sp,
                     textAlign = TextAlign.Center,
                     modifier = Modifier
+                        .alpha(legendAlpha)
                         .padding(top = 2.dp)
                         .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(6.dp))
                         .padding(horizontal = 4.dp),

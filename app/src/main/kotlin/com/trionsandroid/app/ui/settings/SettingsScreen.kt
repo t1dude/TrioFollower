@@ -227,7 +227,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                     }
                     Spacer(Modifier.height(8.dp))
                     LabeledSwitch(
-                        label = "Predicted high (slow climb)",
+                        label = "Predicted high (Reese Mode)",
                         checked = uiState.alarms.predictedHighEnabled,
                         onCheckedChange = { viewModel.onAlarmSettingsChange(uiState.alarms.copy(predictedHighEnabled = it)) },
                         onInfoClick = { showPredictedHighInfo = true },

@@ -28,7 +28,7 @@ import javax.inject.Singleton
 class AlarmNotifier @Inject constructor(
     @ApplicationContext private val context: Context,
 ) {
-    /** [reading] is the newest one we have — null only for No data with nothing recent at all. */
+    /** [reading] is the newest reading; null only for No data with nothing recent. */
     fun notify(zone: AlarmZone, reading: GlucoseReading?, unit: GlucoseUnit, alarms: AlarmSettings) {
         ensureChannel()
         if (ActivityCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
@@ -45,9 +45,7 @@ class AlarmNotifier @Inject constructor(
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setContentIntent(openAppAndAcknowledgePendingIntent())
         if (alarms.requireAcknowledgement) {
-            // setOngoing(true) is what makes this un-swipe-dismissible — the only ways off screen
-            // are the OK action below or tapping the notification to open the app, both of which
-            // route through AlarmAcknowledger and explicitly cancel it.
+            // Ongoing notifications can't be swiped away. OK or a tap acknowledges and cancels it.
             builder.setOngoing(true)
             builder.setAutoCancel(false)
             builder.addAction(0, "OK", acknowledgePendingIntent())
@@ -55,9 +53,7 @@ class AlarmNotifier @Inject constructor(
             builder.setOngoing(false)
             builder.setAutoCancel(true)
         }
-        // NotificationCompat can't independently silence sound vs. vibration on a shared
-        // channel — only both together via setSilent. Good enough: the common cases are
-        // "alert me" (both on) and "just show it" (both off).
+        // Sound and vibration can't be silenced separately on one channel, so only both off is silent.
         if (!alarms.soundEnabled && !alarms.vibrationEnabled) {
             builder.setSilent(true)
         }

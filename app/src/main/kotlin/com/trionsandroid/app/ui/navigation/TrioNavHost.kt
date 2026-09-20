@@ -38,15 +38,13 @@ fun TrioNavHost(navController: NavHostController = rememberNavController()) {
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = currentBackStackEntry?.destination?.route
 
-    // First run: welcome (the README) -> "connect to Nightscout" prompt -> Settings with Basic
-    // Settings already expanded, so the URL and token fields are right there.
+    // First run: welcome, then the connect prompt, then Settings with Basic Settings expanded.
     val onboarding: OnboardingViewModel = hiltViewModel()
     val showWelcome by onboarding.showWelcome.collectAsStateWithLifecycle()
     var onboardingStep by rememberSaveable { mutableStateOf(OnboardingStep.WELCOME) }
     var expandBasicSettings by remember { mutableStateOf(false) }
 
-    // Permissions are asked for right after onboarding, one system prompt at a time: notifications
-    // first, then the battery-optimization exemption once that prompt has been answered.
+    // Permissions are requested after onboarding: notifications first, then the battery exemption.
     val context = LocalContext.current
     val notificationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),

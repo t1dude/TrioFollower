@@ -86,11 +86,8 @@ class NightscoutRepositoryImpl @Inject constructor(
                     "decoded=${entryDtos.size} stored=${storedEntries.size}",
             )
 
-            // Query by both `date` and `created_at`: treatments have historically used
-            // created_at as their canonical timestamp, and a document written via that older
-            // path may lack an indexed `date` entirely — invisible to a date-only query even
-            // though it's fully visible on the classic dashboard. See getTreatmentsByCreatedAt's
-            // doc comment. Results can overlap, so merge by identifier.
+            // Query by both `date` and `created_at`: older uploads may lack an indexed `date`.
+            // Results can overlap, so merge by identifier.
             val treatmentsByDate = api.getTreatments(bearerToken = bearer, sinceMillis = sinceMillis)
             val treatmentsByCreatedAt = api.getTreatmentsByCreatedAt(bearerToken = bearer, sinceMillis = sinceMillis)
             val treatmentDtosByDate = decodeResilient<TreatmentDto>("$TAG.Treatments", treatmentsByDate.result)
@@ -107,13 +104,12 @@ class NightscoutRepositoryImpl @Inject constructor(
             val cutoffMillis = System.currentTimeMillis() - TimeUnit.HOURS.toMillis(RETENTION_HOURS)
             glucoseEntryDao.deleteOlderThan(cutoffMillis)
             treatmentDao.deleteOlderThan(cutoffMillis)
-            // Also purge any bogus future-dated rows cached before they were filtered on the way in.
+            // Purge future-dated rows cached before they were filtered on the way in.
             treatmentDao.deleteNewerThan(futureCutoffMillis())
             deviceStatusDao.deleteOlderThan(cutoffMillis)
 
-            // Isolated from the rest of refresh(): the profile is only needed for the insulin
-            // overlay's basal schedule, and a hiccup fetching it shouldn't surface as a failed
-            // refresh when the entries/treatments that matter more just updated fine.
+            // Profile, devicestatus, lifecycle and adjustment fetches below are isolated so a failure in
+            // one doesn't fail the whole refresh.
             runCatching {
                 val profileEnvelope = api.getProfile(bearerToken = bearer)
                 decodeResilient<ProfileDocumentDto>("$TAG.Profile", profileEnvelope.result)
@@ -133,9 +129,7 @@ class NightscoutRepositoryImpl @Inject constructor(
                 diagnosticLogger.logError(TAG, "Profile fetch failed (non-fatal)", e)
             }
 
-            // Isolated for the same reason as profile: IOB/COB (from devicestatus) is secondary
-            // to entries/treatments updating successfully. Queried by both date and created_at
-            // for the same reason as treatments — see DeviceStatusDto's doc comment.
+            // Devicestatus is queried by date and created_at, like treatments.
             runCatching {
                 val byDate = api.getDeviceStatus(bearerToken = bearer, sinceMillis = sinceMillis)
                 val byCreatedAt = api.getDeviceStatusByCreatedAt(bearerToken = bearer, sinceMillis = sinceMillis)
@@ -151,10 +145,6 @@ class NightscoutRepositoryImpl @Inject constructor(
                 diagnosticLogger.logError(TAG, "DeviceStatus fetch failed (non-fatal)", e)
             }
 
-            // Isolated for the same reason as profile/devicestatus. Site/pod changes and sensor
-            // starts are days apart, so the one that matters for the HUD's time-remaining pills
-            // routinely falls outside the regular 24h treatments window — that's the common case
-            // here, not an edge case, hence the much longer lookback.
             runCatching {
                 val lookbackMillis = System.currentTimeMillis() - TimeUnit.DAYS.toMillis(LIFECYCLE_LOOKBACK_DAYS)
                 val lifecycleDtos = LIFECYCLE_EVENT_TYPES.flatMap { eventType ->
@@ -182,9 +172,6 @@ class NightscoutRepositoryImpl @Inject constructor(
                 diagnosticLogger.logError(TAG, "Lifecycle events fetch failed (non-fatal)", e)
             }
 
-            // Isolated for the same reason as the lifecycle query above, and for the same reason:
-            // an override or temp target routinely started well outside the regular 24h window
-            // (a "Boost" override running right now may well have been activated yesterday).
             runCatching {
                 val lookbackMillis = System.currentTimeMillis() - TimeUnit.DAYS.toMillis(ADJUSTMENT_LOOKBACK_DAYS)
                 val adjustmentDtos = ADJUSTMENT_EVENT_TYPES.flatMap { eventType ->
@@ -203,10 +190,7 @@ class NightscoutRepositoryImpl @Inject constructor(
                 }.distinctBy { it.stableId }
                 val storedAdjustments = adjustmentDtos.mapNotNull { it.toEntity() }.notInFuture()
                 treatmentDao.upsertAll(storedAdjustments)
-                // Trio deletes-and-replaces (under a new id) an override's Nightscout entry when
-                // it ends, rather than editing it in place — see deleteStaleAdjustments' doc
-                // comment. Without this, an ended override's old placeholder-duration entry
-                // lingers forever as a phantom duplicate alongside the real, terminated one.
+                // Trio replaces an ended override's entry under a new id, so drop the old ones.
                 treatmentDao.deleteStaleAdjustments(
                     eventTypes = ADJUSTMENT_EVENT_TYPES,
                     sinceMillis = lookbackMillis,
@@ -224,13 +208,7 @@ class NightscoutRepositoryImpl @Inject constructor(
         }
     }
 
-    /**
-     * Decodes each result element independently instead of deserializing the whole array in
-     * one shot, so one malformed record (a different Loop/AndroidAPS/Trio uploader writing an
-     * unexpected shape into the same collection) doesn't throw away every other record in the
-     * batch. Failures are logged with the offending raw JSON so they can all be fixed from a
-     * single refresh instead of one crash at a time.
-     */
+    /** Decodes each element on its own so one malformed record doesn't drop the whole batch. */
     private inline fun <reified T> decodeResilient(tag: String, elements: List<JsonElement>): List<T> {
         val decoded = mutableListOf<T>()
         for (element in elements) {
@@ -243,8 +221,7 @@ class NightscoutRepositoryImpl @Inject constructor(
         return decoded
     }
 
-    /** Treatments dated beyond this are bogus (e.g. a CGM change that also creates an entry in the
-     *  year 2162) — they'd otherwise sort as "latest" and hide the real event. */
+    /** Treatments dated far in the future (e.g. year 2162) are bogus and would hide the real latest event. */
     private fun futureCutoffMillis() = System.currentTimeMillis() + FUTURE_TOLERANCE_MILLIS
 
     private fun List<TreatmentEntity>.notInFuture(): List<TreatmentEntity> {
@@ -253,18 +230,13 @@ class NightscoutRepositoryImpl @Inject constructor(
     }
 
     private companion object {
-        // Slack for clock skew between the phone, the uploader and the server.
+        // Allowance for clock skew.
         const val FUTURE_TOLERANCE_MILLIS = 10 * 60_000L
         const val TAG = "NightscoutRepository"
 
-        // 30 days: long enough to scroll the chart back without re-fetching, and — just as
-        // importantly — long enough that a Sensor Start or Site Change fetched via the lifecycle
-        // query below (up to LIFECYCLE_LOOKBACK_DAYS old) doesn't get deleted by this same
-        // refresh moments after being stored.
+        // Long enough for the chart history and for lifecycle events fetched below.
         const val RETENTION_HOURS = 24L * 30
-        // Loop runs right after each new reading (every ~5 min), so a determination belongs to
-        // the reading it follows: allow a little clock slack before, and just under one reading
-        // interval after.
+        // A determination belongs to the reading it follows: a little slack before, one reading interval after.
         const val REASONING_SLACK_BEFORE_MILLIS = 60_000L
         const val REASONING_WINDOW_AFTER_MILLIS = 270_000L
         const val LIFECYCLE_LOOKBACK_DAYS = 30L

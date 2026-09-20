@@ -5,14 +5,8 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 
 /**
- * Nightscout devicestatus document, as uploaded by Trio's loop engine every cycle.
- *
- * Confirmed against Trio's own upload code (NightscoutAPI.swift's uploadDeviceStatus): it POSTs
- * the NightscoutStatus struct directly to the legacy v1 devicestatus endpoint with no date or
- * created_at field of its own — Nightscout's server assigns created_at on receipt for a v1
- * insert like this, not date, exactly like the treatments case. (An earlier version of this
- * comment claimed devicestatus was reliably date-keyed; that was a guess and it was wrong —
- * confirmed empirically via an empty date$gte result despite the data existing.)
+ * Nightscout devicestatus document uploaded by Trio each loop cycle. Trio posts it through the
+ * v1 API without a `date`, so the server sets `created_at` instead (a date-only query misses it).
  */
 @Serializable
 data class DeviceStatusDto(
@@ -27,12 +21,8 @@ data class DeviceStatusDto(
 }
 
 /**
- * Nightscout devicestatus.pump, confirmed against Trio's NSPumpStatus (NightscoutStatus.swift).
- * `reservoir` is nullable for a real reason, not just optionality: Omnipod reports 0xDEADBEEF
- * locally for "at least 50U, exact level unknown" (PumpView.swift), and NightscoutManager.swift's
- * upload code (`reservoir: reservoir != 0xDEAD_BEEF ? reservoir : nil`) turns that into an
- * *absent* field on the wire — so "pump present, reservoir missing" is itself the "50+" signal,
- * not just missing data. See the mapping in Mappers.kt.
+ * devicestatus.pump. `reservoir` is absent when Omnipod reports 0xDEADBEEF ("50 U or more, exact
+ * level unknown"), so "pump present, reservoir missing" means "50+". See Mappers.kt.
  */
 @Serializable
 data class PumpStatusDto(
@@ -41,11 +31,8 @@ data class PumpStatusDto(
 
 @Serializable
 data class OpenApsStatusDto(
-    // Trio's own local (pre-upload) storage keeps this as an array (github.com/nightscout/Trio,
-    // NightscoutManager.swift: "storage.retrieveAsync(OpenAPS.Monitor.iob, as: [IOBEntry].self)"),
-    // while the NightscoutStatus struct actually uploaded types it as a single object — and other
-    // uploaders may differ again. Left as raw JSON and disambiguated when mapping to the domain
-    // model so either shape works.
+    // An object in what Trio uploads, an array in its local storage and other uploaders. Kept as
+    // raw JSON and handled when mapping.
     val iob: JsonElement? = null,
     val suggested: DeterminationDto? = null,
     val enacted: DeterminationDto? = null,
@@ -55,18 +42,17 @@ data class OpenApsStatusDto(
 data class DeterminationDto(
     @SerialName("IOB") val iob: Double? = null,
     @SerialName("COB") val cob: Double? = null,
-    // The loop's plain-text explanation of the decision (Determination.reason in Trio).
+    // The loop's plain-text explanation of its decision.
     val reason: String? = null,
-    // Trio's headline prediction (shown beside its glucose bubble): where glucose is expected to
-    // end up given current insulin and carbs. mg/dL.
+    // Where glucose is expected to end up (mg/dL); Trio shows it next to its bubble.
     val eventualBG: Double? = null,
     val predBGs: PredictionsDto? = null,
-    // ISO-8601 timestamps; deliverAt is what Trio itself anchors the forecast to.
+    // ISO-8601; deliverAt is what Trio anchors the forecast to.
     val deliverAt: String? = null,
     val timestamp: String? = null,
 )
 
-/** oref forecast curves (Trio's `Predictions`): mg/dL, one value per 5 minutes. Any may be absent. */
+/** Forecast curves in mg/dL, one value per 5 minutes. Any may be absent. */
 @Serializable
 data class PredictionsDto(
     @SerialName("IOB") val iob: List<Int>? = null,

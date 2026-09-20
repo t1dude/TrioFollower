@@ -24,11 +24,9 @@ import androidx.compose.ui.window.DialogProperties
 
 private const val README_ASSET = "welcome_readme.md"
 
-// Neither dialog can be dismissed by tapping outside or pressing back: the point is that the user
-// reads it and taps OK.
+// Can't be dismissed without tapping OK.
 private val MustTapOk = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false)
 
-/** Step 1: the README, shown to new users. */
 @Composable
 fun WelcomeDialog(onOk: () -> Unit) {
     val context = LocalContext.current
@@ -50,7 +48,6 @@ fun WelcomeDialog(onOk: () -> Unit) {
     )
 }
 
-/** Step 2: what to do next. OK takes the user to the Nightscout settings. */
 @Composable
 fun ConnectNightscoutDialog(onOk: () -> Unit) {
     AlertDialog(
@@ -64,8 +61,8 @@ fun ConnectNightscoutDialog(onOk: () -> Unit) {
     )
 }
 
-// --- A tiny renderer for the README's markdown subset (headings, bullets, paragraphs, **bold**,
-// links, `code`). The Building section is for developers, so it's left out of the welcome. ---
+// Minimal markdown renderer for the README (headings, bullets, paragraphs, bold, links, code).
+// The Building section is skipped.
 
 private sealed interface ReadmeBlock {
     data class Heading(val level: Int, val text: String) : ReadmeBlock

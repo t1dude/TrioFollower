@@ -28,19 +28,17 @@ import com.trionsandroid.app.data.settings.format
 import com.trionsandroid.app.ui.theme.TrioLoopGreen
 import java.util.Locale
 
-// The TIR bar's segment colors as Trio's statsBanner uses them: .red / .orange / .loopGreen /
-// .purple (very low / low / in range / high+very high). The system colors are Trio's dark-mode
-// values, matching this app's always-dark look.
+// TIR bar colors from Trio's stats banner (red, orange, loopGreen, purple), in its dark-mode values.
 private val TIR_VERY_LOW = Color(0xFFFF453A)
 private val TIR_LOW = Color(0xFFFF9F0A)
 private val TIR_IN_RANGE = TrioLoopGreen
 private val TIR_HIGH = Color(0xFFBF5AF2)
 private val TIR_EMPTY = Color(0x4D9AA3C0)
 
-// Segments thinner than this are left out, and the rest keep proportional widths (Trio: 0.005).
+// Segments thinner than this are left out.
 private const val MIN_VISIBLE_FRACTION = 0.005f
 
-/** Home statistics bar below the chart, mirroring Trio's stats banner faces. */
+/** Statistics bar below the chart, with Trio's stats banner faces. */
 @Composable
 fun StatsBar(stats: DailyStats, face: HomeStatsFace, unit: GlucoseUnit, modifier: Modifier = Modifier) {
     if (face == HomeStatsFace.HIDDEN) return
@@ -106,7 +104,7 @@ fun StatsBar(stats: DailyStats, face: HomeStatsFace, unit: GlucoseUnit, modifier
 private fun formatPercent(value: Double): String =
     String.format(Locale.getDefault(), "%.1f", value).removeSuffix(".0").removeSuffix(",0")
 
-/** Rounded segments with small gaps, widths proportional to each range's share of the day. */
+/** Rounded segments with small gaps, proportional to each range's share. */
 @Composable
 private fun DistributionBar(stats: DailyStats) {
     val segments: List<Pair<Color, Float>> = if (stats.hasData) {

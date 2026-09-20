@@ -36,11 +36,8 @@ class SettingsViewModel @Inject constructor(
     private val connectionEvents: ConnectionEvents,
 ) : ViewModel() {
 
-    // Text fields need a locally-owned, synchronously-updated source of truth for their
-    // displayed value. Driving a TextField's value straight from a Flow that round-trips
-    // through disk I/O (DataStore/EncryptedSharedPreferences) lags by a frame on every
-    // keystroke, which makes Compose treat each recomposition as an external edit and
-    // reset the cursor to the start.
+    // Text fields are driven by these local flows, not by DataStore: a value that round-trips
+    // through disk lags a frame and resets the cursor.
     private val nightscoutUrlDraft = MutableStateFlow("")
     private val accessToken = MutableStateFlow("")
     private val connectionTestState = MutableStateFlow<ConnectionTestState>(ConnectionTestState.Idle)
@@ -115,15 +112,8 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun onBackgroundModeChange(mode: BackgroundMode) {
-        // Deliberately doesn't touch refreshIntervalMinutes here, even if the current value isn't
-        // in mode.allowedRefreshIntervals() for the newly selected mode. This used to clamp-and-
-        // persist a default (e.g. 15) on every switch, which permanently overwrote a value like
-        // "5" the user had chosen for Real-time — since 15 is *also* valid for Real-time, that
-        // overwrite never self-corrected on switching back, silently losing the real preference.
-        // BackgroundSyncScheduler.apply() already defensively coerces for WorkManager's 15-minute
-        // floor, so no schedule ever actually runs at an invalid interval; only the segmented
-        // button's selection state is affected, and it's fine for it to show nothing selected
-        // until the user explicitly picks an interval for the newly active mode.
+        // Leaves refreshIntervalMinutes alone even if it isn't valid for the new mode; clamping here
+        // used to overwrite the user's choice. BackgroundSyncScheduler coerces it when applying.
         viewModelScope.launch { settingsRepository.setBackgroundMode(mode) }
     }
 
@@ -146,7 +136,7 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             connectionTestState.value = try {
                 serviceFactory.authApi(url).requestAuthorization(token)
-                // Home clears its stale "set up Nightscout" error and starts a sync right away.
+                // Lets Home clear its "set up Nightscout" error and sync right away.
                 connectionEvents.notifyEstablished()
                 ConnectionTestState.Success
             } catch (e: HttpException) {

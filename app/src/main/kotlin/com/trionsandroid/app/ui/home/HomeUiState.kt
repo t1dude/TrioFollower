@@ -15,10 +15,9 @@ import com.trionsandroid.app.data.settings.TimeFormat
 data class HomeUiState(
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
-    // Bumped each time a refresh finishes, so the chart can scroll to the newest data.
+    // Incremented when a refresh finishes; the chart scrolls to the newest data.
     val refreshCount: Int = 0,
-    // True when the finished refresh was user-initiated (open/pull), so the chart should jump to
-    // the latest data even if the user had panned away; false for the automatic foreground ticks.
+    // True for open/pull refreshes (the chart jumps to the latest data even if panned away), false for automatic ones.
     val forceScrollToLatest: Boolean = true,
     val glucoseColorScheme: GlucoseColorScheme = GlucoseColorScheme.DYNAMIC,
     val homeStatsFace: HomeStatsFace = HomeStatsFace.TIME_IN_RANGE,

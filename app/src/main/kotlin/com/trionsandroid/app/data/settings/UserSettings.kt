@@ -2,15 +2,12 @@ package com.trionsandroid.app.data.settings
 
 data class UserSettings(
     val nightscoutUrl: String = "",
-    // Set once a new user has gone through the welcome + connect prompts.
     val welcomeCompleted: Boolean = false,
     val glucoseUnit: GlucoseUnit = GlucoseUnit.MMOL_L,
-    // 24-hour default preserves existing behavior for anyone who doesn't touch the setting —
-    // every timestamp already displayed as HH:mm before this setting existed.
     val timeFormat: TimeFormat = TimeFormat.HOUR_24,
-    // Off by default: holding the screen on drains battery, so it has to be a deliberate choice.
+    // Off by default: it costs battery.
     val keepScreenOn: Boolean = false,
-    // Cone matches Trio's own default forecast display.
+    // Cone is Trio's default.
     val glucoseColorScheme: GlucoseColorScheme = GlucoseColorScheme.DYNAMIC,
     val homeStatsFace: HomeStatsFace = HomeStatsFace.TIME_IN_RANGE,
     val forecastDisplay: ForecastDisplay = ForecastDisplay.CONE,

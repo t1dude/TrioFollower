@@ -27,14 +27,13 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import com.trionsandroid.app.ui.theme.TrioLoopRed
 import com.trionsandroid.app.ui.theme.TrioWarningOrange
 
-/** True when the app may post notifications: the runtime permission is granted and notifications
- *  haven't been switched off for the app in system settings. */
+/** True when the app can post notifications (permission granted and not blocked in system settings). */
 fun Context.notificationsAllowed(): Boolean = NotificationManagerCompat.from(this).areNotificationsEnabled()
 
 fun Context.batteryUnrestricted(): Boolean =
     getSystemService(PowerManager::class.java)?.isIgnoringBatteryOptimizations(packageName) == true
 
-/** Opens the system prompt asking to exempt the app from battery optimization. */
+/** Opens the system prompt for a battery optimization exemption. */
 fun Context.requestBatteryExemption() {
     if (batteryUnrestricted()) return
     startActivity(
@@ -52,10 +51,9 @@ fun Context.openNotificationSettings() {
 }
 
 /**
- * Warns on Home when a permission the app needs has been withheld or later revoked: without
- * notifications alarms can't alert anyone, and without a battery exemption background sync (and
- * so alarms) can be throttled. Re-checked every time the app comes to the foreground; tapping a
- * warning goes straight to fixing it, and it disappears once the permission is back.
+ * Home warnings for missing or revoked permissions: without notifications alarms can't alert, and
+ * without a battery exemption background sync can be throttled. Checked on every resume; tapping
+ * a card goes to the fix.
  */
 @Composable
 fun PermissionWarnings(alarmsEnabled: Boolean, modifier: Modifier = Modifier) {

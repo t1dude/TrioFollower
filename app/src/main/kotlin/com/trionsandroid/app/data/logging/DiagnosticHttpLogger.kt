@@ -4,11 +4,8 @@ import okhttp3.logging.HttpLoggingInterceptor
 import javax.inject.Inject
 
 /**
- * Routes OkHttp's request/response logging into [DiagnosticLogger] so it ends up in the
- * exportable log file. Nightscout's v3 auth exchange puts the access token directly in the
- * request path (api/v2/authorization/request/{accessToken}), not a header, so it isn't
- * covered by HttpLoggingInterceptor's header redaction — mask it here as a second layer,
- * on top of the bearer JWT header redaction already configured on the interceptor itself.
+ * Sends OkHttp logging to [DiagnosticLogger]. The access token is in the auth request path, not a
+ * header, so it is masked here in addition to the header redaction.
  */
 class DiagnosticHttpLogger @Inject constructor(
     private val diagnosticLogger: DiagnosticLogger,

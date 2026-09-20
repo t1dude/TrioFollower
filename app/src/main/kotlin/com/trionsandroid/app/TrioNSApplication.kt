@@ -27,8 +27,7 @@ class TrioNSApplication : Application(), Configuration.Provider {
 
     override fun onCreate() {
         super.onCreate()
-        // Re-applies whenever the user changes background mode or refresh interval in Settings,
-        // in addition to running once here at process start with whatever was last saved.
+        // Re-applied whenever background mode or interval changes, and once at startup.
         applicationScope.launch {
             settingsRepository.settings
                 .distinctUntilChangedBy { it.backgroundMode to it.refreshIntervalMinutes }

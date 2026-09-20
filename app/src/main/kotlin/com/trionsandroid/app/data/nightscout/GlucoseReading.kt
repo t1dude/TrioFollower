@@ -2,9 +2,7 @@ package com.trionsandroid.app.data.nightscout
 
 import java.time.Instant
 
-// Rotation matches Trio's CurrentGlucoseView.swift onChange(of: directionEnum) switch exactly
-// (doubleUp/singleUp/tripleUp -> -90, fortyFiveUp -> -45, flat -> 0, fortyFiveDown -> 45,
-// doubleDown/singleDown/tripleDown -> 90, anything unknown -> 0).
+// Rotation as in Trio's CurrentGlucoseView.
 enum class GlucoseTrend(val arrow: String, val rotationDegrees: Float) {
     DoubleUp("⇈", -90f),
     SingleUp("↑", -90f),

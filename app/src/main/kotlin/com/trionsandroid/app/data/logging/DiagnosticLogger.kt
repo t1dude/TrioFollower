@@ -12,11 +12,7 @@ import java.util.concurrent.Executors
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/**
- * Persists app + network activity to a file the user can export from Settings, since a
- * physical test device disconnected from a dev machine has no other easy way to hand us
- * a Logcat capture.
- */
+/** Writes app and network activity to a file that can be exported from Settings. */
 @Singleton
 class DiagnosticLogger @Inject constructor(
     @ApplicationContext context: Context,
@@ -26,9 +22,7 @@ class DiagnosticLogger @Inject constructor(
     private val writeExecutor = Executors.newSingleThreadExecutor()
 
     fun log(tag: String, message: String) {
-        // The exportable file is the point of this class and persists regardless of build
-        // type; mirroring to Logcat too is only useful (and only safe to do unprompted)
-        // for a dev build attached to a computer.
+        // Logcat mirroring is only for debug builds.
         if (BuildConfig.DEBUG) Log.d(tag, message)
         writeExecutor.execute { appendLine("D", tag, message) }
     }

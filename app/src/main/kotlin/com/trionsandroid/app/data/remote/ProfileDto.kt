@@ -4,14 +4,9 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 
 /**
- * Nightscout's profile document. Modern documents wrap named profiles under `store`, keyed by
- * name, with `defaultProfile` naming which one is active — but older documents (predating
- * multi-profile support) put the fields directly on the root, which this also tolerates as a
- * fallback (mirroring Nightscout's own profilefunctions.js migration shim).
- *
- * Deliberately not handling Profile Switch treatments that change which named profile is active
- * over time — this always uses whichever profile `defaultProfile` currently names, applied as if
- * it covered the whole visible window.
+ * Nightscout profile document. Named profiles are under `store` with `defaultProfile` naming the
+ * active one; older documents have the fields on the root, which is tolerated. Profile Switch
+ * treatments are ignored: the default profile is used for the whole window.
  */
 @Serializable
 data class ProfileDocumentDto(

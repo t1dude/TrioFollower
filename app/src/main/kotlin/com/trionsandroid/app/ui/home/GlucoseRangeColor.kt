@@ -4,10 +4,9 @@ import androidx.compose.ui.graphics.Color
 import com.trionsandroid.app.data.settings.AlarmSettings
 import com.trionsandroid.app.data.settings.GlucoseColorScheme
 
-// Ported from Trio's DynamicGlucoseColor.swift: hue runs red (0°) → green (120°) → purple (270°) at
-// saturation 0.6 / brightness 0.9. In the dynamic scheme Trio's chart uses fixed 55/220 mg/dL
-// endpoints (see GlucoseChartView.pointColor's workaround comment) with the profile target in the
-// middle; we have no profile target on hand, so the target is a fixed 100 mg/dL.
+// From Trio's DynamicGlucoseColor: hue red (0°) to green (120°) to purple (270°), saturation 0.6,
+// brightness 0.9. Trio's chart uses fixed 55/220 mg/dL endpoints and the profile target in the
+// middle; we don't have the profile target, so it is fixed at 100 mg/dL.
 private const val DYNAMIC_LOW_MGDL = 55
 private const val DYNAMIC_HIGH_MGDL = 220
 private const val DYNAMIC_TARGET_MGDL = 100
@@ -29,8 +28,7 @@ private fun dynamicColor(mgDl: Int): Color {
     return hueColor(hue)
 }
 
-/** Colors a glucose value per the user's chosen [scheme]. The static scheme's low/high bounds are
- *  the user's own alarm thresholds from Settings. */
+/** Colors a glucose value by [scheme]. The static scheme uses the alarm low/high thresholds. */
 fun rangeColor(mgDl: Int, alarms: AlarmSettings, scheme: GlucoseColorScheme): Color = when (scheme) {
     GlucoseColorScheme.DYNAMIC -> dynamicColor(mgDl)
     GlucoseColorScheme.STATIC -> when {

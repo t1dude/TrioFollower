@@ -1,10 +1,9 @@
 package com.trionsandroid.app.data.settings
 
-/** How glucose values are colored on the chart, bubble and History — mirrors Trio's Glucose
- *  Color Scheme (GlucoseColorScheme.swift). */
+/** How glucose values are colored (as in Trio's Glucose Color Scheme). */
 enum class GlucoseColorScheme(val label: String) {
-    /** Trio's default: a red → green → purple hue gradient centered on the target. */
+    /** Hue gradient from red through green to purple around the target. */
     DYNAMIC("Dynamic"),
-    /** Red below range, green in range, purple above range. */
+    /** Red below range, green in range, purple above. */
     STATIC("Static"),
 }

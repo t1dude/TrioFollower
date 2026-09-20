@@ -40,10 +40,7 @@
                 android:resource="@xml/file_paths" />
         </provider>
 
-        <!-- Disables WorkManager's default eager App Startup initializer so it doesn't grab a
-             plain Configuration before TrioNSApplication's Configuration.Provider (which wires
-             in HiltWorkerFactory) gets a chance to — WorkManager falls back to on-demand
-             initialization via Configuration.Provider once this default is removed. -->
+        <!-- Removes WorkManager's default initializer; TrioNSApplication provides the configuration (Hilt worker factory). -->
         <provider
             android:name="androidx.startup.InitializationProvider"
             android:authorities="${applicationId}.androidx-startup"

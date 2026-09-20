@@ -12,13 +12,8 @@ import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.input.pointer.util.addPointerInputChange
 
 /**
- * A single custom gesture detector combining pan+zoom (like detectTransformGestures), fling
- * velocity on release, and double-tap — all in one pointerInput block. Compose's built-in
- * detectTransformGestures doesn't expose touch velocity or a "gesture ended" hook, and running
- * a second, independent gesture recognizer (e.g. detectTapGestures) alongside it on the same
- * touch stream doesn't work reliably: whichever detector consumes position changes first can
- * make the other unable to recognize its own gesture, since most of Compose's detectors abort
- * when they see a change already marked consumed.
+ * One detector for pan, zoom, fling velocity and double-tap. Two separate detectors on the same
+ * touch stream interfere, and detectTransformGestures exposes neither velocity nor the end of a gesture.
  */
 suspend fun PointerInputScope.detectChartGestures(
     onTouchDown: () -> Unit,
@@ -60,7 +55,7 @@ suspend fun PointerInputScope.detectChartGestures(
         } while (event.changes.any { it.pressed })
 
         if (!pastSlop) {
-            // A tap, not a drag/pinch — check if it completes a double-tap.
+            // A tap, not a drag: check whether it completes a double-tap.
             if (lastTapDownMillis >= 0 && down.uptimeMillis - lastTapDownMillis <= doubleTapTimeoutMillis) {
                 onDoubleTap(down.position)
                 lastTapDownMillis = -1L
@@ -69,10 +64,7 @@ suspend fun PointerInputScope.detectChartGestures(
             }
         } else {
             lastTapDownMillis = -1L
-            // The velocity tracker mixes samples from whichever fingers were down, which isn't
-            // meaningful once a second pointer joins (pinch-zoom) — the resulting "velocity" is
-            // essentially noise, not intended pan momentum. Only fling on a pure single-pointer
-            // pan; a gesture that was ever a pinch just stops where it's released.
+            // Velocity is meaningless once a second finger joins, so only fling after a single-finger pan.
             if (!wasMultiTouch) {
                 onFlingVelocity(velocityTracker.calculateVelocity().x)
             }

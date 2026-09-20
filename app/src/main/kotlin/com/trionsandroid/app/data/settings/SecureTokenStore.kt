@@ -11,7 +11,7 @@ import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Stores the Nightscout access token in an encrypted (Keystore-backed) preferences file. */
+/** Stores the access token in encrypted preferences. */
 @Singleton
 class SecureTokenStore @Inject constructor(
     @ApplicationContext private val context: Context,

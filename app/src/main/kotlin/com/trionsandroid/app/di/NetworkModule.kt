@@ -26,15 +26,10 @@ object NetworkModule {
     @Singleton
     fun provideOkHttpClient(diagnosticHttpLogger: DiagnosticHttpLogger): OkHttpClient {
         val logging = HttpLoggingInterceptor(diagnosticHttpLogger).apply {
-            // BODY was useful while chasing Nightscout's various JSON quirks earlier on, but a
-            // single devicestatus response body alone can run past a megabyte (hundreds of
-            // determination records, each with its own predBGs arrays) — logged on every
-            // background refresh, that blew through the diagnostic log's rotation cap within
-            // one or two cycles and wiped out everything else, including whether background
-            // sync had been running at all. decodeResilient() already logs the raw JSON for any
-            // record that specifically fails to parse, which is the actual case BODY was for.
+            // BODY logging is off: one devicestatus response can exceed a megabyte and would flush the
+            // diagnostic log. decodeResilient() logs the raw JSON of records that fail to parse.
             level = HttpLoggingInterceptor.Level.BASIC
-            // Never write the bearer JWT itself into the log, even though it's short-lived.
+            // Never log the bearer token.
             redactHeader("Authorization")
         }
         return OkHttpClient.Builder()

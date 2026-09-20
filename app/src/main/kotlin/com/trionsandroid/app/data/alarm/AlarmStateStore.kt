@@ -12,12 +12,8 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Remembers the last zone we already notified about, so a background check doesn't re-notify
- * every cycle for an ongoing high/low — only when the zone actually changes (including
- * escalating from low to urgent-low, or a fresh return to in-range clearing the state so the
- * next excursion notifies again). Also tracks whether the current alarm has been acknowledged
- * (for AlarmSettings.requireAcknowledgement) and when it was last (re-)notified about (for
- * AlarmSettings.repeatIfNotAcknowledged).
+ * Remembers the last alarm zone notified, so a check doesn't re-notify every cycle. Also tracks
+ * acknowledgement and the time of the last notification (for repeats).
  */
 @Singleton
 class AlarmStateStore @Inject constructor(
@@ -32,8 +28,7 @@ class AlarmStateStore @Inject constructor(
         dataStore.edit { it[Keys.LAST_ZONE] = zone.name }
     }
 
-    /** Defaults to true (nothing pending) so a pre-existing install without this key never
-     *  behaves as if there's an unacknowledged alarm sitting around. */
+    /** Defaults to true so an install without this key never shows a phantom unacknowledged alarm. */
     suspend fun isAcknowledged(): Boolean =
         dataStore.data.map { it[Keys.ACKNOWLEDGED] ?: true }.first()
 

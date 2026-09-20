@@ -18,12 +18,10 @@ import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
-// How far back each refresh actively re-fetches from Nightscout — matches HomeViewModel's.
+// How far back each refresh re-fetches.
 private const val REFRESH_LOOKBACK_HOURS = 24
 
-// How far back the UI observes from the local cache — matches Room's retention window (see
-// NightscoutRepositoryImpl.RETENTION_HOURS) so History can scroll back through everything
-// actually cached, not just what the most recent refresh pulled.
+// How far back the UI reads from the cache (Room's retention window).
 private const val OBSERVE_WINDOW_HOURS = 24 * 30
 
 private data class HistoryDataState(

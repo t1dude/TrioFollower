@@ -20,13 +20,8 @@ interface TreatmentDao {
     suspend fun deleteOlderThan(beforeMillis: Long)
 
     /**
-     * Reconciles a set of eventTypes against what Nightscout just returned for them, deleting any
-     * previously-cached row in that window whose id isn't in [keepIds]. Needed for
-     * overrides/temp targets specifically: Trio doesn't edit an override's Nightscout entry when
-     * it ends — it deletes the original placeholder-duration entry (matched by created_at) and
-     * uploads a brand new one, under a different id, with the real final duration (see
-     * OverrideStorage.swift's uploadOverrideRuns). A plain upsert never removes the old id, so it
-     * lingers forever as a phantom duplicate once the override ends.
+     * Deletes cached rows of these eventTypes whose id isn't in [keepIds]. Trio replaces an ended
+     * override's entry under a new id, so the old one would otherwise stay as a duplicate.
      */
     @Query("DELETE FROM treatments WHERE eventType IN (:eventTypes) AND dateMillis >= :sinceMillis AND id NOT IN (:keepIds)")
     suspend fun deleteStaleAdjustments(eventTypes: List<String>, sinceMillis: Long, keepIds: List<String>)

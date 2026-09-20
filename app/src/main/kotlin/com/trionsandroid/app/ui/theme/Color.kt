@@ -2,49 +2,40 @@ package com.trionsandroid.app.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Background / surfaces
 val TrioBackground = Color(0xFF0A0E1B)
 val TrioSurface = Color(0xFF11162A)
 val TrioSurfaceVariant = Color(0xFF1B2138)
 val TrioOutline = Color(0xFF2B3350)
 
-// Text
 val TrioOnBackground = Color(0xFFF2F3F8)
 val TrioOnSurfaceMuted = Color(0xFF9AA3C0)
 
-// Accent gradient (glucose bubble ring, primary actions)
+// Accent colors
 val TrioAccentPurple = Color(0xFF8B7CF6)
 val TrioAccentBlue = Color(0xFF5FC7E8)
 
-// Glucose range colors
 val TrioGlucoseInRange = Color(0xFF4FD88A)
 val TrioGlucoseLow = Color(0xFFE0B84D)
 val TrioGlucoseHigh = Color(0xFFE0954D)
 val TrioGlucoseUrgent = Color(0xFFE85B5B)
 
-// Insulin — matches Trio's own Color.insulin asset (Assets.xcassets/Colors/Insulin.colorset:
-// srgb 0.118/0.588/0.988) exactly. Trio uses this one color for both basal and bolus, so
-// TrioBasal/TrioBolus intentionally share it rather than each having their own shade.
+// Trio's Insulin asset color, used for both basal and bolus.
 val TrioInsulin = Color(0xFF1E96FC)
 val TrioBasal = TrioInsulin
 val TrioBolus = TrioInsulin
 val TrioIob = Color(0xFF3355C9)
 
-// Status colors for HUD pills (pump/sensor time remaining, reservoir, battery) — matches Trio's
-// Color.loopGreen / Color.loopRed asset colorsets and its plain SwiftUI Color.orange (systemOrange).
+// HUD status colors: Trio's loopGreen, loopRed and systemOrange.
 val TrioLoopGreen = Color(0xFF6FCF97)
 val TrioLoopRed = Color(0xFFEB5757)
 val TrioWarningOrange = Color(0xFFFF9500)
-// Trio draws carb markers and the COB curve in plain orange (Color.orange), same as this.
+// Trio draws carb markers and the COB curve in this orange.
 val TrioCob = TrioWarningOrange
 
-// Carb entries in the History tab — matches Trio's Color.loopYellow asset colorset (dark
-// appearance: srgb 1.000/0.757/0.271) exactly.
+// Carb entries in History (Trio's loopYellow).
 val TrioCarb = Color(0xFFFFC145)
 
-// Glucose bubble ring gradient — the exact 5-stop AngularGradient from Trio's
-// CurrentGlucoseView.swift (purple sweeping through to blue and back to purple). The trend arrow
-// triangle reuses the gradient's blue end (its fixed `triangleColor`).
+// Bubble ring gradient from Trio's CurrentGlucoseView; the trend arrow uses its blue end.
 val TrioRingGradient = listOf(
     Color(0xFFB857FF),
     Color(0xFF9F6CFA),

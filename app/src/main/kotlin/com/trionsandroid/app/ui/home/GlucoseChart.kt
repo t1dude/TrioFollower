@@ -86,12 +86,11 @@ private val BOTTOM_SAFETY_MARGIN = 6.dp
 private const val SCROLL_TO_LATEST_MILLIS = 700
 private const val LIVE_EDGE_TOLERANCE_MILLIS = 2_000L
 
-// Trio's ForecastView draws nothing past 2.5h ahead; the cone always uses at least an hour of steps.
+// Trio draws nothing past 2.5h ahead; the cone uses at least an hour of steps.
 private const val FORECAST_MAX_AHEAD_MILLIS = 150 * 60_000L
 private const val FORECAST_CONE_MIN_POINTS = 12
 
-// Line colours from Trio's chartForegroundStyleScale: iob = its insulin blue, zt/uam from its
-// asset catalog (ZT.colorset, UAM.colorset), cob = plain orange.
+// Line colors from Trio: IOB is its insulin blue, ZT and UAM come from its asset catalog.
 private fun forecastColor(type: ForecastType): Color = when (type) {
     ForecastType.IOB -> TrioInsulin
     ForecastType.ZT -> Color(0xFF7161EF)
@@ -109,14 +108,9 @@ private val IOB_STRIP_HEIGHT = 50.dp
 private val BOLUS_MARKER_TOP_MARGIN = 10.dp
 private val ADJUSTMENT_BAND_TOP_MARGIN = 10.dp
 
-// IOB_GAP_THRESHOLD_MILLIS lives in IobCalculator.kt, shared with the HUD's "current IOB" pill.
 private const val IOB_ESTIMATE_SAMPLE_INTERVAL_MILLIS = 5 * 60_000L
 
-/**
- * Finds stretches of [viewportStartMillis, viewportEndMillis] with no real devicestatus IOB
- * point nearby, so the caller can fill just those with a locally-estimated curve instead of
- * leaving the graph blank across a genuine upload outage.
- */
+/** Stretches of the viewport with no devicestatus IOB point nearby, to fill with a local estimate. */
 private fun findIobGaps(
     viewportStartMillis: Long,
     viewportEndMillis: Long,
@@ -132,23 +126,14 @@ private fun findIobGaps(
     return gaps
 }
 
-/** "5" for a whole number of units, otherwise trimmed to as few decimals as the dose needs. */
 private fun formatBolusUnits(units: Double): String {
     if (units == units.toLong().toDouble()) return units.toLong().toString()
     return String.format(Locale.getDefault(), "%.2f", units).trimEnd('0').trimEnd('.')
 }
 
 /**
- * A pannable, pinch-zoomable view of glucose + insulin history, with fling-on-release and a
- * double-tap that cycles through 12h/6h/3h. The visible window is clamped to whatever's actually
- * cached locally (see HomeViewModel's OBSERVE_WINDOW_HOURS) — scrolling back further than that
- * isn't possible yet, since refresh() only actively re-fetches the last 24h; deeper on-demand
- * history fetching is a future enhancement.
- *
- * Three bands top to bottom: basal (0 U/hr at top, growing down), glucose, and IOB (0u at
- * bottom, growing up — plotted from Trio's own devicestatus uploads where available, falling
- * back to a dashed local estimate across genuine upload gaps; see the IOB curve's rendering
- * comment below for why).
+ * Pannable, pinch-zoomable chart with fling and double-tap zoom (12h/6h/3h). Bands from top to
+ * bottom: basal, glucose, IOB/COB. The visible window is limited to the locally cached history.
  */
 @Composable
 fun GlucoseChart(
@@ -174,9 +159,7 @@ fun GlucoseChart(
     val hourFormatter = remember(timeFormat) { timeFormat.hourFormatter() }
     val coroutineScope = rememberCoroutineScope()
 
-    // Reserve exactly as much bottom space as the x-axis labels actually need, rather than a
-    // guessed constant — different devices/fonts render "00"-style labels at different heights,
-    // and two prior fixed-dp guesses in a row both left labels clipped.
+    // Size the bottom margin from the measured label height instead of a fixed guess.
     val axisLabelHeightDp = remember(textMeasurer) {
         with(density) {
             textMeasurer.measure("00", style = TextStyle(fontSize = 10.sp)).size.height.toDp()
@@ -187,8 +170,7 @@ fun GlucoseChart(
 
     val nowMillis = System.currentTimeMillis()
     val dataMinMillis = readings.minOfOrNull { it.timestamp.toEpochMilli() } ?: (nowMillis - DEFAULT_VIEWPORT_MILLIS)
-    // With a forecast showing, the chart's right edge extends past "now" to the end of the (capped)
-    // forecast so it can be scrolled into view; without one it ends at "now" as before.
+    // With a forecast showing, the right edge extends past "now" to the end of the forecast.
     val forecastEndMillis = if (forecastDisplay != ForecastDisplay.OFF && forecast != null) {
         forecast.timeMillisAt(forecast.series.values.maxOf { it.size } - 1).coerceAtMost(nowMillis + FORECAST_MAX_AHEAD_MILLIS)
     } else {
@@ -198,8 +180,7 @@ fun GlucoseChart(
     val dataMaxMillis = nowMillis + futureMillis
     val maxViewportMillis = (dataMaxMillis - dataMinMillis).coerceAtLeast(DEFAULT_VIEWPORT_MILLIS)
 
-    // Resting position at the live edge: "now", plus a peek of forecast (a quarter of the visible
-    // span, at most all of it) so the prediction is visible without scrolling — like Trio's chart.
+    // Resting position: "now" plus a peek of forecast (up to a quarter of the visible span).
     fun liveEdgeMillis(durationMillis: Long) = System.currentTimeMillis() + minOf(futureMillis, durationMillis / 4)
 
     var viewportDurationMillis by remember { mutableLongStateOf(DEFAULT_VIEWPORT_MILLIS) }
@@ -211,17 +192,14 @@ fun GlucoseChart(
 
     val leftGutterPx = with(density) { LEFT_GUTTER.toPx() }
 
-    // dataMinMillis/dataMaxMillis change on essentially every recomposition (dataMaxMillis
-    // tracks wall-clock "now"), so they can't be the pointerInput key without restarting the
-    // gesture detector mid-gesture. rememberUpdatedState lets the long-lived gesture callback
-    // below always read the current value without the detector itself ever restarting.
+    // These change on almost every recomposition, so they can't key pointerInput without
+    // restarting the gesture detector. Read them through rememberUpdatedState instead.
     val currentDataMinMillis by rememberUpdatedState(dataMinMillis)
     val currentDataMaxMillis by rememberUpdatedState(dataMaxMillis)
     val currentMaxViewportMillis by rememberUpdatedState(maxViewportMillis)
 
-    // Recenters the viewport on targetTimeMillis (kept at targetFraction across the chart width)
-    // at the given duration, clamping to the available data range. Shared by live pinch-zoom,
-    // double-tap cycling, and (indirectly, via delta shifts) fling — the one place this math lives.
+    // Keeps targetTimeMillis at targetFraction of the chart width for the given duration, clamped
+    // to the data range. Used by pinch, double-tap and fling.
     fun applyViewport(targetTimeMillis: Long, targetFraction: Float, requestedDurationMillis: Long) {
         val newDuration = requestedDurationMillis.coerceIn(MIN_VIEWPORT_MILLIS, currentMaxViewportMillis)
         var newStart = targetTimeMillis - (targetFraction * newDuration).toLong()
@@ -239,10 +217,8 @@ fun GlucoseChart(
         viewportEndMillis = newEnd
     }
 
-    // Each time scrollToLatestKey changes (a refresh finished), visibly glide the viewport to
-    // the newest data, keeping the current zoom level.
-    // Unless forced, only follows if the viewport is still riding the live edge from the last
-    // scroll — an automatic refresh shouldn't pull the user out of history they scrolled into.
+    // After each refresh, glide to the newest data. Unless forced, only when the viewport is still
+    // at the live edge, so an automatic refresh doesn't pull the user out of history.
     LaunchedEffect(scrollToLatestKey, forecast?.startMillis, forecastDisplay) {
         val startEnd = viewportEndMillis
         val targetEnd = liveEdgeMillis(viewportDurationMillis)
@@ -350,7 +326,6 @@ fun GlucoseChart(
                 return glucoseBottom - ((clamped - Y_MIN_MGDL) / (Y_MAX_MGDL - Y_MIN_MGDL)) * glucoseChartHeight
             }
 
-            // Horizontal gridlines + value labels
             Y_GRIDLINES_MGDL.forEach { mgDl ->
                 val y = yFor(mgDl)
                 drawLine(
@@ -363,7 +338,7 @@ fun GlucoseChart(
                 drawText(label, topLeft = Offset(0f, y - label.size.height / 2f))
             }
 
-            // Dashed alarm threshold lines, reusing the user's own Settings thresholds
+            // Dashed alarm threshold lines
             val dash = PathEffect.dashPathEffect(floatArrayOf(12f, 8f))
             if (alarms.low.enabled) {
                 val y = yFor(alarms.low.thresholdMgDl)
@@ -386,8 +361,7 @@ fun GlucoseChart(
                 )
             }
 
-            // Vertical time ticks + labels — granularity adapts to how far zoomed out we are.
-            // Drawn full-height so they visually tie the basal/glucose/IOB bands together.
+            // Time ticks; spacing adapts to the zoom level.
             val tickIntervalHours = when {
                 viewportDurationMillis <= 12 * HOUR_MILLIS -> 1L
                 viewportDurationMillis <= 3 * 24 * HOUR_MILLIS -> 6L
@@ -416,14 +390,11 @@ fun GlucoseChart(
                 tick = tick.plusHours(tickIntervalHours)
             }
 
-            // Basal step chart, in the reserved strip above the glucose area. 0 U/hr sits at the
-            // top (matching Trio's own layout) and the filled area grows downward as the rate
-            // increases, rather than the more conventional "0 at the bottom" bar-chart baseline.
+            // Basal strip: 0 U/hr at the top, filled area grows downward (as in Trio).
             val basalSegments = computeBasalSegments(viewportStartMillis, viewportEndMillis, insulinProfile, treatments)
             if (basalSegments.isNotEmpty()) {
                 val stripTop = 0f
                 val stripBottom = basalStripPx
-                // Independent of the current viewport — see basalDomainMaxRate's doc comment.
                 val maxRate = basalDomainMaxRate(System.currentTimeMillis(), insulinProfile, treatments)
 
                 fun basalYFor(rate: Double): Float {
@@ -455,9 +426,8 @@ fun GlucoseChart(
                 drawPath(linePath, color = TrioBasal, style = Stroke(width = 1.5.dp.toPx()))
             }
 
-            // Forecast (Trio's ForecastView): points are 5 minutes apart from the determination's
-            // deliverAt, capped 2.5h ahead of now. Cone = min..max envelope across all curves;
-            // lines = one polyline per curve in its own colour.
+            // Forecast, as in Trio: 5-minute steps from deliverAt, up to 2.5h ahead. Cone is the min..max
+            // envelope of all curves; lines draw each curve separately.
             if (forecast != null && forecastDisplay != ForecastDisplay.OFF) {
                 val cap = nowMillis + FORECAST_MAX_AHEAD_MILLIS
                 fun visible(index: Int): Boolean =
@@ -474,7 +444,7 @@ fun GlucoseChart(
                         val upper = indices.map { i ->
                             val hi = bound(i) { it[i] }.max()
                             val lo = bound(i) { it[i] }.min()
-                            // Same-value envelope would be invisible; give it a thin band (Trio: ±1).
+                            // A zero-width envelope would be invisible, so give it a thin band.
                             Offset(xFor(forecast.timeMillisAt(i)), yFor(if (hi == lo) hi + 1 else hi))
                         }
                         val lower = indices.map { i ->
@@ -506,7 +476,6 @@ fun GlucoseChart(
                 }
             }
 
-            // Connect consecutive readings
             for (i in 0 until sorted.size - 1) {
                 val a = sorted[i]
                 val b = sorted[i + 1]
@@ -518,7 +487,6 @@ fun GlucoseChart(
                 )
             }
 
-            // Reading dots, colored by range
             sorted.forEach { reading ->
                 drawCircle(
                     color = rangeColor(reading.mgDl, alarms, colorScheme),
@@ -527,14 +495,8 @@ fun GlucoseChart(
                 )
             }
 
-            // Adjustment overlays (overrides, temp targets) — matches Trio's OverrideView/
-            // TempTargetView chart elements: a thick translucent horizontal line spanning the
-            // adjustment's duration. Temp targets draw at their actual target value (Nightscout
-            // always has one — Trio uploads targetTop == targetBottom). Overrides never carry a
-            // target on Nightscout at all (see TreatmentDto's doc comment) — matching
-            // Nightscout's own classic chart (renderer.js's treatment-duration rects, which place
-            // target-less events in a fixed band with a text label rather than guessing a height),
-            // they're drawn as a labeled band near the top of the glucose area instead.
+            // Overrides and temp targets. Temp targets are drawn at their target; overrides have no
+            // target in Nightscout, so they get a labeled band near the top instead.
             val adjustments = treatments.filter { treatment ->
                 if (!isAdjustmentEventType(treatment.eventType)) return@filter false
                 val start = treatment.timestamp.toEpochMilli()
@@ -578,10 +540,7 @@ fun GlucoseChart(
                 }
             }
 
-            // Bolus markers, pinned just above wherever the BG curve actually is at that moment
-            // (nearest reading by time) rather than a fixed height — so the dose sits right on
-            // top of its own result on the curve, matching Trio's placement. Amount is labeled
-            // above each marker; no minimum-size filter yet (planned as a Settings threshold).
+            // Bolus markers sit just above the BG curve at the time of the dose.
             val boluses = treatments.filter { treatment ->
                 val units = treatment.insulinUnits
                 units != null && units > 0.0 &&
@@ -612,10 +571,7 @@ fun GlucoseChart(
                 )
             }
 
-            // Carb markers (Trio's CarbView): an upward triangle in orange sitting just below the
-            // BG curve at that moment (20 mg/dL below the nearest reading, like Trio's bolusOffset),
-            // sized by the amount, with the grams underneath. Entries without carbs are skipped,
-            // so users who never log carbs simply see none.
+            // Carb markers: orange triangle 20 mg/dL below the nearest reading, sized by grams.
             treatments.filter { t ->
                 (t.carbsGrams ?: 0.0) > 0.0 && t.timestamp.toEpochMilli() in viewportStartMillis..viewportEndMillis
             }.forEach { carb ->
@@ -630,7 +586,7 @@ fun GlucoseChart(
                     text = grams.roundToInt().toString(),
                     style = TextStyle(fontSize = 9.sp, color = TrioCob),
                 )
-                // Keep the marker + label inside the glucose area even for very low readings.
+                // Keep marker and label inside the glucose area for very low readings.
                 val topY = (centerY - height / 2f).coerceAtMost(glucoseBottom - height - gramsLabel.size.height - 2.dp.toPx())
                     .coerceAtLeast(glucoseTop)
                 val markerPath = Path().apply {
@@ -643,12 +599,8 @@ fun GlucoseChart(
                 drawText(gramsLabel, topLeft = Offset(x - gramsLabel.size.width / 2f, topY + height + 1.dp.toPx()))
             }
 
-            // COB curve, sharing the IOB strip like Trio's combined COB/IOB pane: orange line and
-            // faint fill from the loop's own COB uploads, plotted against its own grams scale
-            // (0 at the bottom). Drawn first so the blue IOB curve sits on top. All-zero COB
-            // (nobody logging carbs, or nothing on board) draws nothing at all. Trio also draws a
-            // dashed future decay from a local projection file that isn't uploaded to Nightscout,
-            // so only the actual COB history — which is the decay — is shown here.
+            // COB curve in the IOB strip, on its own grams scale, drawn under IOB. Nothing is drawn when
+            // COB is always zero. Trio's dashed future decay isn't uploaded to Nightscout, so it's not shown.
             val cobPoints = deviceStatusPoints
                 .filter { it.cobGrams != null && it.timestamp.toEpochMilli() in viewportStartMillis..viewportEndMillis }
                 .sortedBy { it.timestamp }
@@ -676,15 +628,8 @@ fun GlucoseChart(
                 drawPath(linePath, color = TrioCob, style = Stroke(width = 1.5.dp.toPx()))
             }
 
-            // IOB curve, in the reserved strip below the glucose area. Normal orientation (0u at
-            // the bottom, growing up) — unlike basal, Trio doesn't invert this one. Plotted
-            // directly from Trio's own devicestatus uploads (the IOB it actually computed and
-            // used for dosing — accounting for DIA, peak time, and temp basal netting) rather
-            // than a locally-recomputed activity curve, so this always matches what Trio itself
-            // shows instead of risking a subtly different number from our own model. Where
-            // devicestatus is genuinely missing (loop wasn't uploading), that stretch is instead
-            // filled with a dashed, locally-estimated curve from bolus decay — see IobCalculator's
-            // doc comment — so the graph doesn't just go blank across an outage.
+            // IOB curve from Trio's own devicestatus. Gaps in the uploads are filled with a dashed
+            // estimate computed from bolus decay.
             val iobPoints = deviceStatusPoints
                 .filter { it.iobUnits != null && it.timestamp.toEpochMilli() in viewportStartMillis..viewportEndMillis }
                 .sortedBy { it.timestamp }

@@ -42,12 +42,8 @@ import java.time.Instant
 import java.time.ZoneId
 import kotlin.math.abs
 
-// Sizes match Trio's CurrentGlucoseView.swift CircleShape/TriangleShape exactly (130pt ring, 6pt
-// stroke, 35pt triangle offset 85pt from center) at the DEFAULT_BUBBLE_SIZE. BUBBLE_CANVAS_SIZE
-// is sized to fully contain the triangle at any rotation (2 * (offset + size/2) = 205dp) without
-// clipping it. When [GlucoseBubble] is asked for a different [size] (there's no room for the full
-// size beside the HUD pill stacks — see HomeScreen.kt), every one of these is scaled by the same
-// factor so the ring/triangle/text proportions stay exactly Trio's, just smaller as a whole.
+// Sizes match Trio's CurrentGlucoseView at the default size (130pt ring, 6pt stroke, 35pt
+// triangle offset 85pt). At other sizes everything scales by the same factor.
 val DEFAULT_BUBBLE_SIZE = 208.dp
 private const val RING_DIAMETER_RATIO = 130f / 208f
 private const val RING_STROKE_WIDTH_RATIO = 6f / 208f
@@ -61,7 +57,7 @@ fun GlucoseBubble(
     unit: GlucoseUnit,
     alarms: AlarmSettings,
     timeFormat: TimeFormat = TimeFormat.HOUR_24,
-    /** Tapping the bubble (only when there's a reading) — opens the algorithm reasoning. */
+    /** Tapping the bubble (when there is a reading) opens the algorithm reasoning. */
     onClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     size: Dp = DEFAULT_BUBBLE_SIZE,
@@ -75,9 +71,7 @@ fun GlucoseBubble(
 
     val clickModifier = if (onClick != null && latest != null) Modifier.clip(CircleShape).clickable(onClick = onClick) else Modifier
     Box(modifier = modifier.size(size).then(clickModifier), contentAlignment = Alignment.Center) {
-        // Ring + trend triangle are drawn together and rotated as one rigid unit, mirroring
-        // Trio's TrendShape(...).rotationEffect(...) — the gradient's "seam" moving with the
-        // arrow is intentional, not an artifact.
+        // Ring and trend triangle rotate together, as in Trio.
         Canvas(
             modifier = Modifier
                 .size(size)
@@ -88,16 +82,8 @@ fun GlucoseBubble(
             val trianglePx = triangleSize.toPx()
             val triangleOffsetPx = triangleOffset.toPx()
 
-            // SwiftUI's AngularGradient angle convention: 0° is 3 o'clock (East), positive angles
-            // sweep clockwise (confirmed against Apple's docs, not assumed) — the same convention
-            // Compose's sweepGradient uses. In that shared frame, Trio's startAngle: 270° is 12
-            // o'clock (top), and going to endAngle: -90° (≡270°) sweeps counterclockwise all the
-            // way back to top. Compose's sweepGradient always advances clockwise as the color list
-            // index increases, so reversing the stop order flips it to match Trio's
-            // counterclockwise sweep, and rotating 270° (270° CW moves Compose's East-anchored
-            // first stop to top) re-aligns the phase — together they reproduce Trio's exact
-            // angle-to-color mapping (verified stop-by-stop: all 5 distinct stops land on the
-            // same absolute angle as Trio's).
+            // SwiftUI angles start at 3 o'clock and go clockwise, like Compose's sweepGradient. Trio's
+            // gradient starts at the top and sweeps counterclockwise, so reverse the stops and rotate 270°.
             rotateDrawScope(degrees = 270f) {
                 drawCircle(
                     brush = Brush.sweepGradient(TrioRingGradient.asReversed()),
@@ -106,9 +92,7 @@ fun GlucoseBubble(
                 )
             }
 
-            // Trio's Triangle shape (apex near the top, rounded base) drawn in local coordinates,
-            // then rotated 90° (its own fixed rotation, making it point east at rest — i.e. the
-            // "Flat" trend) and offset out along +x from center.
+            // Trio's triangle, rotated to point east at rest (the flat trend) and offset from center.
             val trianglePath = Path().apply {
                 moveTo(trianglePx / 2f, trianglePx * (15f / 35f))
                 lineTo(trianglePx, trianglePx)
@@ -123,8 +107,7 @@ fun GlucoseBubble(
             }
         }
 
-        // The glucose value/delta text is a sibling of the rotating ring, not part of it —
-        // matching Trio's ZStack, where only TrendShape carries the rotationEffect.
+        // The text doesn't rotate with the ring.
         Box(
             modifier = Modifier
                 .size(ringDiameter - ringStrokeWidth)
@@ -162,15 +145,12 @@ fun GlucoseBubble(
                             )
                         }
                     }
-                    // The reading's own timestamp as reported by Nightscout, not the local fetch time.
-                    // Sits in a zero-height slot so it hangs below the minutes-ago/delta line without
-                    // adding to the column's height — otherwise the centered value would be pushed up.
+                    // Timestamp from Nightscout. The zero-height slot keeps it from pushing the value up.
                     Box(Modifier.height(0.dp).wrapContentHeight(align = Alignment.Top, unbounded = true)) {
                         Text(
                             text = timeFormatter.format(latest.timestamp.atZone(ZoneId.systemDefault())),
                             fontSize = 11.sp * scale,
-                            // Tight line height + upward offset close the gap under the minutes-ago/delta
-                            // line, so the text stays inside the circle even on the smallest bubble.
+                            // Tight line height and offset keep it inside the circle on the smallest bubble.
                             lineHeight = 11.sp * scale,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.offset(y = -7.dp * scale),

@@ -5,11 +5,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/**
- * Lets Settings tell the rest of the app that a Nightscout connection was just verified, so Home
- * can drop its stale "set up Nightscout" error and start a sync right away instead of waiting for
- * the next refresh.
- */
+/** Lets Settings tell Home a Nightscout connection was verified, so it can clear its error and sync. */
 @Singleton
 class ConnectionEvents @Inject constructor() {
     private val _established = MutableSharedFlow<Unit>(extraBufferCapacity = 1)

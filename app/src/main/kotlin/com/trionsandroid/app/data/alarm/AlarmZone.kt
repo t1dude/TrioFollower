@@ -12,11 +12,7 @@ enum class AlarmZone(val displayTitle: String) {
     NO_DATA("No data"),
 }
 
-/**
- * Most-severe-first, skipping any tier the user has disabled — a disabled tier falls through to
- * the next enclosing one rather than being treated as "in range" (e.g. disabling "low" while
- * "urgent low" stays on still catches an urgent-low reading).
- */
+/** Most severe first. A disabled tier falls through to the next one. */
 fun evaluateAlarmZone(mgDl: Int, alarms: AlarmSettings): AlarmZone = when {
     alarms.urgentLow.enabled && mgDl <= alarms.urgentLow.thresholdMgDl -> AlarmZone.URGENT_LOW
     alarms.low.enabled && mgDl <= alarms.low.thresholdMgDl -> AlarmZone.LOW

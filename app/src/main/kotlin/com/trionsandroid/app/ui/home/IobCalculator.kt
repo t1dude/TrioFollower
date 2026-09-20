@@ -9,24 +9,14 @@ data class IobPoint(val timestampMillis: Long, val iobUnits: Double)
 const val DEFAULT_DIA_HOURS = 6.0
 private const val DEFAULT_PEAK_MINUTES = 75.0 // rapid-acting insulin default, matching oref0
 
-// A single missed loop cycle (~5min) shouldn't be treated as a real devicestatus outage — only a
-// real gap should. 20min is 4x Trio's normal cycle. Shared by the chart's gap-filled IOB curve
-// and the HUD's "current IOB" pill, so both agree on what counts as stale.
+// A gap longer than this (4x Trio's cycle) counts as an outage. Shared by the chart's IOB
+// fill and the HUD's IOB pill.
 const val IOB_GAP_THRESHOLD_MILLIS = 20 * 60_000L
 
 /**
- * Estimates insulin-on-board at regular intervals across a time range, using oref0's exponential
- * insulin activity model (github.com/openaps/oref0/blob/master/lib/iob/calculate.js — the
- * reference algorithm Trio's own loop engine descends from), evaluated once per bolus dose and
- * summed.
- *
- * This is a fallback only: the chart's primary IOB source is Trio's own devicestatus (see
- * GlucoseChart's IOB rendering comment), which reflects DIA/peak/temp-basal netting exactly as
- * the loop actually used it. This function fills the gaps where devicestatus is genuinely
- * missing (the loop wasn't uploading) so the graph doesn't just go blank — it deliberately only
- * accounts for bolus-type doses (insulinUnits > 0), not temp basal's net contribution above/below
- * the scheduled rate, since netting that correctly requires the full day's schedule and this is
- * meant as a rough visual bridge across outages, not a precise substitute.
+ * Estimates IOB across a time range with oref0's exponential insulin activity model, summed
+ * over boluses. Only a fallback for gaps in Trio's own devicestatus IOB. It ignores temp basal,
+ * so it's a rough bridge, not a substitute.
  */
 fun computeIobSeries(
     viewportStartMillis: Long,

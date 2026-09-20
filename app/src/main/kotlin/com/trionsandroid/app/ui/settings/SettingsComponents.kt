@@ -64,9 +64,7 @@ import com.trionsandroid.app.data.settings.GlucoseUnit
 import com.trionsandroid.app.data.settings.format
 import java.io.File
 
-/** A top-level, card-styled settings group. Collapsed by default so the screen has room to grow
- *  without becoming an ever-longer scroll — expand state is local to the composable, so it
- *  resets to collapsed each time the Settings screen is (re)entered. */
+/** A collapsible, card-styled settings group (collapsed by default). */
 @Composable
 fun SettingsSection(title: String, initiallyExpanded: Boolean = false, content: @Composable ColumnScope.() -> Unit) {
     var expanded by remember { mutableStateOf(initiallyExpanded) }
@@ -99,8 +97,7 @@ fun SettingsSection(title: String, initiallyExpanded: Boolean = false, content: 
     }
 }
 
-/** A lighter-weight collapsible group nested *inside* a [SettingsSection] (no card of its own —
- *  stacking cards inside cards reads as noisy). Collapsed by default, same as the top-level ones. */
+/** A collapsible group inside a [SettingsSection], without a card of its own. */
 @Composable
 fun SettingsSubsection(title: String, initiallyExpanded: Boolean = false, content: @Composable ColumnScope.() -> Unit) {
     var expanded by remember { mutableStateOf(initiallyExpanded) }
@@ -133,7 +130,7 @@ fun LabeledSwitch(
     label: String,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
-    /** When set, shows an (i) button after the label that calls this. */
+    /** Shows an (i) button after the label when set. */
     onInfoClick: (() -> Unit)? = null,
 ) {
     Row(
@@ -157,7 +154,7 @@ fun LabeledSwitch(
     }
 }
 
-/** Explains the Predicted High alarm — "Reese mode". Plain language, kept deliberately short. */
+/** Explains the Predicted High alarm ("Reese mode"). */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PredictedHighInfoSheet(onDismiss: () -> Unit) {

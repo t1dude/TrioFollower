@@ -4,11 +4,7 @@ import com.trionsandroid.app.data.notification.AlarmNotifier
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/**
- * The single place that knows what "acknowledging an alarm" means — shared by MainActivity
- * (tapping the notification body) and AlarmAckReceiver (the notification's OK action), so both
- * paths stay in sync.
- */
+/** What acknowledging an alarm means; shared by MainActivity and AlarmAckReceiver. */
 @Singleton
 class AlarmAcknowledger @Inject constructor(
     private val alarmStateStore: AlarmStateStore,

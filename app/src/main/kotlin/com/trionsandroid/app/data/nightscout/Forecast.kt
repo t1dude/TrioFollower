@@ -1,13 +1,8 @@
 package com.trionsandroid.app.data.nightscout
 
-/** oref's forecast curves, keyed the way Trio names them (predBGs.IOB / ZT / COB / UAM). */
 enum class ForecastType { IOB, ZT, COB, UAM }
 
-/**
- * The loop's latest glucose forecast: one list of mg/dL values per available [ForecastType], one
- * value every 5 minutes starting at [startMillis] (the determination's own deliverAt, matching
- * Trio's ForecastView).
- */
+/** The loop's latest forecast: mg/dL values per curve, every 5 minutes from [startMillis] (deliverAt). */
 data class Forecast(
     val startMillis: Long,
     val series: Map<ForecastType, List<Int>>,

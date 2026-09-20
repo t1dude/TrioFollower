@@ -98,7 +98,6 @@ private fun parseTimeStringToSecondsOfDay(time: String): Int? {
     return hours * 3600 + minutes * 60
 }
 
-/** Handles the common case (a plain number) and, rarely, a time-array like the basal schedule. */
 private fun JsonElement?.toDiaHours(): Double = when (this) {
     null -> DEFAULT_DIA_HOURS
     is JsonPrimitive -> doubleOrNull ?: DEFAULT_DIA_HOURS
@@ -114,24 +113,17 @@ fun DeviceStatusDto.toEntity(): DeviceStatusEntity? {
         ?: return null
     val iob = openaps.extractIobUnits()
     val cob = openaps?.suggested?.cob ?: openaps?.enacted?.cob
-    // A `pump` block with no `reservoir` key is Omnipod's actual "50+, exact level unknown"
-    // signal on the wire — confirmed against Trio's NightscoutManager.swift upload code
-    // (`reservoir: reservoir != 0xDEAD_BEEF ? reservoir : nil`): the local sentinel becomes
-    // Swift `nil`, which is omitted from the uploaded JSON entirely, not sent as the literal
-    // sentinel number. Treating "pump present, reservoir absent" as "no data" made the HUD fall
-    // back to whatever old record last had a real number — sometimes days-stale, from a
-    // previous pod. The literal-sentinel check stays as a defensive fallback for any uploader
-    // that does send the raw number.
+    // A pump block without a `reservoir` key is Omnipod's "50+, level unknown": Trio sends nil
+    // instead of the 0xDEADBEEF sentinel. The sentinel check is a fallback for other uploaders.
     val reservoir = when {
         pump == null -> null
         pump.reservoir == null -> Double.POSITIVE_INFINITY
         pump.reservoir == RESERVOIR_UNKNOWN_FULL_SENTINEL -> Double.POSITIVE_INFINITY
         else -> pump.reservoir
     }
-    // suggested is always present on a loop cycle; enacted only when a dose was actually sent.
+    // suggested is always present; enacted only when a dose was sent.
     val reason = openaps?.suggested?.reason ?: openaps?.enacted?.reason
-    // Forecast from the same determination that supplied the reason, anchored at its deliverAt
-    // (like Trio's own chart), falling back to its timestamp and then the record's own date.
+    // Forecast from the same determination, anchored at deliverAt (as Trio does).
     val determination = openaps?.suggested?.takeIf { it.predBGs != null } ?: openaps?.enacted
     val predictions = determination?.predBGs
     val hasForecast = predictions != null &&
@@ -190,12 +182,7 @@ fun DeviceStatusEntity.toDomain(): DeviceStatusPoint = DeviceStatusPoint(
     eventualBgMgDl = eventualBgMgDl,
 )
 
-/**
- * openaps.iob is a single object in the shape Trio actually uploads, but Trio's own local
- * (pre-upload) storage keeps it as an array, and other uploaders may differ again — handle both
- * shapes, then fall back to the IOB carried on the suggested/enacted determination if the
- * dedicated iob entry is absent entirely.
- */
+/** openaps.iob is an object in Trio's upload but may be an array elsewhere; falls back to the determination's IOB. */
 private fun OpenApsStatusDto?.extractIobUnits(): Double? {
     val fromIobEntry = when (val element = this?.iob) {
         is JsonObject -> element["iob"]?.jsonPrimitive?.doubleOrNull

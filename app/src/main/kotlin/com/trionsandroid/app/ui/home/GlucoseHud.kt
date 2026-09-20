@@ -57,11 +57,8 @@ import java.time.Duration
 import java.time.Instant
 import java.util.Locale
 
-// How long a site/infusion set lasts before needing a change, and how long a CGM sensor lasts,
-// in the absence of a way to ask the pump/sensor directly (we only have Nightscout, not a BLE
-// link) — Trio itself gets pod expiry from the PumpManager, not Nightscout, so there's no
-// devicestatus field for this. These are reasonable defaults (3-day tubed-pump site, 10-day
-// Dexcom G6/G7 sensor); making them user-configurable is a natural follow-up if they don't fit.
+// Assumed lifetimes, since Nightscout has no pump or sensor expiry field: 3 days for a site,
+// 10 days for a CGM sensor.
 private const val SITE_CHANGE_INTERVAL_DAYS = 3L
 private const val SENSOR_DURATION_DAYS = 10L
 
@@ -72,7 +69,7 @@ private const val LEGEND_HANG_MILLIS = 1500L
 
 data class PumpCgmHudState(
     val currentIobUnits: Double?,
-    // 0 when no carbs are on board (or none are ever logged); null only when there's no recent data.
+    // 0 when nothing is on board or carbs are never logged; null when there is no recent data.
     val currentCobGrams: Double?,
     val eventualBgMgDl: Int?,
     val reservoirUnits: Double?,
@@ -80,11 +77,7 @@ data class PumpCgmHudState(
     val sensorRemaining: Duration?,
 )
 
-/**
- * Derives the four HUD values from data we already have locally — no extra fetch beyond what
- * NightscoutRepositoryImpl.refresh() already pulls (devicestatus for IOB/reservoir, the
- * dedicated lifecycle query for Site Change/Sensor Start treatments).
- */
+/** Derives the HUD values from data already cached locally. */
 fun computePumpCgmHudState(
     nowMillis: Long,
     treatments: List<Treatment>,
@@ -119,15 +112,14 @@ fun computePumpCgmHudState(
     val siteRemaining = siteChangedAt?.let { Duration.ofDays(SITE_CHANGE_INTERVAL_DAYS) - Duration.between(it, now) }
     val sensorRemaining = sensorStartedAt?.let { Duration.ofDays(SENSOR_DURATION_DAYS) - Duration.between(it, now) }
 
-    // COB and the eventual prediction only come from the loop's own upload, so they go blank
-    // (rather than showing something stale) when the latest status is old.
+    // COB and the eventual prediction go blank when the latest status is old.
     val currentCobGrams = if (latestIsFresh) latestDeviceStatus?.cobGrams else null
     val eventualBgMgDl = if (latestIsFresh) latestDeviceStatus?.eventualBgMgDl else null
 
     return PumpCgmHudState(currentIobUnits, currentCobGrams, eventualBgMgDl, reservoirUnits, siteRemaining, sensorRemaining)
 }
 
-/** Matches Trio's PumpView.timerColor: red once under 8h left, orange under a day, green beyond. */
+/** As Trio's PumpView: red under 8h left, orange under a day, green beyond. */
 private fun remainingTimeColor(remaining: Duration?): Color = when {
     remaining == null -> TrioOnSurfaceMuted
     remaining <= Duration.ofHours(8) -> TrioLoopRed
@@ -135,7 +127,7 @@ private fun remainingTimeColor(remaining: Duration?): Color = when {
     else -> TrioLoopGreen
 }
 
-/** Matches Trio's PumpView.reservoirColor thresholds (in units, not the sentinel "50+" case). */
+/** As Trio's PumpView reservoir thresholds. */
 private fun reservoirColor(units: Double?): Color = when {
     units == null -> TrioOnSurfaceMuted
     units.isInfinite() -> TrioInsulin
@@ -144,7 +136,7 @@ private fun reservoirColor(units: Double?): Color = when {
     else -> TrioInsulin
 }
 
-/** "2d 4h", "6h 30m", "45m", or "Replace" once it's run out — matches PumpView.remainingTimeString. */
+/** "2d 4h", "6h 30m", "45m", or "Replace" once expired. */
 private fun formatRemaining(remaining: Duration): String {
     if (remaining.isNegative || remaining.isZero) return "Replace"
     val days = remaining.toDays()
@@ -165,8 +157,7 @@ private fun formatUnits(units: Double?): String = when {
 
 private val HUD_PILL_SPACING = 6.dp
 
-/** Reservoir, IOB and COB pills, stacked vertically — placed to the left of the bubble. With three
- *  equal-height pills the middle one (IOB) sits on the bubble's center line. */
+/** Reservoir, IOB and COB pills. The middle one (IOB) sits on the bubble's center line. */
 @Composable
 fun PumpHudStackLeft(state: PumpCgmHudState, modifier: Modifier = Modifier) {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(HUD_PILL_SPACING), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -191,8 +182,7 @@ fun PumpHudStackLeft(state: PumpCgmHudState, modifier: Modifier = Modifier) {
     }
 }
 
-/** Sensor, pump-site and eventual-glucose pills, stacked vertically — placed to the right of the
- *  bubble. The middle one (pump site) sits on the bubble's center line. */
+/** Sensor, pump-site and eventual-glucose pills. The middle one sits on the bubble's center line. */
 @Composable
 fun PumpHudStackRight(state: PumpCgmHudState, unit: GlucoseUnit, modifier: Modifier = Modifier) {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(HUD_PILL_SPACING), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -208,8 +198,7 @@ fun PumpHudStackRight(state: PumpCgmHudState, unit: GlucoseUnit, modifier: Modif
             legend = "Pump site time left",
             color = remainingTimeColor(state.siteRemaining),
         )
-        // Trio's "eventual glucose" (arrow.right.circle + number) beside its bubble: the loop's
-        // own eventualBG, not a mix or minimum of the IOB/COB/UAM forecast curves.
+        // Eventual glucose, as Trio shows next to its bubble. It's the loop's own eventualBG.
         HudPill(
             icon = Icons.Filled.ArrowCircleRight,
             label = state.eventualBgMgDl?.let { unit.format(it) } ?: "--",
@@ -219,7 +208,7 @@ fun PumpHudStackRight(state: PumpCgmHudState, unit: GlucoseUnit, modifier: Modif
     }
 }
 
-/** Tapping a pill reveals what it means for ~1.5s, then fades back out on its own. */
+/** Tapping a pill shows its meaning for ~1.5s. */
 @Composable
 private fun HudPill(icon: ImageVector, label: String, legend: String, color: Color) {
     var showLegend by remember { mutableStateOf(false) }
@@ -232,8 +221,7 @@ private fun HudPill(icon: ImageVector, label: String, legend: String, color: Col
 
     val legendAlpha by animateFloatAsState(if (showLegend) 1f else 0f, label = "legendAlpha")
 
-    // The legend hangs below the pill in a zero-size slot, so showing it never changes the stack's
-    // height (which would re-center it) or its width (which would squeeze the bubble beside it).
+    // The legend takes no space, so it can't change the stack's height or width (which would resize the bubble).
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.zIndex(if (showLegend) 1f else 0f)) {
         OutlinedCard(
             onClick = { showLegend = true },
@@ -251,8 +239,7 @@ private fun HudPill(icon: ImageVector, label: String, legend: String, color: Col
             }
         }
         Box(Modifier.size(0.dp).wrapContentSize(align = Alignment.TopCenter, unbounded = true)) {
-            // Fades via animated alpha rather than AnimatedVisibility, which can't be called from
-            // a Box nested inside this Column (it would resolve to Column's scoped overload).
+            // Animated alpha instead of AnimatedVisibility, which resolves to Column's scoped overload here.
             if (legendAlpha > 0f) {
                 Text(
                     text = legend,

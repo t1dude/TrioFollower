@@ -36,8 +36,7 @@ import com.trionsandroid.app.ui.reasoning.ReasoningSheet
 import com.trionsandroid.app.data.settings.HomeStatsFace
 import java.time.Instant
 
-// Floor so the bubble never shrinks past legibility on a pathologically narrow screen — in
-// practice the pill stacks alone are nowhere near wide enough to force this.
+// Minimum bubble size, for very narrow screens.
 private val MIN_BUBBLE_SIZE = 140.dp
 
 @Composable
@@ -56,13 +55,10 @@ fun HomeScreen(viewModel: HomeViewModel = hiltViewModel()) {
         )
     }
 
-    // Refresh whenever the app is opened (cold start or returning from the background).
+    // Refresh whenever the app is opened.
     LifecycleEventEffect(Lifecycle.Event.ON_START) { viewModel.refresh() }
 
-    // And keep refreshing on the user's configured interval while the app stays in the
-    // foreground, so new data (and the chart scrolling to it) arrives without any interaction.
-    // Restarts when the interval setting changes; suspends entirely while backgrounded (the
-    // background sync modes cover that case).
+    // Also refresh on the user's interval while the app is in the foreground.
     val lifecycleOwner = LocalLifecycleOwner.current
     LaunchedEffect(uiState.refreshIntervalMinutes, lifecycleOwner) {
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -73,8 +69,7 @@ fun HomeScreen(viewModel: HomeViewModel = hiltViewModel()) {
         }
     }
 
-    // No header/refresh button — pull-to-refresh replaces the button, freeing up vertical space
-    // so the chart (and its x-axis labels) sits higher without needing to scroll for it.
+    // Pull-to-refresh replaces a refresh button.
     PullToRefreshBox(
         isRefreshing = uiState.isLoading,
         onRefresh = { viewModel.refresh() },
@@ -107,25 +102,14 @@ fun HomeScreen(viewModel: HomeViewModel = hiltViewModel()) {
                     deviceStatusPoints = uiState.deviceStatusPoints,
                     insulinProfile = uiState.insulinProfile,
                 )
-                // A tonal surface card (Material 3's recommended way to separate grouped content
-                // without heavy shadows) instead of the bubble/pills floating directly on the
-                // page background.
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = MaterialTheme.shapes.large,
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                 ) {
-                    // Two width-threshold-guessing attempts before this one both misjudged
-                    // available width (one relied on a hidden horizontalScroll that read as
-                    // cropped content; the next used a hardcoded Dp threshold that made the wrong
-                    // call even on a wide unfolded screen). This drops estimating entirely: the
-                    // pill stacks always keep their natural width and always stay beside the
-                    // bubble, and the bubble's container gets weight(1f) — whatever width is
-                    // actually left over after the stacks, measured for real via
-                    // BoxWithConstraints — clamped to Trio's original 208dp as a ceiling (so it
-                    // doesn't balloon on a very wide screen) and MIN_BUBBLE_SIZE as a legibility
-                    // floor. The ring/triangle/text inside GlucoseBubble scale together with it.
+                    // The pill stacks keep their natural width beside the bubble. The bubble takes the remaining
+                    // width, between MIN_BUBBLE_SIZE and Trio's 208dp.
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()

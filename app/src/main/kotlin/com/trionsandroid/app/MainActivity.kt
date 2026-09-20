@@ -33,8 +33,7 @@ class MainActivity : ComponentActivity() {
                 TrioNavHost()
             }
         }
-        // FLAG_KEEP_SCREEN_ON only holds while this window is visible, so backgrounding the app
-        // releases it automatically — no manual cleanup needed.
+        // The flag only applies while the window is visible, so backgrounding releases it.
         lifecycleScope.launch {
             settingsRepository.settings.map { it.keepScreenOn }.distinctUntilChanged().collect { keepOn ->
                 if (keepOn) {
@@ -54,17 +53,12 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handleIntent(intent: Intent) {
-        // Fired when the user taps the real-time-mode foreground-service notification (see
-        // RefreshForegroundService.openAppPendingIntent) — the notification only shows whatever
-        // the last background cycle fetched, so tapping it should kick off a fresh fetch rather
-        // than leaving the user looking at stale data until the next scheduled cycle.
+        // Tapping the real-time sync notification refreshes right away.
         if (intent.getBooleanExtra(EXTRA_REFRESH_ON_OPEN, false)) {
             intent.removeExtra(EXTRA_REFRESH_ON_OPEN)
             lifecycleScope.launch { nightscoutRepository.refresh() }
         }
-        // Fired when the user taps an alarm notification's body (see
-        // AlarmNotifier.openAppAndAcknowledgePendingIntent) — tapping counts as acknowledging it,
-        // same as pressing its OK action.
+        // Tapping an alarm notification counts as acknowledging it.
         if (intent.getBooleanExtra(EXTRA_ACKNOWLEDGE_ALARM, false)) {
             intent.removeExtra(EXTRA_ACKNOWLEDGE_ALARM)
             lifecycleScope.launch { alarmAcknowledger.acknowledge() }

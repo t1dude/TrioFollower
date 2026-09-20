@@ -21,14 +21,10 @@ import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
-// How far back each refresh actively re-fetches from Nightscout.
+// How far back each refresh re-fetches.
 private const val REFRESH_LOOKBACK_HOURS = 24
 
-// How far back the UI observes from the local cache — matches Room's retention window (see
-// NightscoutRepositoryImpl.RETENTION_HOURS), so the chart can scroll back through whatever
-// history has accumulated across refreshes over time, not just what the most recent refresh
-// pulled, and so the HUD can see a Site Change/Sensor Start treatment fetched via the lifecycle
-// query even when it's weeks old.
+// How far back the UI reads from the cache (Room's retention window).
 private const val OBSERVE_WINDOW_HOURS = 24 * 30
 
 private data class HomeDataState(
@@ -53,8 +49,7 @@ class HomeViewModel @Inject constructor(
     private val forceScroll = MutableStateFlow(true)
     private val sinceMillis = System.currentTimeMillis() - TimeUnit.HOURS.toMillis(OBSERVE_WINDOW_HOURS.toLong())
 
-    // combine() only has typed overloads up to 5 flows; nesting keeps everything typed instead
-    // of falling back to the untyped vararg/Array<*> overload.
+    // combine() is typed only up to 5 flows, so nest.
     private val dataState = combine(
         nightscoutRepository.observeGlucoseEntries(sinceMillis),
         nightscoutRepository.observeTreatments(sinceMillis),
@@ -87,8 +82,7 @@ class HomeViewModel @Inject constructor(
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())
 
     init {
-        // A verified Nightscout connection: drop the stale error and sync right now rather than
-        // leaving the old warning up until the next scheduled refresh.
+        // After a verified connection, clear the stale error and sync right away.
         viewModelScope.launch {
             connectionEvents.established.collect {
                 errorMessage.value = null
@@ -97,8 +91,7 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    /** [userInitiated] is false for the automatic foreground ticks, which shouldn't yank the chart
-     *  back to the live edge if the user has deliberately scrolled into history. */
+    /** [userInitiated] is false for automatic ticks, which shouldn't pull the chart back from history. */
     suspend fun reasoningFor(reading: GlucoseReading) =
         nightscoutRepository.getReasoningForReading(reading.timestamp)
 

@@ -15,16 +15,12 @@ data class BasalSegment(
 
 private const val DAY_MILLIS = 24 * 60 * 60 * 1000L
 
-// Generous enough to absorb normal loop-cycle upload jitter (Trio typically re-announces an
-// active temp basal every ~5 minutes) between two consecutive temp basals, without being so
-// wide it would bridge a genuine, longer return to scheduled/open-loop operation.
+// Absorbs upload jitter between consecutive temp basals without bridging a real return to the schedule.
 private const val GRACE_PERIOD_MILLIS = 10 * 60 * 1000L
 
 /**
- * Builds the piecewise-constant basal rate over [viewportStartMillis, viewportEndMillis]: the
- * profile's repeating scheduled rate, overridden wherever a temp basal treatment is active.
- * Doesn't account for Profile Switch treatments — the given [profile] is treated as if it
- * applied for the whole window (see ProfileDocumentDto's doc comment for why).
+ * Basal rate over the viewport: the scheduled rate, overridden wherever a temp basal is active.
+ * Profile switches are not handled; [profile] is assumed to apply to the whole window.
  */
 fun computeBasalSegments(
     viewportStartMillis: Long,
@@ -79,21 +75,9 @@ fun computeBasalSegments(
         val segEnd = sortedPoints[i + 1]
         if (segStart >= segEnd) continue
         val midpoint = segStart + (segEnd - segStart) / 2
-        // Mirrors Trio's own resolution (BasalChart.swift calculateTempBasals): the
-        // most-recently-*started* temp basal governs, superseding any earlier one immediately —
-        // even across a small gap between two re-announcements of the same temp — rather than
-        // picking whichever overlapping entry happens to come first in the treatments list.
-        // (Nightscout/OpenAPS re-uploads an active temp basal's "Temp Basal" treatment
-        // periodically; the old firstOrNull-on-[start,end) logic could pick a stale superseded
-        // entry, producing phantom reversions to the scheduled rate — i.e. spikes — during what
-        // was actually a steady active temp.)
-        //
-        // A GRACE_PERIOD_MILLIS tolerance past that temp's own nominal end absorbs ordinary
-        // announcement jitter between one temp basal ending and its successor's upload landing
-        // a couple of minutes late — without it, that brief gap falls through to the scheduled
-        // rate and shows up as its own short spike, even between two announcements of the exact
-        // same (e.g. zero) rate. Only a gap wider than the grace period is treated as a genuine
-        // return to scheduled/open-loop operation.
+        // As in Trio: the most recently started temp basal wins, so a stale superseded entry can't
+        // cause false drops to the scheduled rate. A grace period past a temp's end absorbs late
+        // uploads of its successor; a longer gap counts as a return to the schedule.
         val overriding = tempBasals
             .filter { (start, _, _) -> start <= midpoint }
             .maxByOrNull { (start, _, _) -> start }
@@ -102,8 +86,7 @@ fun computeBasalSegments(
         rawSegments.add(BasalSegment(segStart, segEnd, rate))
     }
 
-    // Merge adjacent segments with (near-)identical rates so tiny floating-point-driven steps
-    // don't show up as visual noise.
+    // Merge neighbouring segments with near-identical rates.
     val merged = mutableListOf<BasalSegment>()
     rawSegments.forEach { segment ->
         val last = merged.lastOrNull()
@@ -119,13 +102,8 @@ fun computeBasalSegments(
 private const val DOMAIN_MAX_LOOKBACK_HOURS = 24L
 
 /**
- * The basal strip's y-axis ceiling: matches Trio's `basalDomainMax` (BasalChart.swift) — the max
- * of recent temp basal rates and the profile's own scheduled rates, each a floor of 0.1. Crucially
- * this is computed over a fixed recent lookback ending "now", independent of whatever time range
- * the chart happens to be zoomed/panned to. Scaling to the current *viewport's* max instead (as an
- * earlier version of this chart did) made the strip's scale jump around while zooming/panning, and
- * exaggerated minor rate variations into visually oversized bars whenever the visible window
- * didn't happen to include the day's actual peak rate.
+ * Y-axis ceiling of the basal strip, as in Trio's basalDomainMax: the max of recent temp rates and
+ * scheduled rates. Uses a fixed recent lookback, not the viewport, so the scale doesn't jump when panning.
  */
 fun basalDomainMaxRate(
     nowMillis: Long,

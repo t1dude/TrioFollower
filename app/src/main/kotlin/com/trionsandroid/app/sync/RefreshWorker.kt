@@ -10,7 +10,7 @@ import com.trionsandroid.app.data.nightscout.NightscoutRepository
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 
-/** The "battery friendly" background mode's periodic unit of work — see BackgroundSyncScheduler. */
+/** Periodic work for the "battery friendly" background mode. */
 @HiltWorker
 class RefreshWorker @AssistedInject constructor(
     @Assisted context: Context,
@@ -28,8 +28,7 @@ class RefreshWorker @AssistedInject constructor(
         runCatching { alarmCheckRunner.checkAndNotify() }
             .onFailure { diagnosticLogger.logError(TAG, "Alarm check failed", it) }
 
-        // Retry (with WorkManager's backoff) on a transient failure; the periodic schedule keeps
-        // running regardless, this just gets a sooner extra attempt in between.
+        // Retry with backoff on a transient failure; the periodic schedule continues regardless.
         return if (refreshResult.isSuccess) Result.success() else Result.retry()
     }
 

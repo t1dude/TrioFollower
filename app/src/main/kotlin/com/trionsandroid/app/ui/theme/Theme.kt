@@ -21,8 +21,7 @@ private val TrioColorScheme = darkColorScheme(
 
 @Composable
 fun TrioNSTheme(
-    // Trio's UI is dark-only in the reference design; the param exists so a light
-    // theme can be added later without changing every call site.
+    // Dark only for now; the parameter allows a light theme later.
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit,
 ) {

@@ -28,11 +28,7 @@ import com.trionsandroid.app.data.settings.format
 import com.trionsandroid.app.data.settings.timeFormatter
 import java.time.ZoneId
 
-/**
- * Shows the loop's algorithm reasoning for one glucose reading — used by both the Home bubble
- * (latest reading) and History's glucose rows (the tapped reading). [load] looks up the reasoning
- * for the reading; the sheet shows a spinner until it returns.
- */
+/** Sheet with the loop's reasoning for a glucose reading; [load] looks it up. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReasoningSheet(

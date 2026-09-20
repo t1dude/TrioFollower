@@ -4,16 +4,13 @@ import com.trionsandroid.app.data.nightscout.GlucoseReading
 import java.time.LocalDate
 import java.time.ZoneId
 
-// Fixed consensus bounds, as in Trio's GlucoseDailyDistributionStats.compute (highLimit 180, low
-// bound 70 for its default TITR type, very low < 54, very high > 250) — deliberately not the
-// user's alarm thresholds, so the numbers match what Trio's own Stats screen would show.
+// Trio's fixed bounds, not the alarm thresholds, so numbers match its Stats screen.
 private const val VERY_LOW_BELOW = 54
 private const val IN_RANGE_FROM = 70
 private const val IN_RANGE_TO = 180
 private const val VERY_HIGH_ABOVE = 250
 
-/** Today's glucose distribution and mean, from readings since local midnight. Percentages are
- *  0..100 and sum to 100 when [hasData]. */
+/** Today's distribution (percent, since local midnight) and mean glucose. */
 data class DailyStats(
     val hasData: Boolean,
     val veryLowPct: Double,
@@ -23,7 +20,6 @@ data class DailyStats(
     val veryHighPct: Double,
     val meanMgDl: Double?,
 ) {
-    /** Trio's GMI formula (%). */
     val gmiPercent: Double? get() = meanMgDl?.let { 3.31 + 0.02392 * it }
 }
 

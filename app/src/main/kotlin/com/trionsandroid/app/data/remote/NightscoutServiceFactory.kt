@@ -8,7 +8,7 @@ import retrofit2.converter.kotlinx.serialization.asConverterFactory
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Builds Retrofit clients against a user-supplied Nightscout base URL, chosen at runtime in Settings. */
+/** Builds Retrofit clients for the Nightscout URL chosen in Settings. */
 @Singleton
 class NightscoutServiceFactory @Inject constructor(
     private val okHttpClient: OkHttpClient,

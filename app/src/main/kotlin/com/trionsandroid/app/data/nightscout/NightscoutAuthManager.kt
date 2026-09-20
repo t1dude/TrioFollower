@@ -6,11 +6,7 @@ import javax.inject.Singleton
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
-/**
- * Caches the short-lived JWT obtained from Nightscout's v3 auth endpoint so callers
- * don't re-authenticate on every request. Nightscout's default JWT lifetime is one hour;
- * we refresh a bit early rather than parsing the token's `exp` claim, which keeps this simple.
- */
+/** Caches the short-lived v3 JWT (default lifetime one hour) and refreshes it a bit early. */
 @Singleton
 class NightscoutAuthManager @Inject constructor(
     private val serviceFactory: NightscoutServiceFactory,

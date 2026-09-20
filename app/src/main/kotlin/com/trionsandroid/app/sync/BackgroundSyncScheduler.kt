@@ -17,10 +17,8 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Applies the user's chosen background mode/interval: exactly one of WorkManager's periodic
- * work or the foreground service is ever active, and switching modes tears down the other one.
- * Called once at app startup and again on every relevant settings change — see
- * TrioNSApplication.onCreate().
+ * Applies the chosen background mode and interval. Exactly one of WorkManager's periodic work or
+ * the foreground service is active. Called at startup and on settings changes.
  */
 @Singleton
 class BackgroundSyncScheduler @Inject constructor(
@@ -31,9 +29,7 @@ class BackgroundSyncScheduler @Inject constructor(
         when (settings.backgroundMode) {
             BackgroundMode.WORK_MANAGER -> {
                 context.stopService(Intent(context, RefreshForegroundService::class.java))
-                // WorkManager enforces a 15-minute floor on periodic work regardless of what we
-                // request; BackgroundMode.allowedRefreshIntervals() already only offers >=15 for
-                // this mode, but coerce defensively in case that ever drifts.
+                // WorkManager's periodic work has a 15-minute minimum.
                 val intervalMinutes = settings.refreshIntervalMinutes.coerceAtLeast(15)
                 val request = PeriodicWorkRequestBuilder<RefreshWorker>(intervalMinutes.toLong(), TimeUnit.MINUTES)
                     .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
@@ -51,11 +47,8 @@ class BackgroundSyncScheduler @Inject constructor(
                     ContextCompat.startForegroundService(context, intent)
                     diagnosticLogger.log(TAG, "Started foreground sync service every ${settings.refreshIntervalMinutes}m")
                 } catch (e: IllegalStateException) {
-                    // Android 12+ can refuse a foreground-service start when this code runs
-                    // outside a user-visible context (e.g. the OS waking our process for some
-                    // unrelated reason rather than the user opening the app). Not fatal — the
-                    // service starts normally next time this runs from an eligible context
-                    // (typically just reopening the app).
+                    // Android 12+ can refuse a foreground service start from the background. Not fatal; it
+                    // starts next time the app is opened.
                     diagnosticLogger.logError(TAG, "Foreground service start was refused by the OS", e)
                 }
             }

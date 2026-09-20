@@ -44,10 +44,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
 
-/** Every History row shares this shape: a colored dot, a primary label, a secondary value, and a
- *  timestamp — mirrors Trio's own HistoryRootView row layout (dot + label + value + time).
- *  FlowRow (not a plain Row) so a long value/timestamp — e.g. an adjustment's full start-end
- *  range — wraps onto its own line on a narrow screen instead of overflowing past the edge. */
+/** One History row: dot, label, value and timestamp. FlowRow so long values wrap on narrow screens. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun HistoryEntryRow(
@@ -102,8 +99,7 @@ private fun formatTimestamp(treatment: Treatment, formatter: DateTimeFormatter) 
 private fun formatTimestamp(reading: GlucoseReading, formatter: DateTimeFormatter) =
     formatter.format(reading.timestamp.atZone(ZoneId.systemDefault()))
 
-/** All insulin delivery — basals (temp basal treatments), bolus, SMB, and external doses —
- *  matching Trio's own treatmentsList categories (HistoryRootView+Treatments.swift). */
+/** All insulin delivery: temp basal, bolus, SMB and external doses. */
 fun LazyListScope.treatmentEntries(treatments: List<Treatment>, timeFormatter: DateTimeFormatter) {
     val insulinTreatments = treatments.filter { isBolusEventType(it.eventType) || isTempBasalEventType(it.eventType) }
     if (insulinTreatments.isEmpty()) {
@@ -140,7 +136,6 @@ private fun treatmentDisplay(treatment: Treatment): Triple<Color, String, String
     }
 }
 
-/** All carb entries. */
 fun LazyListScope.mealEntries(treatments: List<Treatment>, timeFormatter: DateTimeFormatter) {
     val meals = treatments.filter { (it.carbsGrams ?: 0.0) > 0.0 }
     if (meals.isEmpty()) {
@@ -158,7 +153,6 @@ fun LazyListScope.mealEntries(treatments: List<Treatment>, timeFormatter: DateTi
     }
 }
 
-/** Every cached glucose reading, colored by range like the rest of the app. */
 fun LazyListScope.glucoseEntries(
     readings: List<GlucoseReading>,
     unit: GlucoseUnit,
@@ -183,9 +177,7 @@ fun LazyListScope.glucoseEntries(
     }
 }
 
-/** Overrides and temp targets, matching Trio's combined Adjustments list
- *  (HistoryRootView+Adjustments.swift): dot + name + target (if any) + a start-end range instead
- *  of a single timestamp, since an adjustment spans a duration rather than being instantaneous. */
+/** Overrides and temp targets, shown with a start-end range instead of one timestamp. */
 fun LazyListScope.adjustmentEntries(treatments: List<Treatment>, unit: GlucoseUnit, timeFormatter: DateTimeFormatter) {
     val adjustments = treatments.filter { isAdjustmentEventType(it.eventType) }
     if (adjustments.isEmpty()) {

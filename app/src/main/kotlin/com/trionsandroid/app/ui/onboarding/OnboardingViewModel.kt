@@ -16,9 +16,7 @@ class OnboardingViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
 ) : ViewModel() {
 
-    /** New users only: the welcome hasn't been completed and no Nightscout URL is set yet, so
-     *  anyone who already configured the app before this existed isn't greeted. Starts false so
-     *  existing users never see a flash before the stored settings load. */
+    /** True for new users only: welcome not completed and no URL set. Starts false to avoid a flash for existing users. */
     val showWelcome: StateFlow<Boolean> = settingsRepository.settings
         .map { !it.welcomeCompleted && it.nightscoutUrl.isBlank() }
         .stateIn(viewModelScope, SharingStarted.Eagerly, false)

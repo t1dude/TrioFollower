@@ -35,10 +35,8 @@ import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
 /**
- * The "real-time" background mode: a persistent foreground service polling more often than
- * WorkManager's 15-minute floor allows, at the cost of an ongoing notification and more battery.
- * Only one of this service / WorkManager's periodic work is ever active — see
- * BackgroundSyncScheduler.
+ * "Real-time" background mode: a foreground service that polls more often than WorkManager's
+ * 15-minute minimum. Only one of this and WorkManager's periodic work runs (see BackgroundSyncScheduler).
  */
 @AndroidEntryPoint
 class RefreshForegroundService : Service() {
@@ -51,14 +49,9 @@ class RefreshForegroundService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var loopJob: Job? = null
 
-    // A foreground service alone doesn't guarantee the OS lets its coroutine timers fire on
-    // schedule — confirmed via a diagnostic log where this service ran continuously for 2.5 hours
-    // with no restarts at all, yet delay(5 minutes) actually resumed after anywhere from 13 to 39
-    // minutes (only the very last of 7 cycles landed near the configured interval). That's Samsung
-    // One UI (and Doze-like power management generally) deprioritizing the process's CPU/timer
-    // scheduling despite the active foreground service and "Unrestricted" battery setting. Holding
-    // a partial wake lock for as long as the loop is running is the standard fix. setReferenceCounted(false)
-    // because acquire() is called idempotently (re-acquiring just refreshes the safety timeout).
+    // A foreground service alone doesn't keep coroutine timers on schedule (a log showed 5-minute
+    // delays resuming after 13 to 39 minutes on Samsung One UI). A partial wake lock fixes that.
+    // Not reference counted, so repeated acquire() only refreshes the timeout.
     private val wakeLock: PowerManager.WakeLock by lazy {
         val powerManager = getSystemService(POWER_SERVICE) as PowerManager
         powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "$packageName:RefreshForegroundService").apply {
@@ -68,11 +61,8 @@ class RefreshForegroundService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        // A fresh onCreate() means a brand-new Service instance — the OS destroyed the previous
-        // one entirely, as opposed to onStartCommand being re-invoked on one that's still alive
-        // (e.g. a START_STICKY restart passes a null Intent to onStartCommand without a new
-        // onCreate if the process itself was never killed). Distinguishing those two is the
-        // whole point of this log line.
+        // A fresh onCreate means the OS created a new service instance, unlike a repeated
+        // onStartCommand on one that is still alive.
         diagnosticLogger.log(TAG, "Service onCreate (new instance)")
         ensureChannel()
     }
@@ -86,8 +76,6 @@ class RefreshForegroundService : Service() {
                 "hadRunningLoop=${loopJob?.isActive == true}",
         )
         startForeground(NOTIFICATION_ID, buildNotification(glucoseText = null, lastSyncText = "Not synced yet"))
-        // Refreshes the safety-timeout window on every (re)configuration; see the wakeLock's own
-        // doc comment for why this is held at all.
         wakeLock.acquire(WAKE_LOCK_SAFETY_TIMEOUT_MILLIS)
 
         loopJob?.cancel()
@@ -96,19 +84,14 @@ class RefreshForegroundService : Service() {
             var cycle = 0
             while (isActive) {
                 cycle++
-                // Re-acquiring (not just once up front) keeps the safety-timeout window comfortably
-                // ahead of the loop for as long as it keeps running, however many cycles that is.
+                // Re-acquired every cycle so the timeout never expires while the loop runs.
                 wakeLock.acquire(WAKE_LOCK_SAFETY_TIMEOUT_MILLIS)
                 diagnosticLogger.log(TAG, "Cycle $cycle starting at ${DIAGNOSTIC_TIME_FORMATTER.format(LocalTime.now())}")
                 runCatching {
                     nightscoutRepository.refresh()
                     alarmCheckRunner.checkAndNotify()
                 }.onFailure { diagnosticLogger.logError(TAG, "Foreground sync cycle failed", it) }
-                // Updates the ongoing notification with the current glucose and last sync time on
-                // every cycle, successful or not — this doubles as a live, always-visible way to
-                // tell the loop is actually still ticking, without needing a fresh diagnostic log.
-                // Respects the user's 12h/24h Settings choice, unlike the diagnostic log line
-                // above (an internal, always-24h debug artifact, not something the user reads).
+                // Update the ongoing notification every cycle, so it also shows the loop is still ticking.
                 val notificationTimeFormatter = settingsRepository.settings.first().timeFormat.timeFormatter()
                 updateNotification(
                     glucoseText = runCatching { latestGlucoseText() }.getOrNull(),
@@ -129,10 +112,8 @@ class RefreshForegroundService : Service() {
         super.onDestroy()
     }
 
-    // Android 14+ (API 34) enforces an execution-time budget for the dataSync foreground service
-    // type and calls this once it's exhausted; the service is required to stop itself promptly
-    // or the system will. BackgroundSyncScheduler restarts it on the next settings re-apply (or
-    // simply reopening the app), so this isn't a permanent loss of background sync.
+    // Android 14+ limits how long a dataSync service may run and calls this when the budget is
+    // used up. The service must stop; BackgroundSyncScheduler restarts it later.
     override fun onTimeout(startId: Int, fgsType: Int) {
         diagnosticLogger.log(TAG, "Foreground service execution time limit reached, stopping")
         stopSelf(startId)
@@ -154,7 +135,6 @@ class RefreshForegroundService : Service() {
         NotificationManagerCompat.from(this).notify(NOTIFICATION_ID, buildNotification(glucoseText, lastSyncText))
     }
 
-    /** e.g. "128 mg/dL ↗", matching the format used elsewhere (AlarmNotifier, GlucoseBubble). */
     private suspend fun latestGlucoseText(): String? {
         val sinceMillis = System.currentTimeMillis() - TimeUnit.HOURS.toMillis(LATEST_READING_LOOKBACK_HOURS)
         val latest = nightscoutRepository.observeGlucoseEntries(sinceMillis).first().maxByOrNull { it.timestamp }
@@ -163,9 +143,7 @@ class RefreshForegroundService : Service() {
         return "${unit.format(latest.mgDl)} ${unit.label} ${latest.trend.arrow}"
     }
 
-    // Tapping the notification opens/foregrounds MainActivity and asks it to trigger a fresh
-    // refresh (see MainActivity.EXTRA_REFRESH_ON_OPEN) rather than just showing whatever the
-    // last background cycle happened to fetch.
+    // Tapping opens the app and triggers a fresh refresh.
     private fun openAppPendingIntent(): PendingIntent {
         val intent = Intent(this, MainActivity::class.java).apply {
             action = Intent.ACTION_MAIN
@@ -198,10 +176,7 @@ class RefreshForegroundService : Service() {
         private const val NOTIFICATION_ID = 42
         private const val OPEN_APP_REQUEST_CODE = 43
         private const val LATEST_READING_LOOKBACK_HOURS = 24L
-        // Comfortably longer than the slowest allowed real-time interval (30m, see
-        // BackgroundMode.allowedRefreshIntervals) so a legitimately slow-but-healthy loop never
-        // has its wake lock expire between two cycles — this is a leak safety net, not a
-        // scheduling mechanism; re-acquiring every cycle is what actually keeps it fresh.
+        // Longer than the slowest real-time interval (30 min). Only a leak safety net.
         private const val WAKE_LOCK_SAFETY_TIMEOUT_MILLIS = 45 * 60_000L
         private val DIAGNOSTIC_TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm")
     }

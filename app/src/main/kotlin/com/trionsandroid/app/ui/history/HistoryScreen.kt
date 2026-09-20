@@ -28,8 +28,7 @@ import com.trionsandroid.app.data.nightscout.GlucoseReading
 import com.trionsandroid.app.data.settings.timeFormatter
 import com.trionsandroid.app.ui.reasoning.ReasoningSheet
 
-/** Mirrors Trio's History.Mode (HistoryDataFlow.swift): Treatments / Glucose / Meals /
- *  Adjustments, picked with a segmented control above the list. */
+/** History tabs, as in Trio. */
 private enum class HistoryMode(val label: String) {
     TREATMENTS("Treatments"),
     MEALS("Meals"),
@@ -77,16 +76,11 @@ fun HistoryScreen(viewModel: HistoryViewModel = hiltViewModel()) {
                         selected = mode == entry,
                         onClick = { mode = entry },
                         shape = SegmentedButtonDefaults.itemShape(index = index, count = HistoryMode.entries.size),
-                        // SegmentedButton measures its default checkmark icon and the label
-                        // independently, then adds their widths together — so a label auto-sized
-                        // to fill the segment (see below) plus the icon on top of that overflows
-                        // past the segment's actual bounds on the selected tab specifically. The
-                        // active/inactive background fill already shows which tab is selected, so
-                        // the icon is redundant — dropping it removes the extra width entirely.
+                        // The default checkmark icon adds width and overflows the selected segment; the fill already
+                        // shows the selection.
                         icon = {},
                     ) {
-                        // Shrinks to fit its own segment's width on narrower/smaller-scale
-                        // displays instead of wrapping "Adjustments" onto a second line.
+                        // Shrinks to fit so "Adjustments" doesn't wrap.
                         Text(
                             text = entry.label,
                             maxLines = 1,

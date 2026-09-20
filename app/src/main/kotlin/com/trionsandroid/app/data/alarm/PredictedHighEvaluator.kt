@@ -8,8 +8,7 @@ import com.trionsandroid.app.data.settings.AlarmSettings
 import java.util.concurrent.TimeUnit
 import kotlin.math.abs
 
-/** How far back the readings/treatments the evaluator looks at reach — the caller needs to
- *  supply at least this much (plus a little slack) of both. */
+/** How much history the evaluator needs (callers should add a little slack). */
 val PREDICTED_HIGH_WINDOW_MILLIS: Long = TimeUnit.MINUTES.toMillis(60)
 
 private const val PROJECTION_MINUTES = 60.0
@@ -24,21 +23,16 @@ private const val MIN_SEGMENT_DELTA_MGDL = -2
 private const val MAX_SEGMENT_DELTA_MGDL = 20
 
 /**
- * "Predicted high": glucose has been in range for the past hour and climbing slowly and steadily
- * toward the high threshold — meant to catch a slow drift upward (e.g. a lazy morning) before it
- * becomes a High alarm. Deliberately does *not* fire on a fast rise (meal-like, and the High alarm
- * covers it) or when a bolus (excluding SMBs, which the loop does on its own) or carbs were
- * logged during the window.
+ * Predicted high: glucose has stayed in range for the last hour and is climbing slowly and
+ * steadily toward the high threshold. A fast rise is left to the High alarm.
  *
- * All of these must hold over the last 60 minutes ending at the newest reading:
- *  1. Enough data: readings span ≥55 min, ≥8 readings, no gap >15 min (also from the newest
- *     reading to [nowMillis]).
- *  2. Every reading is strictly between the low and high thresholds.
- *  3. A least-squares line through the readings has a slope of +10..+45 mg/dL per hour.
- *  4. Steady: split into four 15-minute segments, each segment's change is ≥ -2 (sensor-noise
- *     tolerance) and ≤ +20 mg/dL (no meal-like jump hiding inside a gentle average).
- *  5. Latest + slope × 60 min reaches the high threshold.
- *  6. No non-SMB bolus and no carb entry in the window.
+ * All must hold over the 60 minutes ending at the newest reading:
+ *  1. At least 8 readings spanning 55+ minutes, no gap over 15 minutes (also up to [nowMillis]).
+ *  2. Every reading is between the low and high thresholds.
+ *  3. A least-squares slope of +10 to +45 mg/dL per hour.
+ *  4. Four 15-minute segments each change by -2 to +20 mg/dL (no meal-like jump).
+ *  5. Latest + slope x 60 min reaches the high threshold.
+ *  6. No carbs and no non-SMB bolus in the window.
  */
 fun isPredictedHigh(
     readings: List<GlucoseReading>,
@@ -69,7 +63,7 @@ fun isPredictedHigh(
     val slopePerHour = slopeMgDlPerHour(window, endMillis)
     if (slopePerHour < MIN_SLOPE_MGDL_PER_HOUR || slopePerHour > MAX_SLOPE_MGDL_PER_HOUR) return false
 
-    // Segment boundaries counted back from the newest reading, using the reading nearest each.
+    // Segment boundaries counted back from the newest reading, using the nearest reading to each.
     val boundaries = (0..4).map { i ->
         val target = endMillis - (4 - i) * SEGMENT_MILLIS
         window.minByOrNull { abs(it.timestamp.toEpochMilli() - target) }
@@ -94,8 +88,7 @@ fun isPredictedHigh(
     return !mealOrBolusInWindow
 }
 
-/** Least-squares slope of glucose over time, in mg/dL per hour. Time is measured in minutes
- *  relative to [endMillis] to keep the arithmetic well-conditioned. */
+/** Least-squares slope in mg/dL per hour. */
 private fun slopeMgDlPerHour(window: List<GlucoseReading>, endMillis: Long): Double {
     val xs = window.map { (it.timestamp.toEpochMilli() - endMillis) / 60_000.0 }
     val ys = window.map { it.mgDl.toDouble() }

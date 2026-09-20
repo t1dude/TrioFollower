@@ -13,6 +13,10 @@ data class HomeUiState(
     val errorMessage: String? = null,
     // Bumped each time a refresh finishes, so the chart can scroll to the newest data.
     val refreshCount: Int = 0,
+    // True when the finished refresh was user-initiated (open/pull), so the chart should jump to
+    // the latest data even if the user had panned away; false for the automatic foreground ticks.
+    val forceScrollToLatest: Boolean = true,
+    val refreshIntervalMinutes: Int = 5,
     val glucoseUnit: GlucoseUnit = GlucoseUnit.MMOL_L,
     val timeFormat: TimeFormat = TimeFormat.HOUR_24,
     val alarms: AlarmSettings = AlarmSettings(),

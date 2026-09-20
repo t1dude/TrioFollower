@@ -77,6 +77,7 @@ private val LEFT_GUTTER = 40.dp
 private val BOTTOM_LABEL_GAP = 4.dp
 private val BOTTOM_SAFETY_MARGIN = 6.dp
 private const val SCROLL_TO_LATEST_MILLIS = 700
+private const val LIVE_EDGE_TOLERANCE_MILLIS = 2_000L
 
 private val dayFormatter = DateTimeFormatter.ofPattern("dd.MM")
 
@@ -139,6 +140,7 @@ fun GlucoseChart(
     alarms: AlarmSettings,
     timeFormat: TimeFormat = TimeFormat.HOUR_24,
     scrollToLatestKey: Int = 0,
+    forceScrollToLatest: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
     val density = LocalDensity.current
@@ -170,6 +172,7 @@ fun GlucoseChart(
     var canvasWidthPx by remember { mutableFloatStateOf(0f) }
     var flingJob by remember { mutableStateOf<Job?>(null) }
     var zoomCycleIndex by remember { mutableIntStateOf(-1) }
+    var lastFollowedEndMillis by remember { mutableLongStateOf(dataMaxMillis) }
 
     val leftGutterPx = with(density) { LEFT_GUTTER.toPx() }
 
@@ -203,11 +206,15 @@ fun GlucoseChart(
 
     // Each time scrollToLatestKey changes (a refresh finished), visibly glide the viewport to
     // the newest data, keeping the current zoom level.
+    // Unless forced, only follows if the viewport is still riding the live edge from the last
+    // scroll — an automatic refresh shouldn't pull the user out of history they scrolled into.
     LaunchedEffect(scrollToLatestKey) {
-        flingJob?.cancel()
         val startEnd = viewportEndMillis
         val targetEnd = System.currentTimeMillis()
-        if (targetEnd > startEnd) {
+        val atLiveEdge = startEnd >= lastFollowedEndMillis - LIVE_EDGE_TOLERANCE_MILLIS
+        if ((forceScrollToLatest || atLiveEdge) && targetEnd > startEnd) {
+            flingJob?.cancel()
+            lastFollowedEndMillis = targetEnd
             animate(0f, 1f, animationSpec = tween(SCROLL_TO_LATEST_MILLIS, easing = FastOutSlowInEasing)) { fraction, _ ->
                 viewportEndMillis = startEnd + ((targetEnd - startEnd) * fraction).toLong()
             }

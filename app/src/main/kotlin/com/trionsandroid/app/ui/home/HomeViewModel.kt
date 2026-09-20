@@ -46,6 +46,7 @@ class HomeViewModel @Inject constructor(
     private val isLoading = MutableStateFlow(false)
     private val errorMessage = MutableStateFlow<String?>(null)
     private val refreshCount = MutableStateFlow(0)
+    private val forceScroll = MutableStateFlow(true)
     private val sinceMillis = System.currentTimeMillis() - TimeUnit.HOURS.toMillis(OBSERVE_WINDOW_HOURS.toLong())
 
     // combine() only has typed overloads up to 5 flows; nesting keeps everything typed instead
@@ -60,11 +61,13 @@ class HomeViewModel @Inject constructor(
         HomeDataState(readings, treatments, settings, insulinProfile, deviceStatusPoints)
     }
 
-    val uiState: StateFlow<HomeUiState> = combine(dataState, isLoading, errorMessage, refreshCount) { data, loading, error, refreshes ->
+    val uiState: StateFlow<HomeUiState> = combine(dataState, isLoading, errorMessage, refreshCount, forceScroll) { data, loading, error, refreshes, forced ->
         HomeUiState(
             isLoading = loading,
             errorMessage = error,
             refreshCount = refreshes,
+            forceScrollToLatest = forced,
+            refreshIntervalMinutes = data.settings.refreshIntervalMinutes,
             glucoseUnit = data.settings.glucoseUnit,
             timeFormat = data.settings.timeFormat,
             alarms = data.settings.alarms,
@@ -75,13 +78,16 @@ class HomeViewModel @Inject constructor(
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())
 
-    fun refresh() {
+    /** [userInitiated] is false for the automatic foreground ticks, which shouldn't yank the chart
+     *  back to the live edge if the user has deliberately scrolled into history. */
+    fun refresh(userInitiated: Boolean = true) {
         viewModelScope.launch {
             isLoading.value = true
             errorMessage.value = null
             nightscoutRepository.refresh(lookbackHours = REFRESH_LOOKBACK_HOURS)
                 .onFailure { errorMessage.value = it.message ?: "Couldn't refresh from Nightscout" }
             isLoading.value = false
+            forceScroll.value = userInitiated
             refreshCount.value++
         }
     }

@@ -16,6 +16,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -23,6 +24,9 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.delay
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import java.time.Instant
 
@@ -39,11 +43,25 @@ fun HomeScreen(viewModel: HomeViewModel = hiltViewModel()) {
     // Refresh whenever the app is opened (cold start or returning from the background).
     LifecycleEventEffect(Lifecycle.Event.ON_START) { viewModel.refresh() }
 
+    // And keep refreshing on the user's configured interval while the app stays in the
+    // foreground, so new data (and the chart scrolling to it) arrives without any interaction.
+    // Restarts when the interval setting changes; suspends entirely while backgrounded (the
+    // background sync modes cover that case).
+    val lifecycleOwner = LocalLifecycleOwner.current
+    LaunchedEffect(uiState.refreshIntervalMinutes, lifecycleOwner) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) {
+                delay(uiState.refreshIntervalMinutes.coerceAtLeast(1) * 60_000L)
+                viewModel.refresh(userInitiated = false)
+            }
+        }
+    }
+
     // No header/refresh button — pull-to-refresh replaces the button, freeing up vertical space
     // so the chart (and its x-axis labels) sits higher without needing to scroll for it.
     PullToRefreshBox(
         isRefreshing = uiState.isLoading,
-        onRefresh = viewModel::refresh,
+        onRefresh = { viewModel.refresh() },
         modifier = Modifier.fillMaxSize(),
     ) {
         LazyColumn(
@@ -131,6 +149,7 @@ fun HomeScreen(viewModel: HomeViewModel = hiltViewModel()) {
                             alarms = uiState.alarms,
                             timeFormat = uiState.timeFormat,
                             scrollToLatestKey = uiState.refreshCount,
+                            forceScrollToLatest = uiState.forceScrollToLatest,
                             modifier = Modifier.padding(12.dp),
                         )
                     }

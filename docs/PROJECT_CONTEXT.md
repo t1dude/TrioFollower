@@ -199,6 +199,13 @@ Since, on top of the six milestones:
   fetch. `HomeViewModel` bumps `HomeUiState.refreshCount` after every refresh finishes, and
   `GlucoseChart`'s `scrollToLatestKey` param triggers a 700ms animated glide of `viewportEndMillis`
   to "now" (keeping the current zoom, cancelling any fling). Also fires after pull-to-refresh.
+- **Foreground auto-refresh**: while Home is on screen (`repeatOnLifecycle(STARTED)` in
+  `HomeScreen`), it also calls `refresh(userInitiated = false)` every `refreshIntervalMinutes`
+  (restarts if the setting changes; suspends when backgrounded — background sync modes cover that).
+  Those ticks scroll the chart to the new data only if the viewport is still at the live edge
+  (`lastFollowedEndMillis` in `GlucoseChart`); open/pull-to-refresh (`userInitiated = true`,
+  `HomeUiState.forceScrollToLatest`) always jump, so an automatic tick never yanks the user out of
+  history they scrolled back into.
   Written without a JDK on the dev machine, so not compile-checked when committed — if the build
   fails, look here first.
 

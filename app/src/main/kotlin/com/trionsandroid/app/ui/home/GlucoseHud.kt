@@ -7,7 +7,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -232,8 +232,8 @@ private fun HudPill(icon: ImageVector, label: String, legend: String, color: Col
 
     val legendAlpha by animateFloatAsState(if (showLegend) 1f else 0f, label = "legendAlpha")
 
-    // The legend hangs below the pill in a zero-height slot, so showing it never changes the
-    // stack's height (which would re-center it and make every pill jump).
+    // The legend hangs below the pill in a zero-size slot, so showing it never changes the stack's
+    // height (which would re-center it) or its width (which would squeeze the bubble beside it).
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.zIndex(if (showLegend) 1f else 0f)) {
         OutlinedCard(
             onClick = { showLegend = true },
@@ -250,7 +250,7 @@ private fun HudPill(icon: ImageVector, label: String, legend: String, color: Col
                 Text(label, color = color, fontWeight = FontWeight.Bold, fontSize = 13.sp)
             }
         }
-        Box(Modifier.height(0.dp).wrapContentHeight(align = Alignment.Top, unbounded = true)) {
+        Box(Modifier.size(0.dp).wrapContentSize(align = Alignment.TopCenter, unbounded = true)) {
             // Fades via animated alpha rather than AnimatedVisibility, which can't be called from
             // a Box nested inside this Column (it would resolve to Column's scoped overload).
             if (legendAlpha > 0f) {

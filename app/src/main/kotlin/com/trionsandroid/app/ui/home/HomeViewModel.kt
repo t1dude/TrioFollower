@@ -3,6 +3,7 @@ package com.trionsandroid.app.ui.home
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.trionsandroid.app.data.nightscout.DeviceStatusPoint
+import com.trionsandroid.app.data.nightscout.ConnectionEvents
 import com.trionsandroid.app.data.nightscout.Forecast
 import com.trionsandroid.app.data.nightscout.GlucoseReading
 import com.trionsandroid.app.data.nightscout.InsulinProfile
@@ -43,6 +44,7 @@ private data class HomeDataState(
 class HomeViewModel @Inject constructor(
     private val nightscoutRepository: NightscoutRepository,
     settingsRepository: SettingsRepository,
+    connectionEvents: ConnectionEvents,
 ) : ViewModel() {
 
     private val isLoading = MutableStateFlow(false)
@@ -83,6 +85,17 @@ class HomeViewModel @Inject constructor(
             deviceStatusPoints = data.deviceStatusPoints.sortedBy { it.timestamp },
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())
+
+    init {
+        // A verified Nightscout connection: drop the stale error and sync right now rather than
+        // leaving the old warning up until the next scheduled refresh.
+        viewModelScope.launch {
+            connectionEvents.established.collect {
+                errorMessage.value = null
+                refresh(userInitiated = true)
+            }
+        }
+    }
 
     /** [userInitiated] is false for the automatic foreground ticks, which shouldn't yank the chart
      *  back to the live edge if the user has deliberately scrolled into history. */

@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.trionsandroid.app.data.logging.DiagnosticLogger
 import com.trionsandroid.app.data.remote.NightscoutServiceFactory
+import com.trionsandroid.app.data.nightscout.ConnectionEvents
 import com.trionsandroid.app.data.settings.AlarmSettings
 import com.trionsandroid.app.data.settings.BackgroundMode
 import com.trionsandroid.app.data.settings.ForecastDisplay
@@ -32,6 +33,7 @@ class SettingsViewModel @Inject constructor(
     private val secureTokenStore: SecureTokenStore,
     private val serviceFactory: NightscoutServiceFactory,
     private val diagnosticLogger: DiagnosticLogger,
+    private val connectionEvents: ConnectionEvents,
 ) : ViewModel() {
 
     // Text fields need a locally-owned, synchronously-updated source of truth for their
@@ -144,6 +146,8 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             connectionTestState.value = try {
                 serviceFactory.authApi(url).requestAuthorization(token)
+                // Home clears its stale "set up Nightscout" error and starts a sync right away.
+                connectionEvents.notifyEstablished()
                 ConnectionTestState.Success
             } catch (e: HttpException) {
                 ConnectionTestState.Error("Nightscout rejected the request (HTTP ${e.code()}) — check the URL and token")

@@ -37,12 +37,27 @@ android {
         buildConfig = true
     }
 
+    sourceSets {
+        // The first-run welcome dialog shows the README, copied here at build time so it never
+        // drifts from the repo's README.md.
+        getByName("main") {
+            assets.srcDir(layout.buildDirectory.dir("generated/readmeAssets").get().asFile)
+        }
+    }
+
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
 }
+
+val copyReadmeForWelcome = tasks.register<Copy>("copyReadmeForWelcome") {
+    from(rootProject.file("README.md"))
+    rename { "welcome_readme.md" }
+    into(layout.buildDirectory.dir("generated/readmeAssets"))
+}
+tasks.named("preBuild") { dependsOn(copyReadmeForWelcome) }
 
 androidComponents {
     onVariants { variant ->

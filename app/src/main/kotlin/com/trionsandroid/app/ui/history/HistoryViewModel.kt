@@ -2,6 +2,7 @@ package com.trionsandroid.app.ui.history
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.trionsandroid.app.data.nightscout.ConnectionEvents
 import com.trionsandroid.app.data.nightscout.GlucoseReading
 import com.trionsandroid.app.data.nightscout.NightscoutRepository
 import com.trionsandroid.app.data.nightscout.Treatment
@@ -35,6 +36,7 @@ private data class HistoryDataState(
 class HistoryViewModel @Inject constructor(
     private val nightscoutRepository: NightscoutRepository,
     settingsRepository: SettingsRepository,
+    connectionEvents: ConnectionEvents,
 ) : ViewModel() {
 
     private val isLoading = MutableStateFlow(false)
@@ -64,6 +66,9 @@ class HistoryViewModel @Inject constructor(
 
     init {
         refresh()
+        viewModelScope.launch {
+            connectionEvents.established.collect { errorMessage.value = null }
+        }
     }
 
     suspend fun reasoningFor(reading: GlucoseReading) =

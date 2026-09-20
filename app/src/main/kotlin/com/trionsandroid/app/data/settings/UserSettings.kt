@@ -2,6 +2,8 @@ package com.trionsandroid.app.data.settings
 
 data class UserSettings(
     val nightscoutUrl: String = "",
+    // Set once a new user has gone through the welcome + connect prompts.
+    val welcomeCompleted: Boolean = false,
     val glucoseUnit: GlucoseUnit = GlucoseUnit.MMOL_L,
     // 24-hour default preserves existing behavior for anyone who doesn't touch the setting —
     // every timestamp already displayed as HH:mm before this setting existed.

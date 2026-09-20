@@ -53,7 +53,7 @@ import com.trionsandroid.app.data.settings.BackgroundMode
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
+fun SettingsScreen(expandBasicSettings: Boolean = false, viewModel: SettingsViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showToken by remember { mutableStateOf(false) }
     var showPredictedHighInfo by remember { mutableStateOf(false) }
@@ -76,7 +76,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
         }
 
         item {
-            SettingsSection(title = "Basic Settings") {
+            SettingsSection(title = "Basic Settings", initiallyExpanded = expandBasicSettings) {
                 Text(
                     text = "Nightscout",
                     style = MaterialTheme.typography.labelLarge,

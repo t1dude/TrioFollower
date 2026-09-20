@@ -20,6 +20,10 @@ class SettingsRepositoryImpl @Inject constructor(
         dataStore.edit { it[Keys.NIGHTSCOUT_URL] = url.trim() }
     }
 
+    override suspend fun setWelcomeCompleted(completed: Boolean) {
+        dataStore.edit { it[Keys.WELCOME_COMPLETED] = completed }
+    }
+
     override suspend fun setGlucoseUnit(unit: GlucoseUnit) {
         dataStore.edit { it[Keys.GLUCOSE_UNIT] = unit.name }
     }
@@ -84,6 +88,7 @@ class SettingsRepositoryImpl @Inject constructor(
         val defaultAlarms = AlarmSettings()
         return UserSettings(
             nightscoutUrl = this[Keys.NIGHTSCOUT_URL] ?: defaults.nightscoutUrl,
+            welcomeCompleted = this[Keys.WELCOME_COMPLETED] ?: defaults.welcomeCompleted,
             glucoseUnit = unit,
             timeFormat = timeFormat,
             keepScreenOn = this[Keys.KEEP_SCREEN_ON] ?: defaults.keepScreenOn,
@@ -128,6 +133,7 @@ class SettingsRepositoryImpl @Inject constructor(
     }
 
     private object Keys {
+        val WELCOME_COMPLETED = booleanPreferencesKey("welcome_completed")
         val NIGHTSCOUT_URL = stringPreferencesKey("nightscout_url")
         val GLUCOSE_UNIT = stringPreferencesKey("glucose_unit")
         val GLUCOSE_COLOR_SCHEME = stringPreferencesKey("glucose_color_scheme")

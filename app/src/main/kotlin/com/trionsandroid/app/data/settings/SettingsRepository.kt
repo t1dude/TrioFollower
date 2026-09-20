@@ -6,6 +6,7 @@ interface SettingsRepository {
     val settings: Flow<UserSettings>
 
     suspend fun setNightscoutUrl(url: String)
+    suspend fun setWelcomeCompleted(completed: Boolean)
     suspend fun setGlucoseUnit(unit: GlucoseUnit)
     suspend fun setTimeFormat(format: TimeFormat)
     suspend fun setGlucoseColorScheme(scheme: GlucoseColorScheme)

@@ -308,6 +308,18 @@ Since, on top of the six milestones:
   latest device status is older than `IOB_GAP_THRESHOLD_MILLIS`. Not compile-checked or
   device-tested when committed; `app/schemas/.../7.json` will appear on the next build.
 
+- **First-run onboarding** (added 2026-09-20): a new user (`welcomeCompleted` false *and* no
+  Nightscout URL, so existing users are never greeted) gets a "Welcome" dialog showing the README
+  (`ui/onboarding/`, tiny markdown renderer, Building section skipped; the README is copied into
+  assets as `welcome_readme.md` by the `copyReadmeForWelcome` Gradle task so it can't drift), then
+  a "Connect to Nightscout" dialog; its OK sets `welcomeCompleted`, navigates to Settings and opens
+  Basic Settings (`SettingsScreen(expandBasicSettings)`). Neither dialog can be dismissed without
+  tapping OK. Separately, a successful **Test connection** emits `ConnectionEvents.established`
+  (singleton); `HomeViewModel` then clears its stale "set up Nightscout" error and runs a refresh
+  immediately, and `HistoryViewModel` clears its error — previously the red warning stayed until
+  the next refresh. Not compile-checked or device-tested when committed (the Gradle copy task /
+  `sourceSets` wiring is the most likely thing to need a tweak).
+
 ## Background-sync reliability issue — resolved, confirmed on-device
 
 Original symptom: **"Real-time" (foreground service) background mode appears to run exactly one

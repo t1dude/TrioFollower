@@ -2,6 +2,7 @@ package com.trionsandroid.app.data.nightscout
 
 import java.time.Instant
 import com.trionsandroid.app.data.local.DeviceStatusDao
+import com.trionsandroid.app.data.local.TreatmentEntity
 import com.trionsandroid.app.data.local.GlucoseEntryDao
 import com.trionsandroid.app.data.local.TreatmentDao
 import com.trionsandroid.app.data.logging.DiagnosticLogger
@@ -95,7 +96,7 @@ class NightscoutRepositoryImpl @Inject constructor(
             val treatmentDtosByDate = decodeResilient<TreatmentDto>("$TAG.Treatments", treatmentsByDate.result)
             val treatmentDtosByCreatedAt = decodeResilient<TreatmentDto>("$TAG.Treatments", treatmentsByCreatedAt.result)
             val mergedTreatmentDtos = (treatmentDtosByDate + treatmentDtosByCreatedAt).distinctBy { it.stableId }
-            val storedTreatments = mergedTreatmentDtos.mapNotNull { it.toEntity() }
+            val storedTreatments = mergedTreatmentDtos.mapNotNull { it.toEntity() }.notInFuture()
             treatmentDao.upsertAll(storedTreatments)
             diagnosticLogger.log(
                 TAG,
@@ -106,6 +107,8 @@ class NightscoutRepositoryImpl @Inject constructor(
             val cutoffMillis = System.currentTimeMillis() - TimeUnit.HOURS.toMillis(RETENTION_HOURS)
             glucoseEntryDao.deleteOlderThan(cutoffMillis)
             treatmentDao.deleteOlderThan(cutoffMillis)
+            // Also purge any bogus future-dated rows cached before they were filtered on the way in.
+            treatmentDao.deleteNewerThan(futureCutoffMillis())
             deviceStatusDao.deleteOlderThan(cutoffMillis)
 
             // Isolated from the rest of refresh(): the profile is only needed for the insulin
@@ -159,16 +162,18 @@ class NightscoutRepositoryImpl @Inject constructor(
                         bearerToken = bearer,
                         eventType = eventType,
                         sinceMillis = lookbackMillis,
+                        untilMillis = futureCutoffMillis(),
                     )
                     val byCreatedAt = api.getLatestLifecycleEventByCreatedAt(
                         bearerToken = bearer,
                         eventType = eventType,
                         sinceMillis = lookbackMillis,
+                        untilMillis = futureCutoffMillis(),
                     )
                     decodeResilient<TreatmentDto>("$TAG.Lifecycle", byDate.result) +
                         decodeResilient<TreatmentDto>("$TAG.Lifecycle", byCreatedAt.result)
                 }.distinctBy { it.stableId }
-                val storedLifecycle = lifecycleDtos.mapNotNull { it.toEntity() }
+                val storedLifecycle = lifecycleDtos.mapNotNull { it.toEntity() }.notInFuture()
                 treatmentDao.upsertAll(storedLifecycle)
                 storedLifecycle.size
             }.onSuccess { count ->
@@ -196,7 +201,7 @@ class NightscoutRepositoryImpl @Inject constructor(
                     decodeResilient<TreatmentDto>("$TAG.Adjustments", byDate.result) +
                         decodeResilient<TreatmentDto>("$TAG.Adjustments", byCreatedAt.result)
                 }.distinctBy { it.stableId }
-                val storedAdjustments = adjustmentDtos.mapNotNull { it.toEntity() }
+                val storedAdjustments = adjustmentDtos.mapNotNull { it.toEntity() }.notInFuture()
                 treatmentDao.upsertAll(storedAdjustments)
                 // Trio deletes-and-replaces (under a new id) an override's Nightscout entry when
                 // it ends, rather than editing it in place — see deleteStaleAdjustments' doc
@@ -238,7 +243,18 @@ class NightscoutRepositoryImpl @Inject constructor(
         return decoded
     }
 
+    /** Treatments dated beyond this are bogus (e.g. a CGM change that also creates an entry in the
+     *  year 2162) — they'd otherwise sort as "latest" and hide the real event. */
+    private fun futureCutoffMillis() = System.currentTimeMillis() + FUTURE_TOLERANCE_MILLIS
+
+    private fun List<TreatmentEntity>.notInFuture(): List<TreatmentEntity> {
+        val cutoff = futureCutoffMillis()
+        return filter { it.dateMillis <= cutoff }
+    }
+
     private companion object {
+        // Slack for clock skew between the phone, the uploader and the server.
+        const val FUTURE_TOLERANCE_MILLIS = 10 * 60_000L
         const val TAG = "NightscoutRepository"
 
         // 30 days: long enough to scroll the chart back without re-fetching, and — just as

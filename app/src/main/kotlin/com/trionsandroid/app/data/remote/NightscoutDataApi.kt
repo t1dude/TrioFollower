@@ -73,6 +73,9 @@ interface NightscoutDataApi {
         @Header("Authorization") bearerToken: String,
         @Query("eventType\$eq") eventType: String,
         @Query("date\$gte") sinceMillis: Long,
+        // Upper bound so a bogus far-future entry (some setups create one, e.g. dated 2162, on a
+        // CGM change) can't hog the limit=1 slot and hide the real, latest event.
+        @Query("date\$lte") untilMillis: Long,
         @Query("sort\$desc") sort: String = "date",
         @Query("limit") limit: Int = 1,
     ): NightscoutV3Envelope
@@ -83,6 +86,7 @@ interface NightscoutDataApi {
         @Header("Authorization") bearerToken: String,
         @Query("eventType\$eq") eventType: String,
         @Query("created_at\$gte") sinceMillis: Long,
+        @Query("created_at\$lte") untilMillis: Long,
         @Query("sort\$desc") sort: String = "created_at",
         @Query("limit") limit: Int = 1,
     ): NightscoutV3Envelope

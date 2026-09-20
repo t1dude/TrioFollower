@@ -262,6 +262,16 @@ Since, on top of the six milestones:
   `app/schemas/.../6.json` will appear on the next build — commit it. Trio's own straight-vs-smoothed
   edges differ slightly (Trio uses catmullRom; we draw straight segments).
 
+- **Future-dated treatments are ignored** (2026-09-20): some Nightscout setups create a bogus
+  Sensor Start/Site Change entry dated far in the future (e.g. year 2162) alongside the real one
+  on a CGM change. Because the lifecycle query is `sort desc, limit 1`, that entry hogged the slot
+  and hid the real event. Fixes in `NightscoutRepositoryImpl`: lifecycle queries now send
+  `date$lte`/`created_at$lte` = now+10min; every treatment/lifecycle/adjustment entity dated
+  beyond now+10min is dropped before caching (`notInFuture()`); and each refresh purges
+  already-cached future rows (`TreatmentDao.deleteNewerThan`). Not compile-checked or
+  device-tested when committed; the `$lte` combined with `$gte` on the same field is assumed
+  supported by Nightscout v3.
+
 ## Background-sync reliability issue — resolved, confirmed on-device
 
 Original symptom: **"Real-time" (foreground service) background mode appears to run exactly one

@@ -13,6 +13,9 @@ interface TreatmentDao {
     @Query("SELECT * FROM treatments WHERE dateMillis >= :sinceMillis ORDER BY dateMillis ASC")
     fun observeSince(sinceMillis: Long): Flow<List<TreatmentEntity>>
 
+    @Query("DELETE FROM treatments WHERE dateMillis > :afterMillis")
+    suspend fun deleteNewerThan(afterMillis: Long)
+
     @Query("DELETE FROM treatments WHERE dateMillis < :beforeMillis")
     suspend fun deleteOlderThan(beforeMillis: Long)
 

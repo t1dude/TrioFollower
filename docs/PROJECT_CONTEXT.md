@@ -1,4 +1,9 @@
-# TrioNSAndroid — project context
+# TrioFollow (repo: TrioNSAndroid) — project context
+
+Naming: the app is "Trio Follower app for Android", short name **TrioFollow** (app name in
+installer/settings), shown as "Trio Follow" under the launcher icon. The code still uses the old
+`TrioNS`/`com.trionsandroid` names internally on purpose: changing the application id would stop
+existing installs from updating.
 
 Written 2026-08-28, refreshed 2026-09-20, to let a fresh Claude session (possibly on a different
 computer) pick up where this one left off. If you're reading this at the start of a new session:

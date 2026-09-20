@@ -47,7 +47,7 @@ android {
 androidComponents {
     onVariants { variant ->
         variant.outputs.forEach { output ->
-            output.outputFileName.set("TrioNSAndroid.apk")
+            output.outputFileName.set("TrioFollow.apk")
         }
     }
 }

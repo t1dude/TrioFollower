@@ -20,6 +20,7 @@
 
         <activity
             android:name=".MainActivity"
+            android:label="@string/launcher_label"
             android:exported="true"
             android:theme="@style/Theme.TrioNS"
             android:launchMode="singleTop">

@@ -425,5 +425,11 @@ fun SettingsScreen(expandBasicSettings: Boolean = false, viewModel: SettingsView
                 )
             }
         }
+
+        item {
+            SettingsSection(title = "Information") {
+                InformationSection()
+            }
+        }
     }
 }

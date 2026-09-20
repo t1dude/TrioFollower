@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
@@ -387,5 +388,41 @@ fun DiagnosticsSection(onShareLog: () -> File, onClearLog: () -> Unit) {
                 Text("Clear log")
             }
         }
+    }
+}
+
+private const val REPO_URL = "https://github.com/t1dude/TrioNSAndroid"
+private const val README_URL = "$REPO_URL#readme"
+
+/** Links that open in the device's default browser. */
+@Composable
+fun InformationSection() {
+    val context = LocalContext.current
+    fun open(url: String) {
+        runCatching {
+            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        }
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        InfoLinkRow(title = "Read the README", subtitle = "What the app does, requirements and disclaimer") { open(README_URL) }
+        InfoLinkRow(title = "GitHub repository", subtitle = "Source code, updates and issues") { open(REPO_URL) }
+    }
+}
+
+@Composable
+private fun InfoLinkRow(title: String, subtitle: String, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(title, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.bodyLarge)
+            Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+        }
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.OpenInNew,
+            contentDescription = "Opens in browser",
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }

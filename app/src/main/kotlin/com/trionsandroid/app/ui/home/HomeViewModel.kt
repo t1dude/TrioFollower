@@ -70,6 +70,8 @@ class HomeViewModel @Inject constructor(
             refreshCount = refreshes,
             forceScrollToLatest = forced,
             refreshIntervalMinutes = data.settings.refreshIntervalMinutes,
+            glucoseColorScheme = data.settings.glucoseColorScheme,
+            homeStatsFace = data.settings.homeStatsFace,
             forecast = data.forecast,
             forecastDisplay = data.settings.forecastDisplay,
             glucoseUnit = data.settings.glucoseUnit,

@@ -28,6 +28,14 @@ class SettingsRepositoryImpl @Inject constructor(
         dataStore.edit { it[Keys.TIME_FORMAT] = format.name }
     }
 
+    override suspend fun setGlucoseColorScheme(scheme: GlucoseColorScheme) {
+        dataStore.edit { it[Keys.GLUCOSE_COLOR_SCHEME] = scheme.name }
+    }
+
+    override suspend fun setHomeStatsFace(face: HomeStatsFace) {
+        dataStore.edit { it[Keys.HOME_STATS_FACE] = face.name }
+    }
+
     override suspend fun setForecastDisplay(display: ForecastDisplay) {
         dataStore.edit { it[Keys.FORECAST_DISPLAY] = display.name }
     }
@@ -79,6 +87,10 @@ class SettingsRepositoryImpl @Inject constructor(
             glucoseUnit = unit,
             timeFormat = timeFormat,
             keepScreenOn = this[Keys.KEEP_SCREEN_ON] ?: defaults.keepScreenOn,
+            glucoseColorScheme = this[Keys.GLUCOSE_COLOR_SCHEME]
+                ?.let { runCatching { GlucoseColorScheme.valueOf(it) }.getOrNull() } ?: defaults.glucoseColorScheme,
+            homeStatsFace = this[Keys.HOME_STATS_FACE]
+                ?.let { runCatching { HomeStatsFace.valueOf(it) }.getOrNull() } ?: defaults.homeStatsFace,
             forecastDisplay = this[Keys.FORECAST_DISPLAY]?.let { runCatching { ForecastDisplay.valueOf(it) }.getOrNull() }
                 ?: defaults.forecastDisplay,
             refreshIntervalMinutes = this[Keys.REFRESH_INTERVAL_MINUTES] ?: defaults.refreshIntervalMinutes,
@@ -118,6 +130,8 @@ class SettingsRepositoryImpl @Inject constructor(
     private object Keys {
         val NIGHTSCOUT_URL = stringPreferencesKey("nightscout_url")
         val GLUCOSE_UNIT = stringPreferencesKey("glucose_unit")
+        val GLUCOSE_COLOR_SCHEME = stringPreferencesKey("glucose_color_scheme")
+        val HOME_STATS_FACE = stringPreferencesKey("home_stats_face")
         val FORECAST_DISPLAY = stringPreferencesKey("forecast_display")
         val KEEP_SCREEN_ON = booleanPreferencesKey("keep_screen_on")
         val TIME_FORMAT = stringPreferencesKey("time_format")

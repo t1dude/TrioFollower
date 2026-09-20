@@ -62,6 +62,7 @@ import kotlinx.coroutines.launch
 import com.trionsandroid.app.data.nightscout.Forecast
 import com.trionsandroid.app.data.nightscout.ForecastType
 import com.trionsandroid.app.data.settings.ForecastDisplay
+import com.trionsandroid.app.data.settings.GlucoseColorScheme
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -156,6 +157,7 @@ fun GlucoseChart(
     deviceStatusPoints: List<DeviceStatusPoint>,
     unit: GlucoseUnit,
     alarms: AlarmSettings,
+    colorScheme: GlucoseColorScheme = GlucoseColorScheme.DYNAMIC,
     timeFormat: TimeFormat = TimeFormat.HOUR_24,
     forecast: Forecast? = null,
     forecastDisplay: ForecastDisplay = ForecastDisplay.OFF,
@@ -518,7 +520,7 @@ fun GlucoseChart(
             // Reading dots, colored by range
             sorted.forEach { reading ->
                 drawCircle(
-                    color = rangeColor(reading.mgDl, alarms),
+                    color = rangeColor(reading.mgDl, alarms, colorScheme),
                     radius = 3.dp.toPx(),
                     center = Offset(xFor(reading.timestamp.toEpochMilli()), yFor(reading.mgDl)),
                 )

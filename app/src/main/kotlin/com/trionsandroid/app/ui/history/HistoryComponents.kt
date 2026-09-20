@@ -32,6 +32,7 @@ import com.trionsandroid.app.data.nightscout.isOverrideEventType
 import com.trionsandroid.app.data.nightscout.isSmbEventType
 import com.trionsandroid.app.data.nightscout.isTempBasalEventType
 import com.trionsandroid.app.data.settings.AlarmSettings
+import com.trionsandroid.app.data.settings.GlucoseColorScheme
 import com.trionsandroid.app.data.settings.GlucoseUnit
 import com.trionsandroid.app.data.settings.format
 import com.trionsandroid.app.ui.home.rangeColor
@@ -162,6 +163,7 @@ fun LazyListScope.glucoseEntries(
     readings: List<GlucoseReading>,
     unit: GlucoseUnit,
     alarms: AlarmSettings,
+    colorScheme: GlucoseColorScheme,
     timeFormatter: DateTimeFormatter,
     onReadingClick: (GlucoseReading) -> Unit,
 ) {
@@ -171,7 +173,7 @@ fun LazyListScope.glucoseEntries(
     }
     items(readings, key = { it.id }) { reading ->
         HistoryEntryRow(
-            dotColor = rangeColor(reading.mgDl, alarms),
+            dotColor = rangeColor(reading.mgDl, alarms, colorScheme),
             label = "${unit.format(reading.mgDl)} ${unit.label}",
             value = reading.trend.arrow,
             timestamp = formatTimestamp(reading, timeFormatter),

@@ -7,7 +7,9 @@ import com.trionsandroid.app.data.nightscout.InsulinProfile
 import com.trionsandroid.app.data.nightscout.Treatment
 import com.trionsandroid.app.data.settings.AlarmSettings
 import com.trionsandroid.app.data.settings.ForecastDisplay
+import com.trionsandroid.app.data.settings.GlucoseColorScheme
 import com.trionsandroid.app.data.settings.GlucoseUnit
+import com.trionsandroid.app.data.settings.HomeStatsFace
 import com.trionsandroid.app.data.settings.TimeFormat
 
 data class HomeUiState(
@@ -18,6 +20,8 @@ data class HomeUiState(
     // True when the finished refresh was user-initiated (open/pull), so the chart should jump to
     // the latest data even if the user had panned away; false for the automatic foreground ticks.
     val forceScrollToLatest: Boolean = true,
+    val glucoseColorScheme: GlucoseColorScheme = GlucoseColorScheme.DYNAMIC,
+    val homeStatsFace: HomeStatsFace = HomeStatsFace.TIME_IN_RANGE,
     val forecast: Forecast? = null,
     val forecastDisplay: ForecastDisplay = ForecastDisplay.CONE,
     val refreshIntervalMinutes: Int = 5,

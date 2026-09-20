@@ -272,6 +272,22 @@ Since, on top of the six milestones:
   device-tested when committed; the `$lte` combined with `$gte` on the same field is assumed
   supported by Nightscout v3.
 
+- **Statistics bar + glucose color scheme** (added 2026-09-20, from Trio's newer stats banner and
+  Glucose Color Scheme; sources `HomeRootView+BottomControls.swift`, `GlucoseSetup.swift`,
+  `GlucoseStatsSetup.swift`, `DynamicGlucoseColor.swift`). Home shows `StatsBar` below the chart;
+  Settings > Basic Settings > "Statistics bar" picks the face (`HomeStatsFace`: Time in Range /
+  Distribution bar only / Today's averages / Hidden; default Time in Range). Distribution is over
+  today's readings (since local midnight) with Trio's *fixed* bounds — <54 very low, 54–69 low,
+  70–180 in range, 181–250 high, >250 very high — not the user's alarm thresholds, so it matches
+  Trio's Stats screen. Bar segment colors as Trio: red / orange / loopGreen / purple (high + very
+  high merged). GMI = 3.31 + 0.02392·mean (shown in %; Trio's mmol/mol option not ported). There is
+  no Statistics screen to open on tap (Trio opens one). `GlucoseColorScheme` (Dynamic default /
+  Static) replaces the old alarm-threshold range colors for the bubble value, chart dots and
+  History dots (`rangeColor` in `GlucoseRangeColor.kt`): dynamic = hue gradient red→green→purple
+  (S 0.6, B 0.9) with Trio's fixed 55/220 endpoints and a fixed 100 mg/dL target (Trio uses the
+  profile target, which we don't have); static = red ≤ alarm low, purple ≥ alarm high, else green.
+  Not compile-checked or device-tested when committed.
+
 ## Background-sync reliability issue — resolved, confirmed on-device
 
 Original symptom: **"Real-time" (foreground service) background mode appears to run exactly one

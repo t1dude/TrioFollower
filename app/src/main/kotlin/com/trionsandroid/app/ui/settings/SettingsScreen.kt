@@ -13,7 +13,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material3.Button
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -37,7 +40,9 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.trionsandroid.app.data.settings.ForecastDisplay
+import com.trionsandroid.app.data.settings.GlucoseColorScheme
 import com.trionsandroid.app.data.settings.GlucoseUnit
+import com.trionsandroid.app.data.settings.HomeStatsFace
 import com.trionsandroid.app.data.settings.NO_DATA_MINUTES_OPTIONS
 import com.trionsandroid.app.data.settings.TimeFormat
 import com.trionsandroid.app.data.settings.allowedRefreshIntervals
@@ -46,6 +51,7 @@ import com.trionsandroid.app.ui.theme.TrioGlucoseLow
 import com.trionsandroid.app.ui.theme.TrioGlucoseUrgent
 import com.trionsandroid.app.data.settings.BackgroundMode
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -164,6 +170,48 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                         ) {
                             Text(display.label)
                         }
+                    }
+                }
+
+                Spacer(Modifier.height(20.dp))
+                Text(
+                    text = "Glucose color scheme",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(8.dp))
+                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                    GlucoseColorScheme.entries.forEachIndexed { index, scheme ->
+                        SegmentedButton(
+                            selected = uiState.glucoseColorScheme == scheme,
+                            onClick = { viewModel.onGlucoseColorSchemeChange(scheme) },
+                            shape = SegmentedButtonDefaults.itemShape(index = index, count = GlucoseColorScheme.entries.size),
+                        ) {
+                            Text(scheme.label)
+                        }
+                    }
+                }
+                Text(
+                    text = "Dynamic: red → green → purple around target. Static: red below range, green in range, purple above.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+
+                Spacer(Modifier.height(20.dp))
+                Text(
+                    text = "Statistics bar",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(8.dp))
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    HomeStatsFace.entries.forEach { face ->
+                        FilterChip(
+                            selected = uiState.homeStatsFace == face,
+                            onClick = { viewModel.onHomeStatsFaceChange(face) },
+                            label = { Text(face.label) },
+                        )
                     }
                 }
 

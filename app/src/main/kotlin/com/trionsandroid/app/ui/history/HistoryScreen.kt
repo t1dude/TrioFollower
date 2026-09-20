@@ -117,6 +117,7 @@ fun HistoryScreen(viewModel: HistoryViewModel = hiltViewModel()) {
                         uiState.readings,
                         uiState.glucoseUnit,
                         uiState.alarms,
+                        uiState.glucoseColorScheme,
                         timeFormatter,
                         onReadingClick = { reasoningReading = it },
                     )

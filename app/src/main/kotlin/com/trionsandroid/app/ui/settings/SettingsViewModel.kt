@@ -7,7 +7,9 @@ import com.trionsandroid.app.data.remote.NightscoutServiceFactory
 import com.trionsandroid.app.data.settings.AlarmSettings
 import com.trionsandroid.app.data.settings.BackgroundMode
 import com.trionsandroid.app.data.settings.ForecastDisplay
+import com.trionsandroid.app.data.settings.GlucoseColorScheme
 import com.trionsandroid.app.data.settings.GlucoseUnit
+import com.trionsandroid.app.data.settings.HomeStatsFace
 import com.trionsandroid.app.data.settings.SecureTokenStore
 import com.trionsandroid.app.data.settings.SettingsRepository
 import com.trionsandroid.app.data.settings.TimeFormat
@@ -53,6 +55,8 @@ class SettingsViewModel @Inject constructor(
             glucoseUnit = settings.glucoseUnit,
             timeFormat = settings.timeFormat,
             keepScreenOn = settings.keepScreenOn,
+            glucoseColorScheme = settings.glucoseColorScheme,
+            homeStatsFace = settings.homeStatsFace,
             forecastDisplay = settings.forecastDisplay,
             refreshIntervalMinutes = settings.refreshIntervalMinutes,
             backgroundMode = settings.backgroundMode,
@@ -82,6 +86,14 @@ class SettingsViewModel @Inject constructor(
 
     fun onGlucoseUnitChange(unit: GlucoseUnit) {
         viewModelScope.launch { settingsRepository.setGlucoseUnit(unit) }
+    }
+
+    fun onGlucoseColorSchemeChange(scheme: GlucoseColorScheme) {
+        viewModelScope.launch { settingsRepository.setGlucoseColorScheme(scheme) }
+    }
+
+    fun onHomeStatsFaceChange(face: HomeStatsFace) {
+        viewModelScope.launch { settingsRepository.setHomeStatsFace(face) }
     }
 
     fun onForecastDisplayChange(display: ForecastDisplay) {

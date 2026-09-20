@@ -32,6 +32,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.delay
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.trionsandroid.app.ui.reasoning.ReasoningSheet
+import com.trionsandroid.app.data.settings.HomeStatsFace
 import java.time.Instant
 
 // Floor so the bubble never shrinks past legibility on a pathologically narrow screen — in
@@ -137,6 +138,7 @@ fun HomeScreen(viewModel: HomeViewModel = hiltViewModel()) {
                                     previous = previous,
                                     unit = uiState.glucoseUnit,
                                     alarms = uiState.alarms,
+                                    colorScheme = uiState.glucoseColorScheme,
                                     timeFormat = uiState.timeFormat,
                                     onClick = { showReasoning = true },
                                     size = maxWidth.coerceIn(MIN_BUBBLE_SIZE, DEFAULT_BUBBLE_SIZE),
@@ -163,6 +165,7 @@ fun HomeScreen(viewModel: HomeViewModel = hiltViewModel()) {
                             deviceStatusPoints = uiState.deviceStatusPoints,
                             unit = uiState.glucoseUnit,
                             alarms = uiState.alarms,
+                            colorScheme = uiState.glucoseColorScheme,
                             timeFormat = uiState.timeFormat,
                             forecast = uiState.forecast,
                             forecastDisplay = uiState.forecastDisplay,
@@ -171,6 +174,13 @@ fun HomeScreen(viewModel: HomeViewModel = hiltViewModel()) {
                             modifier = Modifier.padding(12.dp),
                         )
                     }
+                }
+            }
+
+            if (uiState.readings.isNotEmpty() && uiState.homeStatsFace != HomeStatsFace.HIDDEN) {
+                item {
+                    val stats = remember(uiState.readings) { computeDailyStats(uiState.readings) }
+                    StatsBar(stats = stats, face = uiState.homeStatsFace, unit = uiState.glucoseUnit)
                 }
             }
 

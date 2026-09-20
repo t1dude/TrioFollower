@@ -1,36 +1,35 @@
 # Trio Follower app for Android
 
-Trio is an iOS app, so there is no Trio on Android. TrioFollower fills that gap. It reads the data Trio
-uploads to Nightscout and shows it in a layout that looks like Trio.
+Trio Follower is an Android app that reads data from Nightscout and shows it in a familiar layout resembling Trio. It is specifically built to get data uploaded by Trio, and will probably not work well with data uploaded from other OSAID systems.
 
 You can use it in two ways:
 
-- Follow your own Trio loop from an Android phone.
+- Follow your own Trio data from an Android device.
 - Follow a person with diabetes as a caregiver, for example a parent whose child uses Trio.
 
 The app only shows data and sends alerts. It cannot control a pump or change any settings in Trio.
 
 ## Requirements
 
-- An Android phone with Android 12 or newer.
+- An Android device with Android 12 or newer. The app is built to support phones, not tablets or foldable phones.
 - Someone using Trio on an iPhone, with Trio uploading to Nightscout.
 - A Nightscout site that is running and reachable from the internet. You need its URL and an
-  access token. Nightscout has to support the v3 API.
+  access token. Nightscout has to support the v3 API. Nocturne should also work, but limited testing has been done.
 
 ## Features
 
 **Home**
 - Glucose bubble with the current value, trend arrow, minutes since the reading and the change
-  since the last one. Tap it to read the loop's reasoning for that reading.
+  since the last one. Tap it to read the algorithm's reasoning for that reading.
 - A chart you can scroll and zoom. It shows glucose, basal, boluses, carb entries, insulin on board,
   carbs on board, overrides and temp targets.
 - Predictions on the chart, drawn as lines or as a cone. You can also turn them off.
 - Small status pills for reservoir, insulin on board, carbs on board, pump and sensor age, and the
-  loop's eventual glucose, like Trio shows next to its bubble.
+  algorithm's eventual glucose.
 - A statistics bar with today's time in range, or your average glucose.
 
 **History**
-- Treatments, meals, glucose readings and adjustments. Tap a glucose reading to see the loop's
+- Treatments, meals, glucose readings and adjustments. Tap a glucose reading to see the algorithm's
   reasoning for it.
 
 **Alarms**
@@ -41,13 +40,14 @@ The app only shows data and sends alerts. It cannot control a pump or change any
 - Optional acknowledgement, and repeat until acknowledged.
 
 **Updating data**
-- Refreshes when you open the app, and on your chosen interval while the app is open.
-- Background sync keeps alarms working when the app is closed. Choose battery friendly, or
-  real-time with a notification that shows the current glucose.
+- Data refreshes when you open the app, and on your chosen interval while the app is open.
+- Background sync keeps alarms working when the app is closed.
+- Choose battery friendly, or real-time with a notification that shows the current glucose.
+- Alarms work better when real-time is selected.
 
 **Settings**
 - mg/dL or mmol/L, and 12 or 24 hour time.
-- Dynamic or static glucose colors, like Trio.
+- Dynamic or static glucose colors.
 - An option to keep the screen on.
 - A diagnostic log you can export if something does not work.
 
@@ -59,7 +59,8 @@ emulator. Notes for developers are in [`docs/PROJECT_CONTEXT.md`](docs/PROJECT_C
 ## Disclaimer
 
 TrioFollower is a hobby project made by an enthusiast for personal use. It is open source and comes with
-no warranty. It is not affiliated with the Nightscout or Trio projects.
+no warranty. The developer is also a contributor to the Trio project, but TrioFollower is not affiliated 
+with the Nightscout or Trio projects.
 
 Please understand that TrioFollower is:
 

@@ -170,8 +170,9 @@ fun PredictedHighInfoSheet(onDismiss: () -> Unit) {
         ) {
             Text("Reese mode 😉", style = MaterialTheme.typography.titleLarge)
             Text(
-                "When Reese sleeps in and his glucose is rising slowly, his Mom would like an alert " +
-                    "so she can make sure the necessary adjustments are made.",
+                "When Reese's glucose is rising slowly, his Mom would like an alert so she can make sure " +
+                    "the necessary adjustments are made. It helps handle scenarios like pump failure, " +
+                    "leakage, occlusions - or just sleeping in.",
             )
             Text("How it works", style = MaterialTheme.typography.titleMedium)
             Text(

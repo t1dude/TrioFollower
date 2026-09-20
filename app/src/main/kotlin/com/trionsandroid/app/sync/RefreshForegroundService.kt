@@ -143,7 +143,7 @@ class RefreshForegroundService : Service() {
     private fun buildNotification(glucoseText: String?, lastSyncText: String): Notification =
         NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentTitle(glucoseText ?: "TrioFollow syncing")
+            .setContentTitle(glucoseText ?: "TrioFollower syncing")
             .setContentText(lastSyncText)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOngoing(true)

@@ -1,6 +1,6 @@
 # Trio Follower app for Android
 
-Trio is an iOS app, so there is no Trio on Android. TrioFollow fills that gap. It reads the data Trio
+Trio is an iOS app, so there is no Trio on Android. TrioFollower fills that gap. It reads the data Trio
 uploads to Nightscout and shows it in a layout that looks like Trio.
 
 You can use it in two ways:
@@ -58,10 +58,10 @@ emulator. Notes for developers are in [`docs/PROJECT_CONTEXT.md`](docs/PROJECT_C
 
 ## Disclaimer
 
-TrioFollow is a hobby project made by an enthusiast for personal use. It is open source and comes with
+TrioFollower is a hobby project made by an enthusiast for personal use. It is open source and comes with
 no warranty. It is not affiliated with the Nightscout or Trio projects.
 
-Please understand that TrioFollow is:
+Please understand that TrioFollower is:
 
 - used entirely at your own risk
 - not CE or FDA approved for therapy

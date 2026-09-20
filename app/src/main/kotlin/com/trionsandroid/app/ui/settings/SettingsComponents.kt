@@ -377,7 +377,7 @@ fun DiagnosticsSection(onShareLog: () -> File, onClearLog: () -> Unit) {
                         putExtra(Intent.EXTRA_STREAM, uri)
                         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     }
-                    context.startActivity(Intent.createChooser(intent, "Share TrioFollow log"))
+                    context.startActivity(Intent.createChooser(intent, "Share TrioFollower log"))
                 },
                 modifier = Modifier.weight(1f),
             ) {

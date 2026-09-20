@@ -1,7 +1,7 @@
 <resources>
-    <string name="app_name">TrioFollow</string>
+    <string name="app_name">TrioFollower</string>
     <!-- Shown under the launcher icon. -->
-    <string name="launcher_label">Trio Follow</string>
+    <string name="launcher_label">Trio Follower</string>
     <string name="nav_home">Home</string>
     <string name="nav_history">History</string>
     <string name="nav_settings">Settings</string>

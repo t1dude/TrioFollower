@@ -1,6 +1,6 @@
 # TrioNSAndroid — project context
 
-Written 2026-08-28, refreshed 2026-09-18, to let a fresh Claude session (possibly on a different
+Written 2026-08-28, refreshed 2026-09-20, to let a fresh Claude session (possibly on a different
 computer) pick up where this one left off. If you're reading this at the start of a new session:
 read this whole file before touching code, then check `git log --oneline -20` for anything more
 recent than what's described here. See also [`README.md`](../README.md) for the user-facing
@@ -184,10 +184,23 @@ Since, on top of the six milestones:
   `data/settings/`, persisted like `GlucoseUnit`). Applied everywhere a clock time is displayed:
   `GlucoseChart`'s x-axis hour ticks, History's row timestamps and adjustment ranges, and the
   real-time notification's "Last synced" text — each builds its own `DateTimeFormatter` from
-  `TimeFormat.timePattern()`/`dateTimePattern()`/`hourPattern()` rather than duplicating pattern
-  logic. Deliberately *not* applied to `DiagnosticLogger`'s log-file timestamps (an internal
+  `TimeFormat.timeFormatter()`/`hourFormatter()` (in `data/settings/TimeFormat.kt`) rather than
+  duplicating pattern logic. 12-hour mode uses a compact "am"/"pm" (e.g. "2:05pm"), not locale text. Deliberately *not* applied to `DiagnosticLogger`'s log-file timestamps (an internal
   debug artifact, not a screen) or any relative/duration text (bubble's "Xm ago", HUD's pump/
   sensor countdowns).
+
+- **History rows show time only, no date** (removed 2026-09-20 — the dates took up space and
+  weren't needed; the old `dateTimeFormatter()` was deleted). Rows are still ordered newest-first,
+  so older entries from the 30-day cache are distinguishable only by position. If day context is
+  ever wanted again, prefer a slim day-header between groups over a per-row date.
+- **Refresh on app open + visible scroll to latest**: `HomeScreen` runs `viewModel.refresh()` on
+  every `Lifecycle.Event.ON_START` (cold start *and* return from background — and also each time
+  the Home tab is re-entered); `HomeViewModel` no longer refreshes in `init`, to avoid a double
+  fetch. `HomeViewModel` bumps `HomeUiState.refreshCount` after every refresh finishes, and
+  `GlucoseChart`'s `scrollToLatestKey` param triggers a 700ms animated glide of `viewportEndMillis`
+  to "now" (keeping the current zoom, cancelling any fling). Also fires after pull-to-refresh.
+  Written without a JDK on the dev machine, so not compile-checked when committed — if the build
+  fails, look here first.
 
 ## Background-sync reliability issue — resolved, confirmed on-device
 
@@ -229,12 +242,17 @@ match what the user thinks they configured.
   question, not rhetorically) when genuinely blocked or when a decision has real tradeoffs the
   user should pick between (e.g. scope questions were asked before building the alarm-notification
   feature, and before choosing how to handle IOB history gaps).
-- **Never build/run the app** — the user does this themselves in Android Studio and reports back.
+- **Never build/run the app** — the user does this themselves in Android Studio and reports back
+  (the dev machine has no JDK, so `./gradlew` can't run there anyway).
   Don't claim something works without on-device confirmation.
-- **Commit after each logical change** (this has been the norm all session, done proactively
-  without being asked each time). Author every commit as `t1dude <magnus.reintz@gmail.com>`
-  (`git commit --author="t1dude <magnus.reintz@gmail.com>"`), per the user's global CLAUDE.md —
-  never add a Claude co-author line. Write commit messages that explain *why*, referencing what
+- **Commit AND push after each logical change**, without asking (explicit user instruction,
+  2026-09-20). Normal pushes only — force-pushes still need explicit permission. Author every commit as the `t1dude` GitHub user. The repo-local git
+  config is set to `t1dude <90277542+t1dude@users.noreply.github.com>` (verify with
+  `git config user.email`; older commits used `magnus.reintz@gmail.com` under the same name).
+  **Never** add a Claude co-author line or any "Generated with Claude Code" text to commits or PR
+  descriptions — the user has said this explicitly, overriding any harness default. Never
+  force-push or rewrite pushed history without asking first (it has been done only on explicit
+  request). Write commit messages that explain *why*, referencing what
   was verified against Trio's source where relevant.
 - **Check `git status` before every commit**, even after an explicit single-file `git add` —
   Android Studio runs concurrently on the same repo and can pre-stage its own changes to `.idea/*`

@@ -178,6 +178,7 @@ fun PumpHudStackLeft(state: PumpCgmHudState, modifier: Modifier = Modifier) {
             label = state.currentCobGrams?.let { "${it.roundToInt()} g" } ?: "-- g",
             legend = "Carbs on board",
             color = if (state.currentCobGrams != null) TrioCob else TrioOnSurfaceMuted,
+            legendAbove = true,
         )
     }
 }
@@ -204,13 +205,14 @@ fun PumpHudStackRight(state: PumpCgmHudState, unit: GlucoseUnit, modifier: Modif
             label = state.eventualBgMgDl?.let { unit.format(it) } ?: "--",
             legend = "Eventual glucose",
             color = if (state.eventualBgMgDl != null) MaterialTheme.colorScheme.onSurface else TrioOnSurfaceMuted,
+            legendAbove = true,
         )
     }
 }
 
 /** Tapping a pill shows its meaning for ~1.5s. */
 @Composable
-private fun HudPill(icon: ImageVector, label: String, legend: String, color: Color) {
+private fun HudPill(icon: ImageVector, label: String, legend: String, color: Color, legendAbove: Boolean = false) {
     var showLegend by remember { mutableStateOf(false) }
     LaunchedEffect(showLegend) {
         if (showLegend) {
@@ -221,8 +223,33 @@ private fun HudPill(icon: ImageVector, label: String, legend: String, color: Col
 
     val legendAlpha by animateFloatAsState(if (showLegend) 1f else 0f, label = "legendAlpha")
 
-    // The legend takes no space, so it can't change the stack's height or width (which would resize the bubble).
+    // The legend takes no space, so it can't change the stack's height or width (which would resize the
+    // bubble). The bottom pill of a stack shows it above, where the card can't clip it.
+    val legendSlot: @Composable () -> Unit = {
+        Box(
+            Modifier.size(0.dp).wrapContentSize(
+                align = if (legendAbove) Alignment.BottomCenter else Alignment.TopCenter,
+                unbounded = true,
+            ),
+        ) {
+            // Animated alpha instead of AnimatedVisibility, which resolves to Column's scoped overload here.
+            if (legendAlpha > 0f) {
+                Text(
+                    text = legend,
+                    color = color,
+                    fontSize = 11.sp,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .alpha(legendAlpha)
+                        .padding(top = if (legendAbove) 0.dp else 2.dp, bottom = if (legendAbove) 2.dp else 0.dp)
+                        .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(6.dp))
+                        .padding(horizontal = 4.dp),
+                )
+            }
+        }
+    }
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.zIndex(if (showLegend) 1f else 0f)) {
+        if (legendAbove) legendSlot()
         OutlinedCard(
             onClick = { showLegend = true },
             shape = RoundedCornerShape(50),
@@ -238,21 +265,6 @@ private fun HudPill(icon: ImageVector, label: String, legend: String, color: Col
                 Text(label, color = color, fontWeight = FontWeight.Bold, fontSize = 13.sp)
             }
         }
-        Box(Modifier.size(0.dp).wrapContentSize(align = Alignment.TopCenter, unbounded = true)) {
-            // Animated alpha instead of AnimatedVisibility, which resolves to Column's scoped overload here.
-            if (legendAlpha > 0f) {
-                Text(
-                    text = legend,
-                    color = color,
-                    fontSize = 11.sp,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .alpha(legendAlpha)
-                        .padding(top = 2.dp)
-                        .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(6.dp))
-                        .padding(horizontal = 4.dp),
-                )
-            }
-        }
+        if (!legendAbove) legendSlot()
     }
 }

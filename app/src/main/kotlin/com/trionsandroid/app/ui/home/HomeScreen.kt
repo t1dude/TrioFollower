@@ -80,7 +80,7 @@ fun HomeScreen(viewModel: HomeViewModel = hiltViewModel()) {
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
                 .padding(horizontal = 16.dp),
-            contentPadding = PaddingValues(top = 8.dp, bottom = 96.dp),
+            contentPadding = PaddingValues(top = 8.dp, bottom = 72.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item { PermissionWarnings(alarmsEnabled = uiState.alarms.alarmsEnabled) }

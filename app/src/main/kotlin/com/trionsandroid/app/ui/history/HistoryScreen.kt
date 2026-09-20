@@ -102,7 +102,7 @@ fun HistoryScreen(viewModel: HistoryViewModel = hiltViewModel()) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f),
-                contentPadding = PaddingValues(top = 8.dp, bottom = 96.dp),
+                contentPadding = PaddingValues(top = 8.dp, bottom = 72.dp),
             ) {
                 when (mode) {
                     HistoryMode.TREATMENTS -> treatmentEntries(uiState.treatments, timeFormatter)

@@ -64,7 +64,7 @@ fun SettingsScreen(expandBasicSettings: Boolean = false, viewModel: SettingsView
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
             .padding(horizontal = 16.dp),
-        contentPadding = PaddingValues(top = 24.dp, bottom = 96.dp),
+        contentPadding = PaddingValues(top = 24.dp, bottom = 72.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item {

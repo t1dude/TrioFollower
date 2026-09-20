@@ -32,7 +32,7 @@ fun TrioBottomBar(
         modifier = Modifier
             .fillMaxWidth()
             .navigationBarsPadding()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = 16.dp, vertical = 6.dp),
         shape = RoundedCornerShape(32.dp),
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 4.dp,
@@ -40,7 +40,7 @@ fun TrioBottomBar(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 10.dp),
+                .padding(horizontal = 12.dp, vertical = 4.dp),
         ) {
             destinations.forEach { destination ->
                 val selected = destination.route == currentRoute
@@ -69,12 +69,12 @@ private fun TrioBottomBarItem(
                 indication = null,
                 onClick = onClick,
             )
-            .padding(vertical = 4.dp),
+            .padding(vertical = 2.dp),
         contentAlignment = Alignment.Center,
     ) {
         Box(
             modifier = Modifier
-                .size(44.dp)
+                .size(38.dp)
                 .background(
                     color = if (selected) {
                         MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)

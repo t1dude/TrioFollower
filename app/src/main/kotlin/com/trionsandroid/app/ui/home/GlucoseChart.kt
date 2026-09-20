@@ -107,6 +107,7 @@ private val GLUCOSE_TO_IOB_GAP = 8.dp
 private val IOB_STRIP_HEIGHT = 50.dp
 private val BOLUS_MARKER_TOP_MARGIN = 10.dp
 private val ADJUSTMENT_BAND_TOP_MARGIN = 10.dp
+private val ADJUSTMENT_LANE_HEIGHT = 22.dp
 
 private const val IOB_ESTIMATE_SAMPLE_INTERVAL_MILLIS = 5 * 60_000L
 
@@ -515,6 +516,20 @@ fun GlucoseChart(
                 val end = start + ((treatment.durationMinutes ?: 0.0) * 60_000).toLong()
                 end >= viewportStartMillis && start <= viewportEndMillis
             }
+            // Overlapping overrides get their own row, so bands and names don't draw over each other.
+            val overrideLanes = HashMap<String, Int>()
+            val laneEnds = mutableListOf<Long>()
+            adjustments
+                .filter { !(isTempTargetEventType(it.eventType) && it.targetMgDl != null) }
+                .sortedBy { it.timestamp }
+                .forEach { override ->
+                    val start = override.timestamp.toEpochMilli()
+                    val end = start + ((override.durationMinutes ?: 0.0) * 60_000).toLong()
+                    val lane = laneEnds.indexOfFirst { it <= start }.let { free ->
+                        if (free >= 0) free.also { laneEnds[it] = end } else laneEnds.size.also { laneEnds.add(end) }
+                    }
+                    overrideLanes[override.id] = lane
+                }
             adjustments.forEach { adjustment ->
                 val startMillis = adjustment.timestamp.toEpochMilli()
                 val endMillis = startMillis + ((adjustment.durationMinutes ?: 0.0) * 60_000).toLong()
@@ -531,7 +546,8 @@ fun GlucoseChart(
                         cap = StrokeCap.Round,
                     )
                 } else {
-                    val y = glucoseTop + ADJUSTMENT_BAND_TOP_MARGIN.toPx()
+                    val lane = overrideLanes[adjustment.id] ?: 0
+                    val y = glucoseTop + ADJUSTMENT_BAND_TOP_MARGIN.toPx() + lane * ADJUSTMENT_LANE_HEIGHT.toPx()
                     drawLine(
                         color = TrioAccentPurple.copy(alpha = 0.5f),
                         start = Offset(x1, y),

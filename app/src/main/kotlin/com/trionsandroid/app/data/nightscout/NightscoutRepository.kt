@@ -16,6 +16,9 @@ interface NightscoutRepository {
      */
     fun observeInsulinProfile(): Flow<InsulinProfile?>
 
+    /** The loop's most recent glucose forecast, or null if none has been cached. */
+    fun observeLatestForecast(): Flow<Forecast?>
+
     /**
      * The algorithm reasoning that goes with the glucose reading at [readingTimestamp]: the first
      * determination Nightscout received from shortly before that reading (clock slack) up to just

@@ -57,4 +57,17 @@ data class DeterminationDto(
     @SerialName("COB") val cob: Double? = null,
     // The loop's plain-text explanation of the decision (Determination.reason in Trio).
     val reason: String? = null,
+    val predBGs: PredictionsDto? = null,
+    // ISO-8601 timestamps; deliverAt is what Trio itself anchors the forecast to.
+    val deliverAt: String? = null,
+    val timestamp: String? = null,
+)
+
+/** oref forecast curves (Trio's `Predictions`): mg/dL, one value per 5 minutes. Any may be absent. */
+@Serializable
+data class PredictionsDto(
+    @SerialName("IOB") val iob: List<Int>? = null,
+    @SerialName("ZT") val zt: List<Int>? = null,
+    @SerialName("COB") val cob: List<Int>? = null,
+    @SerialName("UAM") val uam: List<Int>? = null,
 )

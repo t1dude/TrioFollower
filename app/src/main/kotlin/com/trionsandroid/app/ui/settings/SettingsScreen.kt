@@ -36,6 +36,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.trionsandroid.app.data.settings.ForecastDisplay
 import com.trionsandroid.app.data.settings.GlucoseUnit
 import com.trionsandroid.app.data.settings.NO_DATA_MINUTES_OPTIONS
 import com.trionsandroid.app.data.settings.TimeFormat
@@ -143,6 +144,25 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                             shape = SegmentedButtonDefaults.itemShape(index = index, count = TimeFormat.entries.size),
                         ) {
                             Text(format.label)
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(20.dp))
+                Text(
+                    text = "Predictions",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(8.dp))
+                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                    ForecastDisplay.entries.forEachIndexed { index, display ->
+                        SegmentedButton(
+                            selected = uiState.forecastDisplay == display,
+                            onClick = { viewModel.onForecastDisplayChange(display) },
+                            shape = SegmentedButtonDefaults.itemShape(index = index, count = ForecastDisplay.entries.size),
+                        ) {
+                            Text(display.label)
                         }
                     }
                 }

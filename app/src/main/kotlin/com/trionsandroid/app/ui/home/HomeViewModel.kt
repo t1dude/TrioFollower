@@ -3,6 +3,7 @@ package com.trionsandroid.app.ui.home
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.trionsandroid.app.data.nightscout.DeviceStatusPoint
+import com.trionsandroid.app.data.nightscout.Forecast
 import com.trionsandroid.app.data.nightscout.GlucoseReading
 import com.trionsandroid.app.data.nightscout.InsulinProfile
 import com.trionsandroid.app.data.nightscout.NightscoutRepository
@@ -35,6 +36,7 @@ private data class HomeDataState(
     val settings: UserSettings,
     val insulinProfile: InsulinProfile?,
     val deviceStatusPoints: List<DeviceStatusPoint>,
+    val forecast: Forecast? = null,
 )
 
 @HiltViewModel
@@ -59,7 +61,7 @@ class HomeViewModel @Inject constructor(
         nightscoutRepository.observeDeviceStatus(sinceMillis),
     ) { readings, treatments, settings, insulinProfile, deviceStatusPoints ->
         HomeDataState(readings, treatments, settings, insulinProfile, deviceStatusPoints)
-    }
+    }.combine(nightscoutRepository.observeLatestForecast()) { data, forecast -> data.copy(forecast = forecast) }
 
     val uiState: StateFlow<HomeUiState> = combine(dataState, isLoading, errorMessage, refreshCount, forceScroll) { data, loading, error, refreshes, forced ->
         HomeUiState(
@@ -68,6 +70,8 @@ class HomeViewModel @Inject constructor(
             refreshCount = refreshes,
             forceScrollToLatest = forced,
             refreshIntervalMinutes = data.settings.refreshIntervalMinutes,
+            forecast = data.forecast,
+            forecastDisplay = data.settings.forecastDisplay,
             glucoseUnit = data.settings.glucoseUnit,
             timeFormat = data.settings.timeFormat,
             alarms = data.settings.alarms,

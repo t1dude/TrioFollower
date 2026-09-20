@@ -13,6 +13,10 @@ interface DeviceStatusDao {
     @Query("SELECT * FROM device_status WHERE dateMillis >= :sinceMillis ORDER BY dateMillis ASC")
     fun observeSince(sinceMillis: Long): Flow<List<DeviceStatusEntity>>
 
+    /** The most recent status that carried forecast curves. */
+    @Query("SELECT * FROM device_status WHERE forecastStartMillis IS NOT NULL ORDER BY dateMillis DESC LIMIT 1")
+    fun observeLatestForecast(): Flow<DeviceStatusEntity?>
+
     /** Earliest determination with reasoning text in [fromMillis, toMillis). */
     @Query(
         "SELECT * FROM device_status WHERE reason IS NOT NULL AND dateMillis >= :fromMillis " +

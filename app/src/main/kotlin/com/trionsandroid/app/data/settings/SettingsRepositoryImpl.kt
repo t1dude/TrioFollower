@@ -28,6 +28,10 @@ class SettingsRepositoryImpl @Inject constructor(
         dataStore.edit { it[Keys.TIME_FORMAT] = format.name }
     }
 
+    override suspend fun setForecastDisplay(display: ForecastDisplay) {
+        dataStore.edit { it[Keys.FORECAST_DISPLAY] = display.name }
+    }
+
     override suspend fun setKeepScreenOn(enabled: Boolean) {
         dataStore.edit { it[Keys.KEEP_SCREEN_ON] = enabled }
     }
@@ -75,6 +79,8 @@ class SettingsRepositoryImpl @Inject constructor(
             glucoseUnit = unit,
             timeFormat = timeFormat,
             keepScreenOn = this[Keys.KEEP_SCREEN_ON] ?: defaults.keepScreenOn,
+            forecastDisplay = this[Keys.FORECAST_DISPLAY]?.let { runCatching { ForecastDisplay.valueOf(it) }.getOrNull() }
+                ?: defaults.forecastDisplay,
             refreshIntervalMinutes = this[Keys.REFRESH_INTERVAL_MINUTES] ?: defaults.refreshIntervalMinutes,
             backgroundMode = mode,
             alarms = AlarmSettings(
@@ -112,6 +118,7 @@ class SettingsRepositoryImpl @Inject constructor(
     private object Keys {
         val NIGHTSCOUT_URL = stringPreferencesKey("nightscout_url")
         val GLUCOSE_UNIT = stringPreferencesKey("glucose_unit")
+        val FORECAST_DISPLAY = stringPreferencesKey("forecast_display")
         val KEEP_SCREEN_ON = booleanPreferencesKey("keep_screen_on")
         val TIME_FORMAT = stringPreferencesKey("time_format")
         val REFRESH_INTERVAL_MINUTES = intPreferencesKey("refresh_interval_minutes")

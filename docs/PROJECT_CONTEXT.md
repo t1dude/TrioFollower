@@ -246,6 +246,22 @@ Since, on top of the six milestones:
   rather than kept in the UI state lists. No settings toggle. Not compile-checked or device-tested
   when committed; `app/schemas/.../5.json` will appear on the next Gradle build — commit it.
 
+- **Forecast / predictions on the chart** (added 2026-09-20): Settings > Basic Settings >
+  Predictions = Off / Lines / Cone (`ForecastDisplay`, default Cone like Trio). Source:
+  `devicestatus.openaps.suggested.predBGs` {IOB, ZT, COB, UAM} (falls back to `enacted`), each a list
+  of mg/dL at 5-minute steps from the determination's `deliverAt` (fallback `timestamp`, then the
+  record's date) — stored in `DeviceStatusEntity` as CSV columns (Room schema v6, destructive
+  migration). Only the newest one is observed (`observeLatestForecast`). Rendering mirrors Trio's
+  `ForecastView.swift`: nothing past 2.5h ahead; Lines = one polyline per curve (colors: IOB
+  #1E96FC, ZT #7161EF, COB orange, UAM #D12BF7, from Trio's assets); Cone = per-step min..max
+  envelope across curves (≥12 steps; a ±1 mg/dL band when min==max), 40% blue fill. With a forecast
+  showing, the chart's right edge extends to the forecast end and the resting "live edge" is
+  now + a quarter of the visible span (`liveEdgeMillis` in `GlucoseChart`), so a peek of forecast is
+  visible without scrolling; a new forecast/refresh re-follows the live edge under the same
+  "only if not scrolled away" rule as before. Not compile-checked or device-tested when committed;
+  `app/schemas/.../6.json` will appear on the next build — commit it. Trio's own straight-vs-smoothed
+  edges differ slightly (Trio uses catmullRom; we draw straight segments).
+
 ## Background-sync reliability issue — resolved, confirmed on-device
 
 Original symptom: **"Real-time" (foreground service) background mode appears to run exactly one

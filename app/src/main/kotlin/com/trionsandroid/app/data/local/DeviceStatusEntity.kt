@@ -11,4 +11,11 @@ data class DeviceStatusEntity(
     val cobGrams: Double?,
     val reservoirUnits: Double?,
     val reason: String? = null,
+    // Forecast curves as comma-separated mg/dL values; forecastStartMillis is non-null only when
+    // at least one curve is present.
+    val forecastStartMillis: Long? = null,
+    val predIob: String? = null,
+    val predZt: String? = null,
+    val predCob: String? = null,
+    val predUam: String? = null,
 )

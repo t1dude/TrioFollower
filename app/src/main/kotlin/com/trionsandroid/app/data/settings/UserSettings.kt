@@ -8,6 +8,8 @@ data class UserSettings(
     val timeFormat: TimeFormat = TimeFormat.HOUR_24,
     // Off by default: holding the screen on drains battery, so it has to be a deliberate choice.
     val keepScreenOn: Boolean = false,
+    // Cone matches Trio's own default forecast display.
+    val forecastDisplay: ForecastDisplay = ForecastDisplay.CONE,
     val refreshIntervalMinutes: Int = 5,
     val backgroundMode: BackgroundMode = BackgroundMode.WORK_MANAGER,
     val alarms: AlarmSettings = AlarmSettings(),

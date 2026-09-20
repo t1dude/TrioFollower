@@ -6,6 +6,7 @@ import com.trionsandroid.app.data.logging.DiagnosticLogger
 import com.trionsandroid.app.data.remote.NightscoutServiceFactory
 import com.trionsandroid.app.data.settings.AlarmSettings
 import com.trionsandroid.app.data.settings.BackgroundMode
+import com.trionsandroid.app.data.settings.ForecastDisplay
 import com.trionsandroid.app.data.settings.GlucoseUnit
 import com.trionsandroid.app.data.settings.SecureTokenStore
 import com.trionsandroid.app.data.settings.SettingsRepository
@@ -52,6 +53,7 @@ class SettingsViewModel @Inject constructor(
             glucoseUnit = settings.glucoseUnit,
             timeFormat = settings.timeFormat,
             keepScreenOn = settings.keepScreenOn,
+            forecastDisplay = settings.forecastDisplay,
             refreshIntervalMinutes = settings.refreshIntervalMinutes,
             backgroundMode = settings.backgroundMode,
             alarms = settings.alarms,
@@ -80,6 +82,10 @@ class SettingsViewModel @Inject constructor(
 
     fun onGlucoseUnitChange(unit: GlucoseUnit) {
         viewModelScope.launch { settingsRepository.setGlucoseUnit(unit) }
+    }
+
+    fun onForecastDisplayChange(display: ForecastDisplay) {
+        viewModelScope.launch { settingsRepository.setForecastDisplay(display) }
     }
 
     fun onKeepScreenOnChange(enabled: Boolean) {

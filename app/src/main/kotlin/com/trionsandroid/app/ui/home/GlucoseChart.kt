@@ -24,6 +24,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
@@ -53,10 +54,14 @@ import com.trionsandroid.app.ui.theme.TrioBasal
 import com.trionsandroid.app.ui.theme.TrioBolus
 import com.trionsandroid.app.ui.theme.TrioGlucoseHigh
 import com.trionsandroid.app.ui.theme.TrioGlucoseLow
+import com.trionsandroid.app.ui.theme.TrioInsulin
 import com.trionsandroid.app.ui.theme.TrioIob
 import com.trionsandroid.app.ui.theme.TrioLoopGreen
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import com.trionsandroid.app.data.nightscout.Forecast
+import com.trionsandroid.app.data.nightscout.ForecastType
+import com.trionsandroid.app.data.settings.ForecastDisplay
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -78,6 +83,19 @@ private val BOTTOM_LABEL_GAP = 4.dp
 private val BOTTOM_SAFETY_MARGIN = 6.dp
 private const val SCROLL_TO_LATEST_MILLIS = 700
 private const val LIVE_EDGE_TOLERANCE_MILLIS = 2_000L
+
+// Trio's ForecastView draws nothing past 2.5h ahead; the cone always uses at least an hour of steps.
+private const val FORECAST_MAX_AHEAD_MILLIS = 150 * 60_000L
+private const val FORECAST_CONE_MIN_POINTS = 12
+
+// Line colours from Trio's chartForegroundStyleScale: iob = its insulin blue, zt/uam from its
+// asset catalog (ZT.colorset, UAM.colorset), cob = plain orange.
+private fun forecastColor(type: ForecastType): Color = when (type) {
+    ForecastType.IOB -> TrioInsulin
+    ForecastType.ZT -> Color(0xFF7161EF)
+    ForecastType.COB -> Color(0xFFFF9500)
+    ForecastType.UAM -> Color(0xFFD12BF7)
+}
 
 private val dayFormatter = DateTimeFormatter.ofPattern("dd.MM")
 
@@ -139,6 +157,8 @@ fun GlucoseChart(
     unit: GlucoseUnit,
     alarms: AlarmSettings,
     timeFormat: TimeFormat = TimeFormat.HOUR_24,
+    forecast: Forecast? = null,
+    forecastDisplay: ForecastDisplay = ForecastDisplay.OFF,
     scrollToLatestKey: Int = 0,
     forceScrollToLatest: Boolean = true,
     modifier: Modifier = Modifier,
@@ -164,15 +184,27 @@ fun GlucoseChart(
 
     val nowMillis = System.currentTimeMillis()
     val dataMinMillis = readings.minOfOrNull { it.timestamp.toEpochMilli() } ?: (nowMillis - DEFAULT_VIEWPORT_MILLIS)
-    val dataMaxMillis = nowMillis
+    // With a forecast showing, the chart's right edge extends past "now" to the end of the (capped)
+    // forecast so it can be scrolled into view; without one it ends at "now" as before.
+    val forecastEndMillis = if (forecastDisplay != ForecastDisplay.OFF && forecast != null) {
+        forecast.timeMillisAt(forecast.series.values.maxOf { it.size } - 1).coerceAtMost(nowMillis + FORECAST_MAX_AHEAD_MILLIS)
+    } else {
+        nowMillis
+    }
+    val futureMillis = (forecastEndMillis - nowMillis).coerceAtLeast(0L)
+    val dataMaxMillis = nowMillis + futureMillis
     val maxViewportMillis = (dataMaxMillis - dataMinMillis).coerceAtLeast(DEFAULT_VIEWPORT_MILLIS)
 
-    var viewportEndMillis by remember { mutableLongStateOf(dataMaxMillis) }
+    // Resting position at the live edge: "now", plus a peek of forecast (a quarter of the visible
+    // span, at most all of it) so the prediction is visible without scrolling — like Trio's chart.
+    fun liveEdgeMillis(durationMillis: Long) = System.currentTimeMillis() + minOf(futureMillis, durationMillis / 4)
+
     var viewportDurationMillis by remember { mutableLongStateOf(DEFAULT_VIEWPORT_MILLIS) }
+    var viewportEndMillis by remember { mutableLongStateOf(liveEdgeMillis(DEFAULT_VIEWPORT_MILLIS)) }
     var canvasWidthPx by remember { mutableFloatStateOf(0f) }
     var flingJob by remember { mutableStateOf<Job?>(null) }
     var zoomCycleIndex by remember { mutableIntStateOf(-1) }
-    var lastFollowedEndMillis by remember { mutableLongStateOf(dataMaxMillis) }
+    var lastFollowedEndMillis by remember { mutableLongStateOf(viewportEndMillis) }
 
     val leftGutterPx = with(density) { LEFT_GUTTER.toPx() }
 
@@ -208,11 +240,11 @@ fun GlucoseChart(
     // the newest data, keeping the current zoom level.
     // Unless forced, only follows if the viewport is still riding the live edge from the last
     // scroll — an automatic refresh shouldn't pull the user out of history they scrolled into.
-    LaunchedEffect(scrollToLatestKey) {
+    LaunchedEffect(scrollToLatestKey, forecast?.startMillis, forecastDisplay) {
         val startEnd = viewportEndMillis
-        val targetEnd = System.currentTimeMillis()
+        val targetEnd = liveEdgeMillis(viewportDurationMillis)
         val atLiveEdge = startEnd >= lastFollowedEndMillis - LIVE_EDGE_TOLERANCE_MILLIS
-        if ((forceScrollToLatest || atLiveEdge) && targetEnd > startEnd) {
+        if ((forceScrollToLatest || atLiveEdge) && targetEnd != startEnd) {
             flingJob?.cancel()
             lastFollowedEndMillis = targetEnd
             animate(0f, 1f, animationSpec = tween(SCROLL_TO_LATEST_MILLIS, easing = FastOutSlowInEasing)) { fraction, _ ->
@@ -418,6 +450,57 @@ fun GlucoseChart(
                 fillPath.close()
                 drawPath(fillPath, color = TrioBasal.copy(alpha = 0.3f))
                 drawPath(linePath, color = TrioBasal, style = Stroke(width = 1.5.dp.toPx()))
+            }
+
+            // Forecast (Trio's ForecastView): points are 5 minutes apart from the determination's
+            // deliverAt, capped 2.5h ahead of now. Cone = min..max envelope across all curves;
+            // lines = one polyline per curve in its own colour.
+            if (forecast != null && forecastDisplay != ForecastDisplay.OFF) {
+                val cap = nowMillis + FORECAST_MAX_AHEAD_MILLIS
+                fun visible(index: Int): Boolean =
+                    forecast.timeMillisAt(index).let { it in viewportStartMillis..viewportEndMillis && it <= cap }
+                if (forecastDisplay == ForecastDisplay.CONE) {
+                    val shortest = forecast.series.values.minOf { it.size }
+                    val count = maxOf(FORECAST_CONE_MIN_POINTS, shortest)
+                    val indices = (0 until count).filter { i ->
+                        visible(i) && forecast.series.values.any { i < it.size }
+                    }
+                    if (indices.size >= 2) {
+                        fun bound(i: Int, pick: (List<Int>) -> Int) =
+                            forecast.series.values.filter { i < it.size }.map { pick(it) }
+                        val upper = indices.map { i ->
+                            val hi = bound(i) { it[i] }.max()
+                            val lo = bound(i) { it[i] }.min()
+                            // Same-value envelope would be invisible; give it a thin band (Trio: ±1).
+                            Offset(xFor(forecast.timeMillisAt(i)), yFor(if (hi == lo) hi + 1 else hi))
+                        }
+                        val lower = indices.map { i ->
+                            val hi = bound(i) { it[i] }.max()
+                            val lo = bound(i) { it[i] }.min()
+                            Offset(xFor(forecast.timeMillisAt(i)), yFor(if (hi == lo) lo - 1 else lo))
+                        }
+                        val cone = Path().apply {
+                            moveTo(upper.first().x, upper.first().y)
+                            upper.drop(1).forEach { lineTo(it.x, it.y) }
+                            lower.asReversed().forEach { lineTo(it.x, it.y) }
+                            close()
+                        }
+                        drawPath(cone, color = TrioInsulin.copy(alpha = 0.4f))
+                    }
+                } else {
+                    forecast.series.forEach { (type, values) ->
+                        val points = values.indices.filter(::visible).map { i ->
+                            Offset(xFor(forecast.timeMillisAt(i)), yFor(values[i]))
+                        }
+                        if (points.size >= 2) {
+                            val line = Path().apply {
+                                moveTo(points.first().x, points.first().y)
+                                points.drop(1).forEach { lineTo(it.x, it.y) }
+                            }
+                            drawPath(line, color = forecastColor(type), style = Stroke(width = 2.dp.toPx()))
+                        }
+                    }
+                }
             }
 
             // Connect consecutive readings

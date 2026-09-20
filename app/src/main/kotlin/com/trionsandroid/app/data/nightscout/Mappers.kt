@@ -18,6 +18,7 @@ import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import java.time.Instant
+import java.time.OffsetDateTime
 
 fun EntryDto.toEntity(): GlucoseEntryEntity? {
     val sgvValue = sgv ?: return null
@@ -128,7 +129,18 @@ fun DeviceStatusDto.toEntity(): DeviceStatusEntity? {
     }
     // suggested is always present on a loop cycle; enacted only when a dose was actually sent.
     val reason = openaps?.suggested?.reason ?: openaps?.enacted?.reason
-    if (iob == null && cob == null && reservoir == null && reason == null) return null
+    // Forecast from the same determination that supplied the reason, anchored at its deliverAt
+    // (like Trio's own chart), falling back to its timestamp and then the record's own date.
+    val determination = openaps?.suggested?.takeIf { it.predBGs != null } ?: openaps?.enacted
+    val predictions = determination?.predBGs
+    val hasForecast = predictions != null &&
+        listOf(predictions.iob, predictions.zt, predictions.cob, predictions.uam).any { !it.isNullOrEmpty() }
+    val forecastStart = if (hasForecast) {
+        parseIsoMillis(determination?.deliverAt) ?: parseIsoMillis(determination?.timestamp) ?: dateMillis
+    } else {
+        null
+    }
+    if (iob == null && cob == null && reservoir == null && reason == null && !hasForecast) return null
     return DeviceStatusEntity(
         id = stableId,
         dateMillis = dateMillis,
@@ -136,7 +148,35 @@ fun DeviceStatusDto.toEntity(): DeviceStatusEntity? {
         cobGrams = cob,
         reservoirUnits = reservoir,
         reason = reason,
+        forecastStartMillis = forecastStart,
+        predIob = predictions?.iob.toCsv(),
+        predZt = predictions?.zt.toCsv(),
+        predCob = predictions?.cob.toCsv(),
+        predUam = predictions?.uam.toCsv(),
     )
+}
+
+private fun parseIsoMillis(value: String?): Long? {
+    if (value == null) return null
+    return runCatching { Instant.parse(value).toEpochMilli() }
+        .recoverCatching { OffsetDateTime.parse(value).toInstant().toEpochMilli() }
+        .getOrNull()
+}
+
+private fun List<Int>?.toCsv(): String? = this?.takeIf { it.isNotEmpty() }?.joinToString(",")
+
+private fun String?.toIntList(): List<Int>? =
+    this?.split(',')?.mapNotNull { it.toIntOrNull() }?.takeIf { it.isNotEmpty() }
+
+fun DeviceStatusEntity.toForecast(): Forecast? {
+    val start = forecastStartMillis ?: return null
+    val series = buildMap {
+        predIob.toIntList()?.let { put(ForecastType.IOB, it) }
+        predZt.toIntList()?.let { put(ForecastType.ZT, it) }
+        predCob.toIntList()?.let { put(ForecastType.COB, it) }
+        predUam.toIntList()?.let { put(ForecastType.UAM, it) }
+    }
+    return if (series.isEmpty()) null else Forecast(start, series)
 }
 
 fun DeviceStatusEntity.toDomain(): DeviceStatusPoint = DeviceStatusPoint(

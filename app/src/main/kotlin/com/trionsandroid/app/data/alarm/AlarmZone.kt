@@ -9,6 +9,7 @@ enum class AlarmZone(val displayTitle: String) {
     PREDICTED_HIGH("Predicted high"),
     HIGH("High"),
     URGENT_HIGH("Urgent high"),
+    NO_DATA("No data"),
 }
 
 /**

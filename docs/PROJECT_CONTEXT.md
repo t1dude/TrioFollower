@@ -220,6 +220,15 @@ Since, on top of the six milestones:
   re-alert every check. Uses the low/high threshold *values* even if those tiers are disabled.
   Not compile-checked or device-tested when committed.
 
+- **No data alarm** (added 2026-09-20; off by default): `AlarmZone.NO_DATA` fires when the newest
+  glucose reading is older than a user-selectable 20/40/60 min (`AlarmSettings.noDataMinutes`,
+  `NO_DATA_MINUTES_OPTIONS`; segmented picker under Alarms). Decided first in `AlarmCheckRunner`
+  (before glucose-zone evaluation, which is skipped since the reading is stale); the runner now
+  looks back 6h for the newest reading so the notification can say how long it's been. Follows the
+  normal ack/repeat pattern. It only fires when a check actually runs — both background modes run
+  the check even after a failed refresh, which is the main real-world cause. Not compile-checked
+  or device-tested when committed.
+
 ## Background-sync reliability issue — resolved, confirmed on-device
 
 Original symptom: **"Real-time" (foreground service) background mode appears to run exactly one

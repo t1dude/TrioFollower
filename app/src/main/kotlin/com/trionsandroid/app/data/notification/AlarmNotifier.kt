@@ -19,6 +19,8 @@ import com.trionsandroid.app.data.settings.AlarmSettings
 import com.trionsandroid.app.data.settings.GlucoseUnit
 import com.trionsandroid.app.data.settings.format
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.time.Duration
+import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -26,7 +28,8 @@ import javax.inject.Singleton
 class AlarmNotifier @Inject constructor(
     @ApplicationContext private val context: Context,
 ) {
-    fun notify(zone: AlarmZone, reading: GlucoseReading, unit: GlucoseUnit, alarms: AlarmSettings) {
+    /** [reading] is the newest one we have — null only for No data with nothing recent at all. */
+    fun notify(zone: AlarmZone, reading: GlucoseReading?, unit: GlucoseUnit, alarms: AlarmSettings) {
         ensureChannel()
         if (ActivityCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
             PackageManager.PERMISSION_GRANTED
@@ -37,10 +40,7 @@ class AlarmNotifier @Inject constructor(
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(zone.displayTitle)
-            .setContentText(
-                "${unit.format(reading.mgDl)} ${unit.label}" +
-                    if (zone == AlarmZone.PREDICTED_HIGH) " · climbing toward high" else "",
-            )
+            .setContentText(contentText(zone, reading, unit))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setContentIntent(openAppAndAcknowledgePendingIntent())
@@ -63,6 +63,16 @@ class AlarmNotifier @Inject constructor(
         }
 
         NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, builder.build())
+    }
+
+    private fun contentText(zone: AlarmZone, reading: GlucoseReading?, unit: GlucoseUnit): String {
+        if (zone == AlarmZone.NO_DATA) {
+            if (reading == null) return "No glucose data received"
+            val minutes = Duration.between(reading.timestamp, Instant.now()).toMinutes()
+            return "No new glucose data for $minutes min (last ${unit.format(reading.mgDl)} ${unit.label})"
+        }
+        val value = "${unit.format(reading!!.mgDl)} ${unit.label}"
+        return if (zone == AlarmZone.PREDICTED_HIGH) "$value · climbing toward high" else value
     }
 
     fun cancel() {
@@ -100,7 +110,7 @@ class AlarmNotifier @Inject constructor(
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val manager = context.getSystemService(NotificationManager::class.java)
         val channel = NotificationChannel(CHANNEL_ID, "Glucose alarms", NotificationManager.IMPORTANCE_HIGH).apply {
-            description = "Urgent low, low, predicted high, high, and urgent high glucose alerts"
+            description = "Urgent low, low, predicted high, high, urgent high, and no-data glucose alerts"
         }
         manager.createNotificationChannel(channel)
     }

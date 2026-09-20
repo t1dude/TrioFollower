@@ -37,6 +37,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.trionsandroid.app.data.settings.GlucoseUnit
+import com.trionsandroid.app.data.settings.NO_DATA_MINUTES_OPTIONS
 import com.trionsandroid.app.data.settings.TimeFormat
 import com.trionsandroid.app.data.settings.allowedRefreshIntervals
 import com.trionsandroid.app.ui.theme.TrioGlucoseHigh
@@ -232,6 +233,37 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                         onCheckedChange = { viewModel.onAlarmSettingsChange(uiState.alarms.copy(predictedHighEnabled = it)) },
                         onInfoClick = { showPredictedHighInfo = true },
                     )
+                    Spacer(Modifier.height(8.dp))
+                    LabeledSwitch(
+                        label = "No data",
+                        checked = uiState.alarms.noDataEnabled,
+                        onCheckedChange = { viewModel.onAlarmSettingsChange(uiState.alarms.copy(noDataEnabled = it)) },
+                    )
+                    if (uiState.alarms.noDataEnabled) {
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            text = "Alert if no new glucose data for",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                            NO_DATA_MINUTES_OPTIONS.forEachIndexed { index, minutes ->
+                                SegmentedButton(
+                                    selected = uiState.alarms.noDataMinutes == minutes,
+                                    onClick = {
+                                        viewModel.onAlarmSettingsChange(uiState.alarms.copy(noDataMinutes = minutes))
+                                    },
+                                    shape = SegmentedButtonDefaults.itemShape(
+                                        index = index,
+                                        count = NO_DATA_MINUTES_OPTIONS.size,
+                                    ),
+                                ) {
+                                    Text("$minutes min")
+                                }
+                            }
+                        }
+                    }
                     Spacer(Modifier.height(16.dp))
                     SettingsSubsection(title = "Alarm Thresholds") {
                         ThresholdRow(

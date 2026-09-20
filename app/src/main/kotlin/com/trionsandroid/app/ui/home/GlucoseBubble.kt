@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.CircleShape
@@ -169,6 +170,7 @@ fun GlucoseBubble(
                             text = timeFormatter.format(latest.timestamp.atZone(ZoneId.systemDefault())),
                             fontSize = 11.sp * scale,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.offset(y = -3.dp * scale),
                         )
                     }
                 }

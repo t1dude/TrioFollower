@@ -48,6 +48,8 @@ import com.trionsandroid.app.data.settings.BackgroundMode
 fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showToken by remember { mutableStateOf(false) }
+    var showPredictedHighInfo by remember { mutableStateOf(false) }
+    if (showPredictedHighInfo) PredictedHighInfoSheet(onDismiss = { showPredictedHighInfo = false })
 
     LazyColumn(
         modifier = Modifier
@@ -228,6 +230,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                         label = "Predicted high (slow climb)",
                         checked = uiState.alarms.predictedHighEnabled,
                         onCheckedChange = { viewModel.onAlarmSettingsChange(uiState.alarms.copy(predictedHighEnabled = it)) },
+                        onInfoClick = { showPredictedHighInfo = true },
                     )
                     Spacer(Modifier.height(16.dp))
                     SettingsSubsection(title = "Alarm Thresholds") {

@@ -25,14 +25,19 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.Button
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
@@ -123,14 +128,65 @@ fun SettingsSubsection(title: String, initiallyExpanded: Boolean = false, conten
 }
 
 @Composable
-fun LabeledSwitch(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+fun LabeledSwitch(
+    label: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    /** When set, shows an (i) button after the label that calls this. */
+    onInfoClick: (() -> Unit)? = null,
+) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(label, color = MaterialTheme.colorScheme.onSurface)
+        Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+            Text(label, color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f, fill = false))
+            if (onInfoClick != null) {
+                IconButton(onClick = onInfoClick) {
+                    Icon(
+                        Icons.Outlined.Info,
+                        contentDescription = "About $label",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
         Switch(checked = checked, onCheckedChange = onCheckedChange)
+    }
+}
+
+/** Explains the Predicted High alarm — "Reese mode". Plain language, kept deliberately short. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun PredictedHighInfoSheet(onDismiss: () -> Unit) {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(start = 24.dp, end = 24.dp, bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text("Reese mode 😉", style = MaterialTheme.typography.titleLarge)
+            Text(
+                "When Reese sleeps in and his glucose is rising slowly, his Mom would like an alert " +
+                    "so she can make sure the necessary adjustments are made.",
+            )
+            Text("How it works", style = MaterialTheme.typography.titleMedium)
+            Text(
+                "Over the last hour, glucose has stayed in range and crept up steadily — no sudden " +
+                    "jump — and at this pace it would reach the high level within the next hour.",
+            )
+            Text(
+                "No alert if food or a bolus was logged in that hour (a fast rise after a meal is " +
+                    "the regular High alert's job). Automatic SMBs don't count.",
+            )
+            Text(
+                "After an alert, it waits an hour before alerting again.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 

@@ -6,7 +6,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Medication
+import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Vaccines
 import androidx.compose.material3.Icon
@@ -44,7 +44,7 @@ fun ChartSelectionPill(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(time, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Item(Icons.Filled.Medication, glucose, glucoseColor)
+            Item(Icons.Filled.WaterDrop, glucose, glucoseColor)
             Item(Icons.Filled.Vaccines, iob, TrioInsulin)
             Item(Icons.Filled.Restaurant, cob, TrioCob)
         }

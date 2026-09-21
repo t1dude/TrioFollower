@@ -466,7 +466,7 @@ fun SettingsScreen(expandBasicSettings: Boolean = false, viewModel: SettingsView
         }
 
         item {
-            SettingsSection(title = "Information") {
+            SettingsSection(title = "Information and Releases") {
                 InformationSection(
                     checkForUpdates = uiState.checkForUpdates,
                     onCheckForUpdatesChange = viewModel::onCheckForUpdatesChange,

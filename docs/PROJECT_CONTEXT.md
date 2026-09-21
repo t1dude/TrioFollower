@@ -310,7 +310,7 @@ Since, on top of the six milestones:
 
 - **First-run onboarding** (added 2026-09-20): a new user (`welcomeCompleted` false *and* no
   Nightscout URL, so existing users are never greeted) gets a "Welcome" dialog showing the README
-  (`ui/onboarding/`, tiny markdown renderer, Building section skipped; the README is copied into
+  (`ui/onboarding/`, tiny markdown renderer, Installation section skipped; the README is copied into
   assets as `welcome_readme.md` by the `copyReadmeForWelcome` Gradle task so it can't drift), then
   a "Connect to Nightscout" dialog; its OK sets `welcomeCompleted`, navigates to Settings and opens
   Basic Settings (`SettingsScreen(expandBasicSettings)`). Neither dialog can be dismissed without
@@ -361,7 +361,7 @@ Since, on top of the six milestones:
 
 - **Update check and release process** (2026-09-21): apps are distributed as self-signed APKs on GitHub
   releases. `data/update/UpdateChecker` asks `api.github.com/repos/t1dude/TrioFollower/releases/latest`
-  at most once a day (Settings > Information > Check for updates, on by default; "Check now" ignores
+  at most once a day (Settings > Information and Releases > Check for updates, on by default; "Check now" ignores
   the limit), and only counts a published, non-pre-release release **that has an .apk attached**.
   If its tag is newer than `BuildConfig.VERSION_NAME`, Home shows `UpdateCard` (release notes as
   "What's new", Update opens the release page in the browser, Later dismisses that version). The

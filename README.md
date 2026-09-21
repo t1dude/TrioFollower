@@ -54,10 +54,23 @@ The app only shows data and sends alerts. It cannot control a pump or change any
 - An option to keep the screen on.
 - A diagnostic log you can export if something does not work.
 
-## Building
+## Installation
 
-Open the project in Android Studio, let Gradle sync, and run the `app` configuration on a phone or
-emulator. Notes for developers are in [`docs/PROJECT_CONTEXT.md`](docs/PROJECT_CONTEXT.md).
+There are two ways to install the app:
+
+- **Download from GitHub Releases:** get the latest APK from the
+  [releases page](https://github.com/t1dude/TrioFollower/releases) and open it on your phone. Android
+  asks you to allow installs from your browser or file manager the first time.
+- **Build it yourself:** open the project in Android Studio, let Gradle sync, and run the `app`
+  configuration on a phone or emulator. Notes for developers are in
+  [`docs/PROJECT_CONTEXT.md`](docs/PROJECT_CONTEXT.md).
+
+If you switch between a downloaded APK and one you built yourself, uninstall the app first. Android
+refuses to update an app that was signed with a different key.
+
+**Updates:** the app checks GitHub about once a day. When a new version is out, a card on the Home
+screen shows what's new, with a button that opens the download page. You can turn the check off, or
+check by hand, in Settings > Information and Releases.
 
 ## Disclaimer
 

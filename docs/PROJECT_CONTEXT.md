@@ -372,9 +372,11 @@ Since, on top of the six milestones:
      feature) and add 1 to `versionCode`.
   2. Commit it as "Release vX.Y.Z" and push.
   3. Tag that commit `vX.Y.Z` and push the tag.
-  4. Create a **draft** GitHub release for the tag with short user-facing notes:
-     `gh release create vX.Y.Z --draft --title vX.Y.Z --notes "..."`. The owner builds and signs
-     the APK, attaches it and publishes the draft; users only see it once it's published with an APK.
+  4. Only for larger changes, or when the owner says "Make a release", create a **draft** GitHub
+     release for the tag with short user-facing notes:
+     `gh release create vX.Y.Z --draft --title vX.Y.Z --notes "..."`. Small pushes get the bump and
+     tag but no release. The owner builds and signs the APK, attaches it and publishes the draft;
+     users only see it once it's published with an APK.
   Not compile-checked or device-tested when first committed.
 
 ## Background-sync reliability issue — resolved, confirmed on-device

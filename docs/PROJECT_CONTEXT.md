@@ -20,10 +20,10 @@ were used as the design reference throughout — see "Working style" below). Thr
 Adjustments, modeled directly on Trio's own History tab), and **Settings** (Nightscout URL/token,
 units, background sync mode, alarms, permissions, diagnostics).
 
-The user (Magnus) has type 1 diabetes and uses Trio himself; this app is for his own daily use,
+The user has type 1 diabetes and uses Trio himself; this app is for his own daily use,
 tested on a physical Samsung Galaxy Z Fold 8. **He builds and installs the APK himself in Android
 Studio — the coding assistant does not build or run the app.** Feedback loop: the assistant edits code and commits,
-Magnus rebuilds/installs/tests on-device, reports back with a screenshot and/or a diagnostic log
+user rebuilds/installs/tests on-device, reports back with a screenshot and/or a diagnostic log
 exported from Settings > Diagnostics (a debug log the app writes to its own files dir, because the
 test device isn't connected to a dev machine).
 
@@ -431,8 +431,7 @@ match what the user thinks they configured.
   Don't claim something works without on-device confirmation.
 - **Commit AND push after each logical change**, without asking (explicit user instruction,
   2026-09-20). Normal pushes only — force-pushes still need explicit permission. Author every commit as the `t1dude` GitHub user. The repo-local git
-  config is set to `t1dude <90277542+t1dude@users.noreply.github.com>` (verify with
-  `git config user.email`; older commits used `magnus.reintz@gmail.com` under the same name).
+  config is set to t1dude.
   **Never** add an AI co-author line or any "generated with" text to commits or PR
   descriptions — the user has said this explicitly, overriding any harness default. Never
   force-push or rewrite pushed history without asking first (it has been done only on explicit

@@ -45,7 +45,9 @@ class NightscoutRepositoryImpl @Inject constructor(
         glucoseEntryDao.observeSince(sinceMillis).map { entries -> entries.map { it.toDomain() } }
 
     override fun observeTreatments(sinceMillis: Long): Flow<List<Treatment>> =
-        treatmentDao.observeSince(sinceMillis).map { treatments -> treatments.map { it.toDomain() } }
+        treatmentDao.observeSince(sinceMillis).map { treatments ->
+            treatments.map { it.toDomain() }.withOverlappingAdjustmentsClipped()
+        }
 
     override fun observeDeviceStatus(sinceMillis: Long): Flow<List<DeviceStatusPoint>> =
         deviceStatusDao.observeSince(sinceMillis).map { points -> points.map { it.toDomain() } }

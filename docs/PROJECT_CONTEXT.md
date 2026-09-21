@@ -345,6 +345,14 @@ Since, on top of the six milestones:
   Predictions and current-time-line settings; other setting changes show on the next refresh. Not
   compile-checked or device-tested when committed.
 
+- **Overlapping overrides are clipped** (2026-09-21): the stale-duplicate fix (`deleteStaleAdjustments`)
+  lives in the data layer, so the chart and History already share it. A second problem showed up in a
+  tester's screenshot: an earlier override still listed by Nightscout with its 30-day placeholder
+  duration while a newer one had started, so both drew at once. Trio only allows one active override
+  (and one temp target) at a time, so `observeTreatments` now cuts an entry short at the next
+  one's start (`withOverlappingAdjustmentsClipped`), for the chart and History alike. The chart also
+  stacks any remaining overlaps in separate rows. Not compile-checked or device-tested.
+
 ## Background-sync reliability issue — resolved, confirmed on-device
 
 Original symptom: **"Real-time" (foreground service) background mode appears to run exactly one

@@ -9,6 +9,16 @@ You can use it in two ways:
 
 The app only shows data and sends alerts. It cannot control a pump or change any settings in Trio.
 
+## Screenshots
+
+| Home | Inspect a point in time | Algorithm reasoning |
+|------|-------------------------|---------------------|
+| <img src="docs/screenshots/Trio%20Follower%201%20-%20Home%20Screen.png" width="230"> | <img src="docs/screenshots/Trio%20Follower%202%20-%20Tap%20to%20view%20data.png" width="230"> | <img src="docs/screenshots/Trio%20Follower%203%20-%20Algorithm%20reasoning.png" width="230"> |
+
+| History | Settings | Widgets |
+|---------|----------|---------|
+| <img src="docs/screenshots/Trio%20Follower%204%20-%20History%20view.png" width="230"> | <img src="docs/screenshots/Trio%20Follower%205%20-%20Settings.png" width="230"> | <img src="docs/screenshots/Trio%20Follower%206%20-%20Widget.png" width="230"> |
+
 ## Requirements
 
 - An Android device with Android 12 or newer. The app is built to support phones, not tablets or foldable phones.

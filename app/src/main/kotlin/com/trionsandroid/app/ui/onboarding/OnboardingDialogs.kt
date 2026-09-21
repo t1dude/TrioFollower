@@ -62,7 +62,7 @@ fun ConnectNightscoutDialog(onOk: () -> Unit) {
 }
 
 // Minimal markdown renderer for the README (headings, bullets, paragraphs, bold, links, code).
-// The Installation section is skipped.
+// The Installation and Screenshots sections are skipped.
 
 private sealed interface ReadmeBlock {
     data class Heading(val level: Int, val text: String) : ReadmeBlock
@@ -90,7 +90,7 @@ private fun parseReadme(markdown: String): List<ReadmeBlock> {
                 flush()
                 val level = line.takeWhile { it == '#' }.length
                 val title = line.dropWhile { it == '#' }.trim()
-                skipping = level >= 2 && title.equals("Installation", ignoreCase = true)
+                skipping = level >= 2 && (title.equals("Installation", ignoreCase = true) || title.equals("Screenshots", ignoreCase = true))
                 if (!skipping) blocks += ReadmeBlock.Heading(level, title)
             }
             skipping -> Unit

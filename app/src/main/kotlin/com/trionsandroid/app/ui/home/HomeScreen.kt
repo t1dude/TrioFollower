@@ -85,6 +85,10 @@ fun HomeScreen(viewModel: HomeViewModel = hiltViewModel()) {
         ) {
             item { PermissionWarnings(alarmsEnabled = uiState.alarms.alarmsEnabled) }
 
+            uiState.update?.let { update ->
+                item { UpdateCard(update = update, onDismiss = { viewModel.dismissUpdate(update.version) }) }
+            }
+
             uiState.errorMessage?.let { message ->
                 item {
                     Text(

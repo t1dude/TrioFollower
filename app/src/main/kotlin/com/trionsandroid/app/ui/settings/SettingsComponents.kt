@@ -2,6 +2,7 @@ package com.trionsandroid.app.ui.settings
 
 import android.Manifest
 import android.content.Intent
+import com.trionsandroid.app.BuildConfig
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
@@ -393,7 +394,12 @@ private const val README_URL = "$REPO_URL#readme"
 
 /** Links that open in the device's default browser. */
 @Composable
-fun InformationSection() {
+fun InformationSection(
+    checkForUpdates: Boolean,
+    onCheckForUpdatesChange: (Boolean) -> Unit,
+    updateStatus: String?,
+    onCheckNow: () -> Unit,
+) {
     val context = LocalContext.current
     fun open(url: String) {
         runCatching {
@@ -401,6 +407,26 @@ fun InformationSection() {
         }
     }
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(
+            text = "Version ${BuildConfig.VERSION_NAME}",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(bottom = 4.dp),
+        )
+        LabeledSwitch(
+            label = "Check for updates",
+            checked = checkForUpdates,
+            onCheckedChange = onCheckForUpdatesChange,
+        )
+        Text(
+            text = "Looks for a newer version on GitHub about once a day.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        TextButton(onClick = onCheckNow) { Text("Check now") }
+        updateStatus?.let {
+            Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
         InfoLinkRow(title = "Read the README", subtitle = "What the app does, requirements and disclaimer") { open(README_URL) }
         InfoLinkRow(title = "GitHub repository", subtitle = "Source code, updates and issues") { open(REPO_URL) }
     }

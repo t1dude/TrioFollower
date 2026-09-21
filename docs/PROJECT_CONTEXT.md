@@ -5,7 +5,7 @@ installer/settings), shown as "Trio Follower" under the launcher icon. The code 
 `TrioNS`/`com.trionsandroid` names internally on purpose: changing the application id would stop
 existing installs from updating.
 
-Written 2026-08-28, refreshed 2026-09-20, to let a fresh Claude session (possibly on a different
+Written 2026-08-28, refreshed 2026-09-20, to let a fresh session (possibly on a different
 computer) pick up where this one left off. If you're reading this at the start of a new session:
 read this whole file before touching code, then check `git log --oneline -20` for anything more
 recent than what's described here. See also [`README.md`](../README.md) for the user-facing
@@ -22,7 +22,7 @@ units, background sync mode, alarms, permissions, diagnostics).
 
 The user (Magnus) has type 1 diabetes and uses Trio himself; this app is for his own daily use,
 tested on a physical Samsung Galaxy Z Fold 8. **He builds and installs the APK himself in Android
-Studio — Claude does not build or run the app.** Feedback loop is: Claude edits code and commits,
+Studio — the coding assistant does not build or run the app.** Feedback loop: the assistant edits code and commits,
 Magnus rebuilds/installs/tests on-device, reports back with a screenshot and/or a diagnostic log
 exported from Settings > Diagnostics (a debug log the app writes to its own files dir, because the
 test device isn't connected to a dev machine).
@@ -359,6 +359,24 @@ Since, on top of the six milestones:
   0.5 U / 1 U and over; `BolusDisplayThreshold`). Boluses below the threshold keep their triangle
   on the chart but lose the amount label (`GlucoseChart`). Not compile-checked or device-tested.
 
+- **Update check and release process** (2026-09-21): apps are distributed as self-signed APKs on GitHub
+  releases. `data/update/UpdateChecker` asks `api.github.com/repos/t1dude/TrioNSAndroid/releases/latest`
+  at most once a day (Settings > Information > Check for updates, on by default; "Check now" ignores
+  the limit), and only counts a published, non-pre-release release **that has an .apk attached**.
+  If its tag is newer than `BuildConfig.VERSION_NAME`, Home shows `UpdateCard` (release notes as
+  "What's new", Update opens the release page in the browser, Later dismisses that version). The
+  release body is the "What's new" text, so keep it short and written for users.
+
+  **After every push, do this release routine:**
+  1. Bump `versionName` in `app/build.gradle.kts` (patch by default, minor for a new user-visible
+     feature) and add 1 to `versionCode`.
+  2. Commit it as "Release vX.Y.Z" and push.
+  3. Tag that commit `vX.Y.Z` and push the tag.
+  4. Create a **draft** GitHub release for the tag with short user-facing notes:
+     `gh release create vX.Y.Z --draft --title vX.Y.Z --notes "..."`. The owner builds and signs
+     the APK, attaches it and publishes the draft; users only see it once it's published with an APK.
+  Not compile-checked or device-tested when first committed.
+
 ## Background-sync reliability issue — resolved, confirmed on-device
 
 Original symptom: **"Real-time" (foreground service) background mode appears to run exactly one
@@ -406,7 +424,7 @@ match what the user thinks they configured.
   2026-09-20). Normal pushes only — force-pushes still need explicit permission. Author every commit as the `t1dude` GitHub user. The repo-local git
   config is set to `t1dude <90277542+t1dude@users.noreply.github.com>` (verify with
   `git config user.email`; older commits used `magnus.reintz@gmail.com` under the same name).
-  **Never** add a Claude co-author line or any "Generated with Claude Code" text to commits or PR
+  **Never** add an AI co-author line or any "generated with" text to commits or PR
   descriptions — the user has said this explicitly, overriding any harness default. Never
   force-push or rewrite pushed history without asking first (it has been done only on explicit
   request). Write commit messages that explain *why*, referencing what

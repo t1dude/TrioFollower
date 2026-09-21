@@ -7,6 +7,7 @@ import com.trionsandroid.app.data.nightscout.InsulinProfile
 import com.trionsandroid.app.data.nightscout.Treatment
 import com.trionsandroid.app.data.settings.AlarmSettings
 import com.trionsandroid.app.data.settings.BolusDisplayThreshold
+import com.trionsandroid.app.data.update.UpdateInfo
 import com.trionsandroid.app.data.settings.ForecastDisplay
 import com.trionsandroid.app.data.settings.GlucoseColorScheme
 import com.trionsandroid.app.data.settings.GlucoseUnit
@@ -24,6 +25,7 @@ data class HomeUiState(
     val bolusDisplayThreshold: BolusDisplayThreshold = BolusDisplayThreshold.ALL,
     val glucoseColorScheme: GlucoseColorScheme = GlucoseColorScheme.DYNAMIC,
     val homeStatsFace: HomeStatsFace = HomeStatsFace.TIME_IN_RANGE,
+    val update: UpdateInfo? = null,
     val forecast: Forecast? = null,
     val forecastDisplay: ForecastDisplay = ForecastDisplay.CONE,
     val refreshIntervalMinutes: Int = 5,

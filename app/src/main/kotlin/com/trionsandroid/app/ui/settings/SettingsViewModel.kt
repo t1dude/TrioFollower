@@ -6,6 +6,8 @@ import com.trionsandroid.app.data.logging.DiagnosticLogger
 import com.trionsandroid.app.data.remote.NightscoutServiceFactory
 import com.trionsandroid.app.data.nightscout.ConnectionEvents
 import com.trionsandroid.app.data.settings.AlarmSettings
+import com.trionsandroid.app.data.update.UpdateCheckResult
+import com.trionsandroid.app.data.update.UpdateChecker
 import com.trionsandroid.app.data.settings.BackgroundMode
 import com.trionsandroid.app.data.settings.BolusDisplayThreshold
 import com.trionsandroid.app.data.settings.ForecastDisplay
@@ -35,6 +37,7 @@ class SettingsViewModel @Inject constructor(
     private val serviceFactory: NightscoutServiceFactory,
     private val diagnosticLogger: DiagnosticLogger,
     private val connectionEvents: ConnectionEvents,
+    private val updateChecker: UpdateChecker,
 ) : ViewModel() {
 
     // Text fields are driven by these local flows, not by DataStore: a value that round-trips
@@ -42,13 +45,15 @@ class SettingsViewModel @Inject constructor(
     private val nightscoutUrlDraft = MutableStateFlow("")
     private val accessToken = MutableStateFlow("")
     private val connectionTestState = MutableStateFlow<ConnectionTestState>(ConnectionTestState.Idle)
+    private val updateStatus = MutableStateFlow<String?>(null)
 
     val uiState: StateFlow<SettingsUiState> = combine(
         settingsRepository.settings,
         nightscoutUrlDraft,
         accessToken,
         connectionTestState,
-    ) { settings, url, token, testState ->
+        updateStatus,
+    ) { settings, url, token, testState, updateStatusText ->
         SettingsUiState(
             nightscoutUrl = url,
             accessToken = token,
@@ -57,6 +62,8 @@ class SettingsViewModel @Inject constructor(
             keepScreenOn = settings.keepScreenOn,
             showNowLine = settings.showNowLine,
             bolusDisplayThreshold = settings.bolusDisplayThreshold,
+            checkForUpdates = settings.checkForUpdates,
+            updateStatus = updateStatusText,
             glucoseColorScheme = settings.glucoseColorScheme,
             homeStatsFace = settings.homeStatsFace,
             forecastDisplay = settings.forecastDisplay,
@@ -100,6 +107,21 @@ class SettingsViewModel @Inject constructor(
 
     fun onForecastDisplayChange(display: ForecastDisplay) {
         viewModelScope.launch { settingsRepository.setForecastDisplay(display) }
+    }
+
+    fun onCheckForUpdatesChange(enabled: Boolean) {
+        viewModelScope.launch { settingsRepository.setCheckForUpdates(enabled) }
+    }
+
+    fun checkForUpdatesNow() {
+        updateStatus.value = "Checking..."
+        viewModelScope.launch {
+            updateStatus.value = when (val result = updateChecker.checkNow()) {
+                is UpdateCheckResult.Available -> "Version ${result.info.version} is available. See the card on the Home screen."
+                UpdateCheckResult.UpToDate -> "You have the latest version."
+                UpdateCheckResult.Failed -> "Couldn't check for updates. Try again later."
+            }
+        }
     }
 
     fun onBolusDisplayThresholdChange(threshold: BolusDisplayThreshold) {

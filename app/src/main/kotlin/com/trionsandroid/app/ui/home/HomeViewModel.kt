@@ -10,6 +10,7 @@ import com.trionsandroid.app.data.nightscout.InsulinProfile
 import com.trionsandroid.app.data.nightscout.NightscoutRepository
 import com.trionsandroid.app.data.nightscout.Treatment
 import com.trionsandroid.app.data.settings.SettingsRepository
+import com.trionsandroid.app.data.update.UpdateChecker
 import com.trionsandroid.app.data.settings.UserSettings
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -41,6 +42,7 @@ class HomeViewModel @Inject constructor(
     private val nightscoutRepository: NightscoutRepository,
     settingsRepository: SettingsRepository,
     connectionEvents: ConnectionEvents,
+    private val updateChecker: UpdateChecker,
 ) : ViewModel() {
 
     private val isLoading = MutableStateFlow(false)
@@ -81,9 +83,11 @@ class HomeViewModel @Inject constructor(
             insulinProfile = data.insulinProfile,
             deviceStatusPoints = data.deviceStatusPoints.sortedBy { it.timestamp },
         )
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())
+    }.combine(updateChecker.availableUpdate) { state, update -> state.copy(update = update) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())
 
     init {
+        viewModelScope.launch { updateChecker.checkIfDue() }
         // After a verified connection, clear the stale error and sync right away.
         viewModelScope.launch {
             connectionEvents.established.collect {
@@ -94,6 +98,10 @@ class HomeViewModel @Inject constructor(
     }
 
     /** [userInitiated] is false for automatic ticks, which shouldn't pull the chart back from history. */
+    fun dismissUpdate(version: String) {
+        viewModelScope.launch { updateChecker.dismiss(version) }
+    }
+
     suspend fun reasoningFor(reading: GlucoseReading) =
         nightscoutRepository.getReasoningForReading(reading.timestamp)
 

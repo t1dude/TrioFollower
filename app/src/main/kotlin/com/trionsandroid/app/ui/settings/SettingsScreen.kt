@@ -467,7 +467,12 @@ fun SettingsScreen(expandBasicSettings: Boolean = false, viewModel: SettingsView
 
         item {
             SettingsSection(title = "Information") {
-                InformationSection()
+                InformationSection(
+                    checkForUpdates = uiState.checkForUpdates,
+                    onCheckForUpdatesChange = viewModel::onCheckForUpdatesChange,
+                    updateStatus = uiState.updateStatus,
+                    onCheckNow = viewModel::checkForUpdatesNow,
+                )
             }
         }
     }

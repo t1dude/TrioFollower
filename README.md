@@ -26,6 +26,7 @@ The app only shows data and sends alerts. It cannot control a pump or change any
 - Predictions on the chart, drawn as lines or as a cone. You can also turn them off.
 - Small status pills for reservoir, insulin on board, carbs on board, pump and sensor age, and the
   algorithm's eventual glucose.
+- A notice on the Home screen when a newer version is available on GitHub, with what changed. You can turn the check off in Settings.
 - A statistics bar with today's time in range, or your average glucose.
 - Two home screen widgets: one with just the glucose bubble, and one with the bubble and a graph
   of the last 3 hours plus the 2 hour forecast. You choose how transparent each one is when you add it.

@@ -13,6 +13,13 @@ interface DeviceStatusDao {
     @Query("SELECT * FROM device_status WHERE dateMillis >= :sinceMillis ORDER BY dateMillis ASC")
     fun observeSince(sinceMillis: Long): Flow<List<DeviceStatusEntity>>
 
+    /** Same rows without the large `reason` and forecast columns, for the IOB/COB/HUD lists. */
+    @Query(
+        "SELECT id, dateMillis, iobUnits, cobGrams, reservoirUnits, eventualBgMgDl FROM device_status " +
+            "WHERE dateMillis >= :sinceMillis ORDER BY dateMillis ASC",
+    )
+    fun observeSummariesSince(sinceMillis: Long): Flow<List<DeviceStatusSummary>>
+
     /** The most recent status that carried forecast curves. */
     @Query("SELECT * FROM device_status WHERE forecastStartMillis IS NOT NULL ORDER BY dateMillis DESC LIMIT 1")
     fun observeLatestForecast(): Flow<DeviceStatusEntity?>

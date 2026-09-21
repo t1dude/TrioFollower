@@ -100,12 +100,16 @@ fun HomeScreen(viewModel: HomeViewModel = hiltViewModel()) {
             }
 
             item {
-                val hudState = computePumpCgmHudState(
-                    nowMillis = Instant.now().toEpochMilli(),
-                    treatments = uiState.treatments,
-                    deviceStatusPoints = uiState.deviceStatusPoints,
-                    insulinProfile = uiState.insulinProfile,
-                )
+                // Recomputed when the data changes or a minute passes (pill staleness depends on the time).
+                val nowMillis = Instant.now().toEpochMilli()
+                val hudState = remember(uiState.treatments, uiState.deviceStatusPoints, uiState.insulinProfile, nowMillis / 60_000) {
+                    computePumpCgmHudState(
+                        nowMillis = nowMillis,
+                        treatments = uiState.treatments,
+                        deviceStatusPoints = uiState.deviceStatusPoints,
+                        insulinProfile = uiState.insulinProfile,
+                    )
+                }
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = MaterialTheme.shapes.large,

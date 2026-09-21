@@ -43,6 +43,7 @@ import com.trionsandroid.app.data.nightscout.InsulinProfile
 import com.trionsandroid.app.data.nightscout.Treatment
 import com.trionsandroid.app.data.nightscout.isAdjustmentEventType
 import com.trionsandroid.app.data.nightscout.isBolusEventType
+import com.trionsandroid.app.data.nightscout.isTempBasalEventType
 import com.trionsandroid.app.data.nightscout.isTempTargetEventType
 import com.trionsandroid.app.data.settings.AlarmSettings
 import com.trionsandroid.app.data.settings.GlucoseUnit
@@ -97,6 +98,23 @@ private fun forecastColor(type: ForecastType): Color = when (type) {
     ForecastType.ZT -> Color(0xFF7161EF)
     ForecastType.COB -> Color(0xFFFF9500)
     ForecastType.UAM -> Color(0xFFD12BF7)
+}
+
+/** The part of a time-sorted list within [start, end], found by binary search. */
+private fun <T> List<T>.sliceByMillis(start: Long, end: Long, millis: (T) -> Long): List<T> {
+    var lo = 0
+    var hi = size
+    while (lo < hi) {
+        val mid = (lo + hi) ushr 1
+        if (millis(this[mid]) < start) lo = mid + 1 else hi = mid
+    }
+    val from = lo
+    hi = size
+    while (lo < hi) {
+        val mid = (lo + hi) ushr 1
+        if (millis(this[mid]) <= end) lo = mid + 1 else hi = mid
+    }
+    return subList(from, lo)
 }
 
 private val dayFormatter = DateTimeFormatter.ofPattern("dd.MM")
@@ -173,7 +191,26 @@ fun GlucoseChart(
         GLUCOSE_TO_IOB_GAP + IOB_STRIP_HEIGHT + BOTTOM_LABEL_GAP + axisLabelHeightDp + BOTTOM_SAFETY_MARGIN
 
     val nowMillis = System.currentTimeMillis()
-    val dataMinMillis = readings.minOfOrNull { it.timestamp.toEpochMilli() } ?: (nowMillis - DEFAULT_VIEWPORT_MILLIS)
+
+    // Sorted and filtered once per data change; the draw block only slices out the visible part.
+    val readingsAsc = remember(readings) { readings.sortedBy { it.timestamp } }
+    val tempBasals = remember(treatments) { treatments.filter { isTempBasalEventType(it.eventType) } }
+    val boluses = remember(treatments) {
+        treatments.filter { (it.insulinUnits ?: 0.0) > 0.0 && isBolusEventType(it.eventType) }
+    }
+    val carbEntries = remember(treatments) { treatments.filter { (it.carbsGrams ?: 0.0) > 0.0 } }
+    val adjustmentEntries = remember(treatments) { treatments.filter { isAdjustmentEventType(it.eventType) } }
+    val cobPointsAsc = remember(deviceStatusPoints) {
+        deviceStatusPoints.filter { it.cobGrams != null }.sortedBy { it.timestamp }
+    }
+    val iobPointsAsc = remember(deviceStatusPoints) {
+        deviceStatusPoints.filter { it.iobUnits != null }.sortedBy { it.timestamp }
+    }
+    val basalCeiling = remember(insulinProfile, tempBasals, nowMillis / 60_000) {
+        basalDomainMaxRate(nowMillis, insulinProfile, tempBasals)
+    }
+
+    val dataMinMillis = readingsAsc.firstOrNull()?.timestamp?.toEpochMilli() ?: (nowMillis - DEFAULT_VIEWPORT_MILLIS)
     // With a forecast showing, the right edge extends past "now" to the end of the forecast.
     val forecastEndMillis = if (forecastDisplay != ForecastDisplay.OFF && forecast != null) {
         forecast.timeMillisAt(forecast.series.values.maxOf { it.size } - 1).coerceAtMost(nowMillis + FORECAST_MAX_AHEAD_MILLIS)
@@ -307,9 +344,7 @@ fun GlucoseChart(
     ) {
         Canvas(modifier = Modifier.fillMaxWidth().height(chartHeight)) {
             val viewportStartMillis = viewportEndMillis - viewportDurationMillis
-            val sorted = readings
-                .filter { it.timestamp.toEpochMilli() in viewportStartMillis..viewportEndMillis }
-                .sortedBy { it.timestamp }
+            val sorted = readingsAsc.sliceByMillis(viewportStartMillis, viewportEndMillis) { it.timestamp.toEpochMilli() }
 
             val leftGutter = LEFT_GUTTER.toPx()
             val chartWidth = size.width - leftGutter
@@ -406,11 +441,11 @@ fun GlucoseChart(
             }
 
             // Basal strip: 0 U/hr at the top, filled area grows downward (as in Trio).
-            val basalSegments = computeBasalSegments(viewportStartMillis, viewportEndMillis, insulinProfile, treatments)
+            val basalSegments = computeBasalSegments(viewportStartMillis, viewportEndMillis, insulinProfile, tempBasals)
             if (basalSegments.isNotEmpty()) {
                 val stripTop = 0f
                 val stripBottom = basalStripPx
-                val maxRate = basalDomainMaxRate(System.currentTimeMillis(), insulinProfile, treatments)
+                val maxRate = basalCeiling
 
                 fun basalYFor(rate: Double): Float {
                     val fraction = (rate / maxRate).coerceIn(0.0, 1.0)
@@ -512,8 +547,7 @@ fun GlucoseChart(
 
             // Overrides and temp targets. Temp targets are drawn at their target; overrides have no
             // target in Nightscout, so they get a labeled band near the top instead.
-            val adjustments = treatments.filter { treatment ->
-                if (!isAdjustmentEventType(treatment.eventType)) return@filter false
+            val adjustments = adjustmentEntries.filter { treatment ->
                 val start = treatment.timestamp.toEpochMilli()
                 val end = start + ((treatment.durationMinutes ?: 0.0) * 60_000).toLong()
                 end >= viewportStartMillis && start <= viewportEndMillis
@@ -571,13 +605,8 @@ fun GlucoseChart(
             }
 
             // Bolus markers sit just above the BG curve at the time of the dose.
-            val boluses = treatments.filter { treatment ->
-                val units = treatment.insulinUnits
-                units != null && units > 0.0 &&
-                    isBolusEventType(treatment.eventType) &&
-                    treatment.timestamp.toEpochMilli() in viewportStartMillis..viewportEndMillis
-            }
-            boluses.forEach { bolus ->
+            val visibleBoluses = boluses.filter { it.timestamp.toEpochMilli() in viewportStartMillis..viewportEndMillis }
+            visibleBoluses.forEach { bolus ->
                 val bolusMillis = bolus.timestamp.toEpochMilli()
                 val x = xFor(bolusMillis)
                 val nearbyMgDl = sorted.minByOrNull { abs(it.timestamp.toEpochMilli() - bolusMillis) }?.mgDl
@@ -605,9 +634,7 @@ fun GlucoseChart(
             }
 
             // Carb markers: orange triangle 20 mg/dL below the nearest reading, sized by grams.
-            treatments.filter { t ->
-                (t.carbsGrams ?: 0.0) > 0.0 && t.timestamp.toEpochMilli() in viewportStartMillis..viewportEndMillis
-            }.forEach { carb ->
+            carbEntries.filter { it.timestamp.toEpochMilli() in viewportStartMillis..viewportEndMillis }.forEach { carb ->
                 val carbMillis = carb.timestamp.toEpochMilli()
                 val x = xFor(carbMillis)
                 val grams = carb.carbsGrams ?: 0.0
@@ -634,9 +661,7 @@ fun GlucoseChart(
 
             // COB curve in the IOB strip, on its own grams scale, drawn under IOB. Nothing is drawn when
             // COB is always zero. Trio's dashed future decay isn't uploaded to Nightscout, so it's not shown.
-            val cobPoints = deviceStatusPoints
-                .filter { it.cobGrams != null && it.timestamp.toEpochMilli() in viewportStartMillis..viewportEndMillis }
-                .sortedBy { it.timestamp }
+            val cobPoints = cobPointsAsc.sliceByMillis(viewportStartMillis, viewportEndMillis) { it.timestamp.toEpochMilli() }
             val maxCobGrams = cobPoints.maxOfOrNull { it.cobGrams ?: 0.0 } ?: 0.0
             if (cobPoints.size >= 2 && maxCobGrams > 0.0) {
                 val cobScale = maxCobGrams.coerceAtLeast(10.0)
@@ -663,9 +688,7 @@ fun GlucoseChart(
 
             // IOB curve from Trio's own devicestatus. Gaps in the uploads are filled with a dashed
             // estimate computed from bolus decay.
-            val iobPoints = deviceStatusPoints
-                .filter { it.iobUnits != null && it.timestamp.toEpochMilli() in viewportStartMillis..viewportEndMillis }
-                .sortedBy { it.timestamp }
+            val iobPoints = iobPointsAsc.sliceByMillis(viewportStartMillis, viewportEndMillis) { it.timestamp.toEpochMilli() }
             val diaHours = insulinProfile?.diaHours ?: DEFAULT_DIA_HOURS
             val gapEstimates = findIobGaps(
                 viewportStartMillis,

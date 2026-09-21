@@ -386,6 +386,19 @@ Since, on top of the six milestones:
   graph image (the rest, `fitXY`). Bitmaps are capped at 1600px per side. The old single fit-centre bitmap left empty side margins whenever the launcher's reported
   size differed from the real one. The graph shows 6h of history plus 2h of forecast. Not device-tested.
 
+- **Code review, stage 1** (2026-09-21): fixes that leave the update schedule and Nightscout fetching
+  untouched. Chart draw block no longer filters/sorts everything per frame (`GlucoseChart` keeps
+  sorted/pre-filtered lists via `remember` and slices the visible part by binary search); the HUD state
+  is memoised per minute; Home/History no longer re-sort lists the DAO already returns in order;
+  the device-status lists use a slim query (`DeviceStatusSummary`, no `reason`/forecast text); the
+  database is excluded from cloud backup/device transfer; the update link must be on
+  `https://github.com/`; `UpdateChecker` rethrows cancellation. **Deliberately not changed** (they
+  touch refresh timing or data retrieval): refresh mutex, request count per refresh, auth-token
+  invalidation on 401, the stale-adjustment cleanup guard, destructive Room migrations, `runCatching`
+  around the refresh calls. Other open review items: minify/R8, deprecated `EncryptedSharedPreferences`,
+  unit tests, duplicated bubble/forecast drawing, hard-coded UI strings, debounced settings writes,
+  logger I/O.
+
 ## Background-sync reliability issue — resolved, confirmed on-device
 
 Original symptom: **"Real-time" (foreground service) background mode appears to run exactly one

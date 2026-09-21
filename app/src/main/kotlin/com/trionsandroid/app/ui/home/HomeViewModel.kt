@@ -78,10 +78,11 @@ class HomeViewModel @Inject constructor(
             glucoseUnit = data.settings.glucoseUnit,
             timeFormat = data.settings.timeFormat,
             alarms = data.settings.alarms,
-            readings = data.readings.sortedByDescending { it.timestamp },
-            treatments = data.treatments.sortedByDescending { it.timestamp },
+            // The DAO returns these oldest first, so newest first is just the reverse.
+            readings = data.readings.asReversed(),
+            treatments = data.treatments.asReversed(),
             insulinProfile = data.insulinProfile,
-            deviceStatusPoints = data.deviceStatusPoints.sortedBy { it.timestamp },
+            deviceStatusPoints = data.deviceStatusPoints,
         )
     }.combine(updateChecker.availableUpdate) { state, update -> state.copy(update = update) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())

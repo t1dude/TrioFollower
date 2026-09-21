@@ -57,8 +57,9 @@ class HistoryViewModel @Inject constructor(
             timeFormat = data.settings.timeFormat,
             alarms = data.settings.alarms,
             glucoseColorScheme = data.settings.glucoseColorScheme,
-            readings = data.readings.sortedByDescending { it.timestamp },
-            treatments = data.treatments.sortedByDescending { it.timestamp },
+            // The DAO returns these oldest first, so newest first is just the reverse.
+            readings = data.readings.asReversed(),
+            treatments = data.treatments.asReversed(),
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HistoryUiState())
 

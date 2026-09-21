@@ -1,6 +1,7 @@
 package com.trionsandroid.app.data.nightscout
 
 import com.trionsandroid.app.data.local.DeviceStatusEntity
+import com.trionsandroid.app.data.local.DeviceStatusSummary
 import com.trionsandroid.app.data.local.GlucoseEntryEntity
 import com.trionsandroid.app.data.local.TreatmentEntity
 import com.trionsandroid.app.data.remote.BasalScheduleEntryDto
@@ -173,6 +174,14 @@ fun DeviceStatusEntity.toForecast(): Forecast? {
     }
     return if (series.isEmpty()) null else Forecast(start, series)
 }
+
+fun DeviceStatusSummary.toDomain(): DeviceStatusPoint = DeviceStatusPoint(
+    timestamp = Instant.ofEpochMilli(dateMillis),
+    iobUnits = iobUnits,
+    cobGrams = cobGrams,
+    reservoirUnits = reservoirUnits,
+    eventualBgMgDl = eventualBgMgDl,
+)
 
 fun DeviceStatusEntity.toDomain(): DeviceStatusPoint = DeviceStatusPoint(
     timestamp = Instant.ofEpochMilli(dateMillis),

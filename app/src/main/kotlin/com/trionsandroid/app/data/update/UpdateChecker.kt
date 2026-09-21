@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import com.trionsandroid.app.BuildConfig
 import com.trionsandroid.app.data.logging.DiagnosticLogger
 import com.trionsandroid.app.data.settings.SettingsRepository
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -102,7 +103,10 @@ class UpdateChecker @Inject constructor(
                 val release = json.decodeFromString<ReleaseDto>(response.body?.string().orEmpty())
                 dataStore.edit { it[LAST_CHECK] = System.currentTimeMillis() }
                 val version = release.tag.removePrefix("v")
-                val usable = !release.draft && !release.prerelease && release.assets.any { it.name.endsWith(".apk") }
+                // Only open links that point to GitHub.
+                val trustedUrl = release.url.startsWith("https://github.com/")
+                val usable = trustedUrl && !release.draft && !release.prerelease &&
+                    release.assets.any { it.name.endsWith(".apk") }
                 if (!usable || !isNewer(version, BuildConfig.VERSION_NAME)) {
                     dataStore.edit { it.remove(LATEST_VERSION) }
                     return@withContext UpdateCheckResult.UpToDate
@@ -114,6 +118,8 @@ class UpdateChecker @Inject constructor(
                 }
                 UpdateCheckResult.Available(UpdateInfo(version, release.url, release.body.orEmpty()))
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             diagnosticLogger.logError(TAG, "Update check failed", e)
             UpdateCheckResult.Failed

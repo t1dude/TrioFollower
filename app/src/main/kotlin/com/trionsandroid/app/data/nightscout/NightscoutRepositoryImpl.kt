@@ -50,7 +50,7 @@ class NightscoutRepositoryImpl @Inject constructor(
         }
 
     override fun observeDeviceStatus(sinceMillis: Long): Flow<List<DeviceStatusPoint>> =
-        deviceStatusDao.observeSince(sinceMillis).map { points -> points.map { it.toDomain() } }
+        deviceStatusDao.observeSummariesSince(sinceMillis).map { points -> points.map { it.toDomain() } }
 
     override fun observeLatestForecast(): Flow<Forecast?> =
         deviceStatusDao.observeLatestForecast().map { it?.toForecast() }

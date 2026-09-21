@@ -399,6 +399,14 @@ Since, on top of the six milestones:
   unit tests, duplicated bubble/forecast drawing, hard-coded UI strings, debounced settings writes,
   logger I/O.
 
+- **Code review, stage 2** (2026-09-21): still nothing that touches refresh timing or fetching. Forecast
+  cone envelope, colors and limits are shared by the chart and the widget (`Forecast.envelopeAt`,
+  `ui/theme/ForecastColors.kt`); the diagnostic logger checks its size every 50 lines and reads only
+  the tail when rotating; the widget uses the typed `getParcelableArrayList` on API 33+. First unit
+  tests in `app/src/test/` (`isNewer`, override clipping, Predicted high, daily stats), written
+  without being run on the dev machine. Not done: R8/minify, encrypted-preferences replacement,
+  string resources, debounced settings writes.
+
 ## Background-sync reliability issue — resolved, confirmed on-device
 
 Original symptom: **"Real-time" (foreground service) background mode appears to run exactly one

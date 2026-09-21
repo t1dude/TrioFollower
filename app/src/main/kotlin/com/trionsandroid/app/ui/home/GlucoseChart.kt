@@ -57,12 +57,12 @@ import com.trionsandroid.app.ui.theme.TrioCob
 import com.trionsandroid.app.ui.theme.TrioGlucoseHigh
 import com.trionsandroid.app.ui.theme.TrioGlucoseLow
 import com.trionsandroid.app.ui.theme.TrioInsulin
+import com.trionsandroid.app.ui.theme.forecastLineColor
 import com.trionsandroid.app.ui.theme.TrioIob
 import com.trionsandroid.app.ui.theme.TrioLoopGreen
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import com.trionsandroid.app.data.nightscout.Forecast
-import com.trionsandroid.app.data.nightscout.ForecastType
 import com.trionsandroid.app.data.settings.BolusDisplayThreshold
 import com.trionsandroid.app.data.settings.ForecastDisplay
 import com.trionsandroid.app.data.settings.GlucoseColorScheme
@@ -88,17 +88,9 @@ private val BOTTOM_SAFETY_MARGIN = 6.dp
 private const val SCROLL_TO_LATEST_MILLIS = 700
 private const val LIVE_EDGE_TOLERANCE_MILLIS = 2_000L
 
-// Trio draws nothing past 2.5h ahead; the cone uses at least an hour of steps.
-private const val FORECAST_MAX_AHEAD_MILLIS = 150 * 60_000L
-private const val FORECAST_CONE_MIN_POINTS = 12
+private const val FORECAST_MAX_AHEAD_MILLIS = Forecast.MAX_AHEAD_MILLIS
+private const val FORECAST_CONE_MIN_POINTS = Forecast.CONE_MIN_POINTS
 
-// Line colors from Trio: IOB is its insulin blue, ZT and UAM come from its asset catalog.
-private fun forecastColor(type: ForecastType): Color = when (type) {
-    ForecastType.IOB -> TrioInsulin
-    ForecastType.ZT -> Color(0xFF7161EF)
-    ForecastType.COB -> Color(0xFFFF9500)
-    ForecastType.UAM -> Color(0xFFD12BF7)
-}
 
 /** The part of a time-sorted list within [start, end], found by binary search. */
 private fun <T> List<T>.sliceByMillis(start: Long, end: Long, millis: (T) -> Long): List<T> {
@@ -489,18 +481,11 @@ fun GlucoseChart(
                         visible(i) && forecast.series.values.any { i < it.size }
                     }
                     if (indices.size >= 2) {
-                        fun bound(i: Int, pick: (List<Int>) -> Int) =
-                            forecast.series.values.filter { i < it.size }.map { pick(it) }
                         val upper = indices.map { i ->
-                            val hi = bound(i) { it[i] }.max()
-                            val lo = bound(i) { it[i] }.min()
-                            // A zero-width envelope would be invisible, so give it a thin band.
-                            Offset(xFor(forecast.timeMillisAt(i)), yFor(if (hi == lo) hi + 1 else hi))
+                            Offset(xFor(forecast.timeMillisAt(i)), yFor(forecast.envelopeAt(i).first))
                         }
                         val lower = indices.map { i ->
-                            val hi = bound(i) { it[i] }.max()
-                            val lo = bound(i) { it[i] }.min()
-                            Offset(xFor(forecast.timeMillisAt(i)), yFor(if (hi == lo) lo - 1 else lo))
+                            Offset(xFor(forecast.timeMillisAt(i)), yFor(forecast.envelopeAt(i).second))
                         }
                         val cone = Path().apply {
                             moveTo(upper.first().x, upper.first().y)
@@ -520,7 +505,7 @@ fun GlucoseChart(
                                 moveTo(points.first().x, points.first().y)
                                 points.drop(1).forEach { lineTo(it.x, it.y) }
                             }
-                            drawPath(line, color = forecastColor(type), style = Stroke(width = 2.dp.toPx()))
+                            drawPath(line, color = Color(forecastLineColor(type)), style = Stroke(width = 2.dp.toPx()))
                         }
                     }
                 }

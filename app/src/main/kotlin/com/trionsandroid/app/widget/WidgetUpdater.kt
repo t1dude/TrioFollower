@@ -5,6 +5,7 @@ import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.util.SizeF
 import android.util.TypedValue
@@ -96,9 +97,14 @@ class WidgetUpdater @Inject constructor(
         }
     }
 
-    @Suppress("DEPRECATION")
     private fun sizesFor(options: Bundle, kind: WidgetKind): List<SizeF> {
-        val sizes = options.getParcelableArrayList<SizeF>(AppWidgetManager.OPTION_APPWIDGET_SIZES)
+        val key = AppWidgetManager.OPTION_APPWIDGET_SIZES
+        val sizes = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            options.getParcelableArrayList(key, SizeF::class.java)
+        } else {
+            @Suppress("DEPRECATION")
+            options.getParcelableArrayList<SizeF>(key)
+        }
         if (!sizes.isNullOrEmpty()) return sizes
         val defaultW = if (kind == WidgetKind.BUBBLE) 110 else 250
         return listOf(

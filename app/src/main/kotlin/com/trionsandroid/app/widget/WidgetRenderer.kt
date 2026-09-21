@@ -12,7 +12,6 @@ import android.graphics.SweepGradient
 import android.graphics.Typeface
 import androidx.compose.ui.graphics.toArgb
 import com.trionsandroid.app.data.nightscout.Forecast
-import com.trionsandroid.app.data.nightscout.ForecastType
 import com.trionsandroid.app.data.nightscout.GlucoseReading
 import com.trionsandroid.app.data.settings.AlarmSettings
 import com.trionsandroid.app.data.settings.ForecastDisplay
@@ -28,6 +27,7 @@ import com.trionsandroid.app.ui.theme.TrioGlucoseLow
 import com.trionsandroid.app.ui.theme.TrioInsulin
 import com.trionsandroid.app.ui.theme.TrioRingGradient
 import com.trionsandroid.app.ui.theme.TrioTrendArrowColor
+import com.trionsandroid.app.ui.theme.forecastLineColor
 import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
@@ -53,8 +53,8 @@ data class WidgetData(
 private const val HOUR_MILLIS = 3_600_000L
 private const val PAST_MILLIS = 6 * HOUR_MILLIS
 private const val FUTURE_MILLIS = 2 * HOUR_MILLIS
-private const val FORECAST_MAX_AHEAD_MILLIS = 150 * 60_000L
-private const val FORECAST_CONE_MIN_POINTS = 12
+private const val FORECAST_MAX_AHEAD_MILLIS = Forecast.MAX_AHEAD_MILLIS
+private const val FORECAST_CONE_MIN_POINTS = Forecast.CONE_MIN_POINTS
 private val WHITE = Color.WHITE
 private val MUTED = Color.argb(200, 200, 205, 220)
 
@@ -262,18 +262,12 @@ object WidgetRenderer {
             val count = max(FORECAST_CONE_MIN_POINTS, forecast.series.values.minOf { it.size })
             val indices = (0 until count).filter { i -> visible(i) && forecast.series.values.any { i < it.size } }
             if (indices.size < 2) return
-            fun bounds(i: Int): Pair<Int, Int> {
-                val values = forecast.series.values.filter { i < it.size }.map { it[i] }
-                val hi = values.max()
-                val lo = values.min()
-                return if (hi == lo) (hi + 1) to (lo - 1) else hi to lo
-            }
             val path = Path()
             indices.forEachIndexed { n, i ->
                 val px = x(forecast.timeMillisAt(i))
-                if (n == 0) path.moveTo(px, y(bounds(i).first)) else path.lineTo(px, y(bounds(i).first))
+                if (n == 0) path.moveTo(px, y(forecast.envelopeAt(i).first)) else path.lineTo(px, y(forecast.envelopeAt(i).first))
             }
-            indices.asReversed().forEach { i -> path.lineTo(x(forecast.timeMillisAt(i)), y(bounds(i).second)) }
+            indices.asReversed().forEach { i -> path.lineTo(x(forecast.timeMillisAt(i)), y(forecast.envelopeAt(i).second)) }
             path.close()
             canvas.drawPath(path, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = TrioInsulin.copy(alpha = 0.4f).toArgb() })
         } else {
@@ -286,18 +280,10 @@ object WidgetRenderer {
                     if (n == 0) path.moveTo(px, y(values[i])) else path.lineTo(px, y(values[i]))
                 }
                 val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                    style = Paint.Style.STROKE; strokeWidth = 1.8f * density; color = forecastColor(type)
+                    style = Paint.Style.STROKE; strokeWidth = 1.8f * density; color = forecastLineColor(type)
                 }
                 canvas.drawPath(path, paint)
             }
         }
-    }
-
-    // Trio's forecast line colors (see GlucoseChart).
-    private fun forecastColor(type: ForecastType): Int = when (type) {
-        ForecastType.IOB -> TrioInsulin.toArgb()
-        ForecastType.ZT -> 0xFF7161EF.toInt()
-        ForecastType.COB -> 0xFFFF9500.toInt()
-        ForecastType.UAM -> 0xFFD12BF7.toInt()
     }
 }

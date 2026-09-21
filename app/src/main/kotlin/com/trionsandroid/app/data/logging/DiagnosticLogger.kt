@@ -5,6 +5,7 @@ import android.util.Log
 import com.trionsandroid.app.BuildConfig
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
+import java.io.RandomAccessFile
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -41,20 +42,34 @@ class DiagnosticLogger @Inject constructor(
 
     fun file(): File = logFile
 
+    private var writesSinceSizeCheck = 0
+
     private fun appendLine(level: String, tag: String, message: String) {
-        rotateIfOverCap()
+        // Checking the size on every line costs a file stat each time; every so often is enough.
+        if (++writesSinceSizeCheck >= SIZE_CHECK_EVERY) {
+            writesSinceSizeCheck = 0
+            rotateIfOverCap()
+        }
         val timestamp = TIME_FORMATTER.format(Instant.now().atZone(ZoneId.systemDefault()))
         logFile.appendText("$timestamp $level/$tag: $message\n")
     }
 
     private fun rotateIfOverCap() {
-        if (logFile.exists() && logFile.length() > MAX_LOG_BYTES) {
-            logFile.writeText(logFile.readText().takeLast(MAX_LOG_BYTES / 2))
+        val length = logFile.length()
+        if (length <= MAX_LOG_BYTES) return
+        // Keep the newest half, reading only that part of the file.
+        val keep = MAX_LOG_BYTES / 2
+        val tail = ByteArray(keep)
+        RandomAccessFile(logFile, "r").use { file ->
+            file.seek(length - keep)
+            file.readFully(tail)
         }
+        logFile.writeBytes(tail)
     }
 
     private companion object {
         const val MAX_LOG_BYTES = 2 * 1024 * 1024
+        const val SIZE_CHECK_EVERY = 50
         val TIME_FORMATTER: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
     }
 }

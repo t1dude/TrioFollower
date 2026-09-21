@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.util.SizeF
+import android.util.TypedValue
 import android.widget.RemoteViews
 import com.trionsandroid.app.MainActivity
 import com.trionsandroid.app.R
@@ -74,16 +75,22 @@ class WidgetUpdater @Inject constructor(
             setOnClickPendingIntent(R.id.widget_image, openAppIntent())
         }
 
-    /** Bubble and graph are separate images in one layout, one third and two thirds of the width. */
+    /**
+     * Bubble and graph are separate images. The bubble slot is one third of the width, but never
+     * wider than the bubble needs for the widget's height, so on a wide widget (e.g. an unfolded
+     * phone) the extra width goes to the graph.
+     */
     private fun graphViews(data: WidgetData, widthPx: Int, heightPx: Int, density: Float): RemoteViews {
         val innerWidth = widthPx - (10 * density).toInt() // 4dp start + 6dp end padding
         val innerHeight = (heightPx - 12 * density).toInt().coerceAtLeast(40)
-        val bubbleWidth = (innerWidth / 3).coerceAtLeast(40)
+        val neededForHeight = (innerHeight * 0.9f * 170f / 208f * 1.1f).toInt()
+        val bubbleWidth = minOf(innerWidth / 3, neededForHeight).coerceAtLeast(40)
         val graphWidth = (innerWidth - bubbleWidth).coerceAtLeast(100)
         val alpha = ((100 - data.transparencyPercent.coerceIn(0, 100)) / 100f * 255).toInt()
         return RemoteViews(context.packageName, R.layout.widget_graph).apply {
             setImageViewBitmap(R.id.widget_bubble, WidgetRenderer.renderBubbleOnly(data, bubbleWidth, innerHeight))
             setImageViewBitmap(R.id.widget_graph, WidgetRenderer.renderGraphOnly(data, graphWidth, innerHeight, density))
+            setViewLayoutWidth(R.id.widget_bubble, bubbleWidth / density, TypedValue.COMPLEX_UNIT_DIP)
             setInt(R.id.widget_background, "setImageAlpha", alpha)
             setOnClickPendingIntent(R.id.widget_root, openAppIntent())
         }
@@ -131,6 +138,6 @@ class WidgetUpdater @Inject constructor(
 
     private companion object {
         // Keeps the bitmap comfortably under the RemoteViews size limit.
-        const val MAX_BITMAP_SIDE = 900
+        const val MAX_BITMAP_SIDE = 1600
     }
 }

@@ -58,17 +58,34 @@ class WidgetUpdater @Inject constructor(
                 val bySize = sizesFor(manager.getAppWidgetOptions(id), kind).associateWith { size ->
                     val w = (size.width * density).toInt().coerceIn(60, MAX_BITMAP_SIDE)
                     val h = (size.height * density).toInt().coerceIn(60, MAX_BITMAP_SIDE)
-                    val bitmap = when (kind) {
-                        WidgetKind.BUBBLE -> WidgetRenderer.renderBubble(data, w, h, density)
-                        WidgetKind.GRAPH -> WidgetRenderer.renderGraph(data, w, h, density)
-                    }
-                    RemoteViews(context.packageName, R.layout.widget_image).apply {
-                        setImageViewBitmap(R.id.widget_image, bitmap)
-                        setOnClickPendingIntent(R.id.widget_image, openAppIntent())
+                    when (kind) {
+                        WidgetKind.BUBBLE -> bubbleViews(WidgetRenderer.renderBubble(data, w, h, density))
+                        WidgetKind.GRAPH -> graphViews(data, w, h, density)
                     }
                 }
                 manager.updateAppWidget(id, RemoteViews(bySize))
             }
+        }
+    }
+
+    private fun bubbleViews(bitmap: android.graphics.Bitmap) =
+        RemoteViews(context.packageName, R.layout.widget_image).apply {
+            setImageViewBitmap(R.id.widget_image, bitmap)
+            setOnClickPendingIntent(R.id.widget_image, openAppIntent())
+        }
+
+    /** Bubble and graph are separate images in one layout: the bubble keeps a square shape, and the
+     *  graph takes all the remaining width. */
+    private fun graphViews(data: WidgetData, widthPx: Int, heightPx: Int, density: Float): RemoteViews {
+        val padding = (6 * density).toInt()
+        val inner = (heightPx - 2 * padding).coerceAtLeast(40)
+        val graphWidth = (widthPx - inner - 2 * padding).coerceAtLeast(100)
+        val alpha = ((100 - data.transparencyPercent.coerceIn(0, 100)) / 100f * 255).toInt()
+        return RemoteViews(context.packageName, R.layout.widget_graph).apply {
+            setImageViewBitmap(R.id.widget_bubble, WidgetRenderer.renderBubbleOnly(data, inner))
+            setImageViewBitmap(R.id.widget_graph, WidgetRenderer.renderGraphOnly(data, graphWidth, inner, density))
+            setInt(R.id.widget_background, "setImageAlpha", alpha)
+            setOnClickPendingIntent(R.id.widget_root, openAppIntent())
         }
     }
 
@@ -87,7 +104,7 @@ class WidgetUpdater @Inject constructor(
 
     suspend fun loadData(): WidgetData {
         val now = System.currentTimeMillis()
-        val since = now - TimeUnit.HOURS.toMillis(4)
+        val since = now - TimeUnit.HOURS.toMillis(7)
         val settings = settingsRepository.settings.first()
         val readings = glucoseEntryDao.observeSince(since).first().map { it.toDomain() }.sortedBy { it.timestamp }
         val forecast = deviceStatusDao.observeLatestForecast().first()?.toForecast()

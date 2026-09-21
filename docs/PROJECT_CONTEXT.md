@@ -331,7 +331,7 @@ Since, on top of the six milestones:
   existing users see the warnings if anything is missing. Not compile-checked or device-tested.
 
 - **Home screen widgets** (added 2026-09-20): `widget/` — `BubbleWidgetProvider` (2x2, bubble only) and
-  `GraphWidgetProvider` (4x2, bubble + 3h past / 2h forecast graph). Classic `AppWidgetProvider` +
+  `GraphWidgetProvider` (4x2, bubble + 6h past / 2h forecast graph). Classic `AppWidgetProvider` +
   `RemoteViews` with one `ImageView` (`layout/widget_image.xml`); the whole widget, background
   included, is drawn into a bitmap by `WidgetRenderer` (Android Canvas, since RemoteViews can't host
   Compose; drawing mirrors `GlucoseBubble`/`GlucoseChart`). One bitmap is rendered per launcher size
@@ -378,6 +378,12 @@ Since, on top of the six milestones:
      tag but no release. The owner builds and signs the APK, attaches it and publishes the draft;
      users only see it once it's published with an APK.
   Not compile-checked or device-tested when first committed.
+
+- **Large widget layout** (2026-09-21): the graph widget is `layout/widget_graph.xml`, not one stretched
+  bitmap: a rounded background image (alpha = transparency), a square bubble image whose width follows
+  its height (`adjustViewBounds`, so it is always round) and a graph image that takes all remaining width
+  (`fitXY`). The old single fit-centre bitmap left empty side margins whenever the launcher's reported
+  size differed from the real one. The graph shows 6h of history plus 2h of forecast. Not device-tested.
 
 ## Background-sync reliability issue — resolved, confirmed on-device
 

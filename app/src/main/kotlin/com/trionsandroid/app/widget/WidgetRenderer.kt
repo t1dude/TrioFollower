@@ -51,7 +51,7 @@ data class WidgetData(
 )
 
 private const val HOUR_MILLIS = 3_600_000L
-private const val PAST_MILLIS = 3 * HOUR_MILLIS
+private const val PAST_MILLIS = 6 * HOUR_MILLIS
 private const val FUTURE_MILLIS = 2 * HOUR_MILLIS
 private const val FORECAST_MAX_AHEAD_MILLIS = 150 * 60_000L
 private const val FORECAST_CONE_MIN_POINTS = 12
@@ -70,6 +70,20 @@ object WidgetRenderer {
         // No square background: the background is only the inside of the glucose circle.
         val size = min(widthPx, heightPx) - 8 * density
         drawBubble(canvas, widthPx / 2f, heightPx / 2f, size, data, fillCircle = true)
+        return bitmap
+    }
+
+    /** Just the bubble, square and transparent; the widget layout supplies the background. */
+    fun renderBubbleOnly(data: WidgetData, sidePx: Int): Bitmap {
+        val bitmap = Bitmap.createBitmap(sidePx, sidePx, Bitmap.Config.ARGB_8888)
+        drawBubble(Canvas(bitmap), sidePx / 2f, sidePx / 2f, sidePx.toFloat(), data)
+        return bitmap
+    }
+
+    /** Just the graph, transparent; the widget layout supplies the background. */
+    fun renderGraphOnly(data: WidgetData, widthPx: Int, heightPx: Int, density: Float): Bitmap {
+        val bitmap = Bitmap.createBitmap(widthPx, heightPx, Bitmap.Config.ARGB_8888)
+        drawGraph(Canvas(bitmap), RectF(0f, 0f, widthPx.toFloat(), heightPx.toFloat()), data, density)
         return bitmap
     }
 

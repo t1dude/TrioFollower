@@ -57,5 +57,5 @@ abstract class BaseWidgetProvider(private val kind: WidgetKind) : AppWidgetProvi
 /** Widget with just the glucose bubble. */
 class BubbleWidgetProvider : BaseWidgetProvider(WidgetKind.BUBBLE)
 
-/** Widget with the bubble and a 3h past + 2h forecast graph. */
+/** Widget with the bubble and a 6h past + 2h forecast graph. */
 class GraphWidgetProvider : BaseWidgetProvider(WidgetKind.GRAPH)

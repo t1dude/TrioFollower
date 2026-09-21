@@ -103,7 +103,7 @@ reviews and tests the changes.
 
 TrioFollower is a hobby project made by an enthusiast for personal use. It is open source and comes with
 no warranty. The developer is also a contributor to the Trio project, but TrioFollower is not affiliated 
-with the Nightscout or Trio projects.
+with the Nightscout or Trio projects. Several features and design elements are borrowed from Trio. A big thank you to the entire Trio developer team and community!
 
 Please understand that TrioFollower is:
 

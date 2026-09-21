@@ -407,6 +407,17 @@ Since, on top of the six milestones:
   without being run on the dev machine. Not done: R8/minify, encrypted-preferences replacement,
   string resources, debounced settings writes.
 
+- **Press-and-hold inspect on the chart** (2026-09-21; from Trio's `MainChartView.swift`
+  `panAndInspectGesture`, `ChartSelectionRow.swift`): `detectChartGestures` now latches inspect after a
+  still single-finger hold of 150 ms (within the touch slop); from then on drags only move the
+  selection (no pan) until the finger lifts, and a second finger cancels it. The chart derives the
+  selected reading from the finger x and the viewport (nearest reading within 5 min), draws a line
+  through all bands plus a highlighted dot, and shows `ChartSelectionPill` (time, glucose, IOB from
+  the device status within ±150 s, COB) at the top of the chart. A finger within 44dp of either edge
+  scrolls the chart at up to half the visible span per second. Differences from Trio: the pill floats
+  over the basal strip (Trio replaces its meal slot), and there are no IOB/COB dots on the curves.
+  Not compile-checked or device-tested.
+
 ## Background-sync reliability issue — resolved, confirmed on-device
 
 Original symptom: **"Real-time" (foreground service) background mode appears to run exactly one

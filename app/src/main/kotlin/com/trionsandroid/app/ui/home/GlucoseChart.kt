@@ -8,6 +8,7 @@ import androidx.compose.animation.core.animateDecay
 import androidx.compose.animation.core.exponentialDecay
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.MaterialTheme
@@ -23,6 +24,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -70,6 +72,10 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import kotlinx.coroutines.delay
+import com.trionsandroid.app.data.settings.timeFormatter
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -86,6 +92,11 @@ private val LEFT_GUTTER = 40.dp
 private val BOTTOM_LABEL_GAP = 4.dp
 private val BOTTOM_SAFETY_MARGIN = 6.dp
 private const val SCROLL_TO_LATEST_MILLIS = 700
+// Inspect: how far a reading may be from the finger's time, the device status match window, and the
+// width of the edge strips that scroll the chart (44dp as in Trio).
+private const val INSPECT_MATCH_MILLIS = 300_000L
+private const val INSPECT_STATUS_WINDOW_MILLIS = 150_000L
+private val INSPECT_EDGE_ZONE = 44.dp
 private const val LIVE_EDGE_TOLERANCE_MILLIS = 2_000L
 
 private const val FORECAST_MAX_AHEAD_MILLIS = Forecast.MAX_AHEAD_MILLIS
@@ -231,6 +242,61 @@ fun GlucoseChart(
     val currentDataMaxMillis by rememberUpdatedState(dataMaxMillis)
     val currentMaxViewportMillis by rememberUpdatedState(maxViewportMillis)
 
+    // Press-and-hold inspect, as in Trio: while a finger is held, the chart shows the reading under it
+    // and a pill with its values. inspectX is the finger's x, or null when not inspecting.
+    var inspectX by remember { mutableStateOf<Float?>(null) }
+    val haptics = LocalHapticFeedback.current
+    val timeFormatter = remember(timeFormat) { timeFormat.timeFormatter() }
+    val statusAsc = remember(deviceStatusPoints) { deviceStatusPoints.sortedBy { it.timestamp } }
+    val inspectFingerX = inspectX
+    val selectedReading: GlucoseReading? = if (inspectFingerX != null && canvasWidthPx > leftGutterPx) {
+        val fraction = ((inspectFingerX - leftGutterPx) / (canvasWidthPx - leftGutterPx)).coerceIn(0f, 1f)
+        val timeMillis = viewportEndMillis - viewportDurationMillis + (fraction * viewportDurationMillis).toLong()
+        readingsAsc
+            .sliceByMillis(timeMillis - INSPECT_MATCH_MILLIS, timeMillis + INSPECT_MATCH_MILLIS) { it.timestamp.toEpochMilli() }
+            .minByOrNull { abs(it.timestamp.toEpochMilli() - timeMillis) }
+    } else {
+        null
+    }
+    // IOB and COB come from the device status nearest the reading (within ±150 s, as in Trio).
+    val selectedStatus = selectedReading?.let { reading ->
+        val readingMillis = reading.timestamp.toEpochMilli()
+        statusAsc
+            .sliceByMillis(readingMillis - INSPECT_STATUS_WINDOW_MILLIS, readingMillis + INSPECT_STATUS_WINDOW_MILLIS) {
+                it.timestamp.toEpochMilli()
+            }
+            .minByOrNull { abs(it.timestamp.toEpochMilli() - readingMillis) }
+    }
+    LaunchedEffect(selectedReading?.id) {
+        if (selectedReading != null) haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+    }
+
+    // While inspecting, a finger near either edge scrolls the chart (faster the closer to the edge),
+    // and the selection follows because it is derived from the finger position and the viewport.
+    val currentInspectX by rememberUpdatedState(inspectX)
+    val isInspecting = inspectX != null
+    LaunchedEffect(isInspecting) {
+        if (!isInspecting) return@LaunchedEffect
+        val zonePx = with(density) { INSPECT_EDGE_ZONE.toPx() }
+        var lastNanos = System.nanoTime()
+        while (true) {
+            delay(16)
+            val nowNanos = System.nanoTime()
+            val seconds = (nowNanos - lastNanos) / 1e9
+            lastNanos = nowNanos
+            val x = currentInspectX ?: break
+            val leftDepth = ((leftGutterPx + zonePx - x) / zonePx).coerceIn(0f, 1f)
+            val rightDepth = ((x - (canvasWidthPx - zonePx)) / zonePx).coerceIn(0f, 1f)
+            val depth = maxOf(leftDepth, rightDepth)
+            if (depth <= 0f) continue
+            val direction = if (rightDepth > 0f) 1 else -1
+            val deltaMillis = (direction * depth * viewportDurationMillis * 0.5 * seconds).toLong()
+            val minEnd = currentDataMinMillis + viewportDurationMillis
+            viewportEndMillis = (viewportEndMillis + deltaMillis).coerceIn(minEnd, maxOf(minEnd, currentDataMaxMillis))
+        }
+    }
+
+
     // Keeps targetTimeMillis at targetFraction of the chart width for the given duration, clamped
     // to the data range. Used by pinch, double-tap and fling.
     fun applyViewport(targetTimeMillis: Long, targetFraction: Float, requestedDurationMillis: Long) {
@@ -320,6 +386,13 @@ fun GlucoseChart(
                             }
                         }
                     },
+                    onInspectStart = { x ->
+                        flingJob?.cancel()
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        inspectX = x
+                    },
+                    onInspectMove = { x -> inspectX = x },
+                    onInspectEnd = { inspectX = null },
                     onDoubleTap = { tapPosition ->
                         val chartWidthPx = canvasWidthPx - leftGutterPx
                         if (chartWidthPx > 0f) {
@@ -729,6 +802,33 @@ fun GlucoseChart(
                     )
                 }
             }
+
+            // Inspected point: a line through all bands and a highlighted dot on the reading.
+            selectedReading?.let { reading ->
+                val selectionX = xFor(reading.timestamp.toEpochMilli())
+                if (selectionX in leftGutter..size.width) {
+                    drawLine(
+                        color = labelColor.copy(alpha = 0.9f),
+                        start = Offset(selectionX, 0f),
+                        end = Offset(selectionX, iobBottom),
+                        strokeWidth = 2.dp.toPx(),
+                    )
+                    val dotCenter = Offset(selectionX, yFor(reading.mgDl))
+                    drawCircle(rangeColor(reading.mgDl, alarms, colorScheme), radius = 7.5.dp.toPx(), center = dotCenter)
+                    drawCircle(Color.White, radius = 3.dp.toPx(), center = dotCenter)
+                }
+            }
+        }
+
+        selectedReading?.let { reading ->
+            ChartSelectionPill(
+                time = timeFormatter.format(reading.timestamp.atZone(ZoneId.systemDefault())),
+                glucose = unit.format(reading.mgDl),
+                glucoseColor = rangeColor(reading.mgDl, alarms, colorScheme),
+                iob = selectedStatus?.iobUnits?.let { String.format(Locale.getDefault(), "%.2f U", it) } ?: "–",
+                cob = selectedStatus?.cobGrams?.let { "${it.roundToInt()} g" } ?: "–",
+                modifier = Modifier.align(Alignment.TopCenter).padding(top = 2.dp),
+            )
         }
     }
 }

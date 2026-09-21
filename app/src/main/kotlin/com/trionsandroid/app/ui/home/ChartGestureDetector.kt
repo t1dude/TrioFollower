@@ -1,5 +1,6 @@
 package com.trionsandroid.app.ui.home
 
+import android.os.SystemClock
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.calculateCentroid
@@ -11,15 +12,26 @@ import androidx.compose.ui.input.pointer.positionChanged
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.input.pointer.util.addPointerInputChange
 
+// As in Trio: a finger resting this long (without moving past the touch slop) starts inspecting.
+private const val INSPECT_HOLD_MILLIS = 150L
+
 /**
- * One detector for pan, zoom, fling velocity and double-tap. Two separate detectors on the same
- * touch stream interfere, and detectTransformGestures exposes neither velocity nor the end of a gesture.
+ * One detector for pan, zoom, fling velocity, double-tap and press-and-hold inspect. Two separate
+ * detectors on the same touch stream interfere, and detectTransformGestures exposes neither
+ * velocity nor the end of a gesture.
+ *
+ * Inspect: after a still, single-finger hold, [onInspectStart] fires. The rest of that touch reports
+ * only [onInspectMove] (no panning) until the finger lifts or a second finger joins, then
+ * [onInspectEnd].
  */
 suspend fun PointerInputScope.detectChartGestures(
     onTouchDown: () -> Unit,
     onGesture: (centroid: Offset, pan: Offset, zoom: Float) -> Unit,
     onFlingVelocity: (velocityPxPerSec: Float) -> Unit,
     onDoubleTap: (position: Offset) -> Unit,
+    onInspectStart: (x: Float) -> Unit,
+    onInspectMove: (x: Float) -> Unit,
+    onInspectEnd: () -> Unit,
 ) {
     var lastTapDownMillis = -1L
     val doubleTapTimeoutMillis = viewConfiguration.doubleTapTimeoutMillis
@@ -34,14 +46,49 @@ suspend fun PointerInputScope.detectChartGestures(
         var totalMovement = 0f
         var pastSlop = false
         var wasMultiTouch = false
+        var inspecting = false
+        var inspected = false
+        var lastPosition = down.position
+        val holdStart = SystemClock.uptimeMillis()
 
-        do {
-            val event = awaitPointerEvent()
+        while (true) {
+            val holdPending = !inspecting && !pastSlop && !wasMultiTouch
+            val event = if (holdPending) {
+                val remaining = INSPECT_HOLD_MILLIS - (SystemClock.uptimeMillis() - holdStart)
+                if (remaining <= 0) null else withTimeoutOrNull(remaining) { awaitPointerEvent() }
+            } else {
+                awaitPointerEvent()
+            }
+
+            if (event == null) {
+                // Held still long enough: start inspecting.
+                inspecting = true
+                inspected = true
+                onInspectStart(lastPosition.x)
+                continue
+            }
+
             if (event.changes.size > 1) wasMultiTouch = true
+
+            if (inspecting) {
+                if (wasMultiTouch) {
+                    // A second finger means pinch, not inspect.
+                    inspecting = false
+                    onInspectEnd()
+                } else {
+                    lastPosition = event.changes.first().position
+                    onInspectMove(lastPosition.x)
+                    event.changes.forEach { it.consume() }
+                    if (!event.changes.any { it.pressed }) break
+                    continue
+                }
+            }
+
             val zoomChange = event.calculateZoom()
             val panChange = event.calculatePan()
             totalMovement += panChange.getDistance()
             if (!pastSlop && totalMovement > touchSlop) pastSlop = true
+            lastPosition = event.changes.first().position
 
             if (pastSlop && (zoomChange != 1f || panChange != Offset.Zero)) {
                 onGesture(event.calculateCentroid(useCurrent = false), panChange, zoomChange)
@@ -52,7 +99,14 @@ suspend fun PointerInputScope.detectChartGestures(
                 }
                 change.consume()
             }
-        } while (event.changes.any { it.pressed })
+            if (!event.changes.any { it.pressed }) break
+        }
+
+        if (inspecting) onInspectEnd()
+        if (inspected) {
+            lastTapDownMillis = -1L
+            return@awaitEachGesture
+        }
 
         if (!pastSlop) {
             // A tap, not a drag: check whether it completes a double-tap.

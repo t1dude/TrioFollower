@@ -23,6 +23,8 @@ The app only shows data and sends alerts. It cannot control a pump or change any
   since the last one. Tap it to read the algorithm's reasoning for that reading.
 - A chart you can scroll and zoom. It shows glucose, basal, boluses, carb entries, insulin on board,
   carbs on board, overrides and temp targets.
+- Press and hold on the chart, then drag, to see the time, glucose, IOB and COB at any point. Dragging
+  near either edge scrolls the chart.
 - Predictions on the chart, drawn as lines or as a cone. You can also turn them off.
 - Small status pills for reservoir, insulin on board, carbs on board, pump and sensor age, and the
   algorithm's eventual glucose.

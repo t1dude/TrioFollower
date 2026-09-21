@@ -368,7 +368,7 @@ Since, on top of the six milestones:
   release body is the "What's new" text, so keep it short and written for users.
 
   **After every push, do this release routine:**
-  1. Bump `versionName` in `app/build.gradle.kts` (patch by default, minor for a new user-visible
+  1. (Skip the bump, tag and release for pushes that change no app code or resources, such as docs or the license.) Bump `versionName` in `app/build.gradle.kts` (patch by default, minor for a new user-visible
      feature) and add 1 to `versionCode`.
   2. Commit it as "Release vX.Y.Z" and push.
   3. Tag that commit `vX.Y.Z` and push the tag.

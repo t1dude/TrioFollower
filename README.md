@@ -86,3 +86,7 @@ Please understand that TrioFollower is:
 
 Data can be late, wrong or missing, and alarms can fail. Never rely on this app alone. Always check
 your pump, your CGM and Trio itself before you dose or act on any reading.
+
+## License
+
+MIT. See [`LICENSE`](LICENSE).

@@ -1,4 +1,4 @@
-# TrioFollower (repo: TrioNSAndroid) — project context
+# TrioFollower — project context
 
 Naming: the app is "Trio Follower app for Android", short name **TrioFollower** (app name in
 installer/settings), shown as "Trio Follower" under the launcher icon. The code still uses the old
@@ -360,7 +360,7 @@ Since, on top of the six milestones:
   on the chart but lose the amount label (`GlucoseChart`). Not compile-checked or device-tested.
 
 - **Update check and release process** (2026-09-21): apps are distributed as self-signed APKs on GitHub
-  releases. `data/update/UpdateChecker` asks `api.github.com/repos/t1dude/TrioNSAndroid/releases/latest`
+  releases. `data/update/UpdateChecker` asks `api.github.com/repos/t1dude/TrioFollower/releases/latest`
   at most once a day (Settings > Information > Check for updates, on by default; "Check now" ignores
   the limit), and only counts a published, non-pre-release release **that has an .apk attached**.
   If its tag is newer than `BuildConfig.VERSION_NAME`, Home shows `UpdateCard` (release notes as

@@ -22,7 +22,7 @@ import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
-private const val LATEST_RELEASE_URL = "https://api.github.com/repos/t1dude/TrioNSAndroid/releases/latest"
+private const val LATEST_RELEASE_URL = "https://api.github.com/repos/t1dude/TrioFollower/releases/latest"
 private val CHECK_INTERVAL_MILLIS = TimeUnit.HOURS.toMillis(24)
 
 /** A newer release found on GitHub. [notes] is the release description. */

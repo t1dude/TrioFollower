@@ -389,7 +389,7 @@ fun DiagnosticsSection(onShareLog: () -> File, onClearLog: () -> Unit) {
     }
 }
 
-private const val REPO_URL = "https://github.com/t1dude/TrioNSAndroid"
+private const val REPO_URL = "https://github.com/t1dude/TrioFollower"
 private const val README_URL = "$REPO_URL#readme"
 
 /** Links that open in the device's default browser. */

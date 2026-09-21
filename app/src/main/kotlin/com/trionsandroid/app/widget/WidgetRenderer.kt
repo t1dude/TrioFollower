@@ -67,9 +67,9 @@ object WidgetRenderer {
     fun renderBubble(data: WidgetData, widthPx: Int, heightPx: Int, density: Float): Bitmap {
         val bitmap = Bitmap.createBitmap(widthPx, heightPx, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
-        drawBackground(canvas, widthPx, heightPx, density, data.transparencyPercent)
+        // No square background: the background is only the inside of the glucose circle.
         val size = min(widthPx, heightPx) - 8 * density
-        drawBubble(canvas, widthPx / 2f, heightPx / 2f, size, data)
+        drawBubble(canvas, widthPx / 2f, heightPx / 2f, size, data, fillCircle = true)
         return bitmap
     }
 
@@ -101,10 +101,16 @@ object WidgetRenderer {
     }
 
     /** Same ring, trend arrow and text as the app's bubble, sized as a fraction of [size]. */
-    private fun drawBubble(canvas: Canvas, cx: Float, cy: Float, size: Float, data: WidgetData) {
+    private fun drawBubble(canvas: Canvas, cx: Float, cy: Float, size: Float, data: WidgetData, fillCircle: Boolean = false) {
         val latest = data.readings.lastOrNull()
         val previous = data.readings.getOrNull(data.readings.size - 2)
         val u = size / 208f
+
+        if (fillCircle) {
+            val alpha = ((100 - data.transparencyPercent.coerceIn(0, 100)) / 100f * 255).toInt()
+            val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(alpha, 0, 0, 0) }
+            canvas.drawCircle(cx, cy, 130 * u / 2f - 3 * u, fill)
+        }
 
         canvas.save()
         canvas.rotate(latest?.trend?.rotationDegrees ?: 0f, cx, cy)

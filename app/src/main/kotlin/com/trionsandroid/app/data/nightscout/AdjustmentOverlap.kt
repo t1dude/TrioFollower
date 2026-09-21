@@ -8,6 +8,20 @@ import java.time.Duration
  * would draw the two on top of each other. Cuts each such entry short at the next one's start.
  */
 fun List<Treatment>.withOverlappingAdjustmentsClipped(): List<Treatment> {
+    // Exact duplicates (same type, start and name) can't be told apart by time, so keep one,
+    // preferring the shortest duration (a real end over a stale placeholder).
+    val duplicateIds = HashSet<String>()
+    filter { it.eventType in ADJUSTMENT_EVENT_TYPES }
+        .groupBy { Triple(it.eventType, it.timestamp, it.notes) }
+        .values
+        .forEach { group ->
+            if (group.size > 1) {
+                val keep = group.minBy { it.durationMinutes ?: Double.MAX_VALUE }
+                group.filter { it !== keep }.forEach { duplicateIds += it.id }
+            }
+        }
+    if (duplicateIds.isNotEmpty()) return filter { it.id !in duplicateIds }.withOverlappingAdjustmentsClipped()
+
     val clippedMinutes = HashMap<String, Double>()
     for (type in ADJUSTMENT_EVENT_TYPES) {
         filter { it.eventType == type }

@@ -62,6 +62,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import com.trionsandroid.app.data.nightscout.Forecast
 import com.trionsandroid.app.data.nightscout.ForecastType
+import com.trionsandroid.app.data.settings.BolusDisplayThreshold
 import com.trionsandroid.app.data.settings.ForecastDisplay
 import com.trionsandroid.app.data.settings.GlucoseColorScheme
 import java.time.Instant
@@ -146,6 +147,7 @@ fun GlucoseChart(
     alarms: AlarmSettings,
     colorScheme: GlucoseColorScheme = GlucoseColorScheme.DYNAMIC,
     showNowLine: Boolean = true,
+    bolusDisplayThreshold: BolusDisplayThreshold = BolusDisplayThreshold.ALL,
     timeFormat: TimeFormat = TimeFormat.HOUR_24,
     forecast: Forecast? = null,
     forecastDisplay: ForecastDisplay = ForecastDisplay.OFF,
@@ -589,14 +591,17 @@ fun GlucoseChart(
                 }
                 drawPath(markerPath, color = TrioBolus)
 
-                val amountLabel = textMeasurer.measure(
-                    text = formatBolusUnits(bolus.insulinUnits ?: 0.0),
-                    style = TextStyle(fontSize = 9.sp, color = TrioBolus),
-                )
-                drawText(
-                    amountLabel,
-                    topLeft = Offset(x - amountLabel.size.width / 2f, apexY - 8.dp.toPx() - amountLabel.size.height - 2.dp.toPx()),
-                )
+                // Small doses keep their marker but lose the amount label.
+                if ((bolus.insulinUnits ?: 0.0) >= bolusDisplayThreshold.minUnits) {
+                    val amountLabel = textMeasurer.measure(
+                        text = formatBolusUnits(bolus.insulinUnits ?: 0.0),
+                        style = TextStyle(fontSize = 9.sp, color = TrioBolus),
+                    )
+                    drawText(
+                        amountLabel,
+                        topLeft = Offset(x - amountLabel.size.width / 2f, apexY - 8.dp.toPx() - amountLabel.size.height - 2.dp.toPx()),
+                    )
+                }
             }
 
             // Carb markers: orange triangle 20 mg/dL below the nearest reading, sized by grams.

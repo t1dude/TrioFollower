@@ -353,6 +353,12 @@ Since, on top of the six milestones:
   one's start (`withOverlappingAdjustmentsClipped`), for the chart and History alike. The chart also
   stacks any remaining overlaps in separate rows. Not compile-checked or device-tested.
 
+- **Settings reorganised** (2026-09-21): Basic Settings now holds only Nightscout, Units, Time format
+  and Keep display awake. A new **User Interface** section holds Predictions, Glucose color scheme,
+  Statistics bar, the current-time line and the new **Bolus Display Threshold** (Show all / 0.1 U /
+  0.5 U / 1 U and over; `BolusDisplayThreshold`). Boluses below the threshold keep their triangle
+  on the chart but lose the amount label (`GlucoseChart`). Not compile-checked or device-tested.
+
 ## Background-sync reliability issue — resolved, confirmed on-device
 
 Original symptom: **"Real-time" (foreground service) background mode appears to run exactly one

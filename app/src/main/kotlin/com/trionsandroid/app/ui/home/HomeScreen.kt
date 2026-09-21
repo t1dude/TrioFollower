@@ -153,6 +153,7 @@ fun HomeScreen(viewModel: HomeViewModel = hiltViewModel()) {
                             alarms = uiState.alarms,
                             colorScheme = uiState.glucoseColorScheme,
                             showNowLine = uiState.showNowLine,
+                            bolusDisplayThreshold = uiState.bolusDisplayThreshold,
                             timeFormat = uiState.timeFormat,
                             forecast = uiState.forecast,
                             forecastDisplay = uiState.forecastDisplay,

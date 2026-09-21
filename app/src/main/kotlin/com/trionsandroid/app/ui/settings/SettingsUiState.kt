@@ -2,6 +2,7 @@ package com.trionsandroid.app.ui.settings
 
 import com.trionsandroid.app.data.settings.AlarmSettings
 import com.trionsandroid.app.data.settings.BackgroundMode
+import com.trionsandroid.app.data.settings.BolusDisplayThreshold
 import com.trionsandroid.app.data.settings.ForecastDisplay
 import com.trionsandroid.app.data.settings.GlucoseColorScheme
 import com.trionsandroid.app.data.settings.GlucoseUnit
@@ -15,6 +16,7 @@ data class SettingsUiState(
     val timeFormat: TimeFormat = TimeFormat.HOUR_24,
     val keepScreenOn: Boolean = false,
     val showNowLine: Boolean = true,
+    val bolusDisplayThreshold: BolusDisplayThreshold = BolusDisplayThreshold.ALL,
     val glucoseColorScheme: GlucoseColorScheme = GlucoseColorScheme.DYNAMIC,
     val homeStatsFace: HomeStatsFace = HomeStatsFace.TIME_IN_RANGE,
     val forecastDisplay: ForecastDisplay = ForecastDisplay.CONE,

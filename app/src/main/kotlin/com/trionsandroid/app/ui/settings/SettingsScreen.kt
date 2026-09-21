@@ -39,6 +39,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.trionsandroid.app.data.settings.BolusDisplayThreshold
 import com.trionsandroid.app.data.settings.ForecastDisplay
 import com.trionsandroid.app.data.settings.GlucoseColorScheme
 import com.trionsandroid.app.data.settings.GlucoseUnit
@@ -155,6 +156,21 @@ fun SettingsScreen(expandBasicSettings: Boolean = false, viewModel: SettingsView
                 }
 
                 Spacer(Modifier.height(20.dp))
+                LabeledSwitch(
+                    label = "Keep display awake",
+                    checked = uiState.keepScreenOn,
+                    onCheckedChange = viewModel::onKeepScreenOnChange,
+                )
+                Text(
+                    text = "Stops the screen from dimming or turning off while the app is open. Uses more battery.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+
+        item {
+            SettingsSection(title = "User Interface") {
                 Text(
                     text = "Predictions",
                     style = MaterialTheme.typography.labelLarge,
@@ -228,15 +244,26 @@ fun SettingsScreen(expandBasicSettings: Boolean = false, viewModel: SettingsView
                 )
 
                 Spacer(Modifier.height(20.dp))
-                LabeledSwitch(
-                    label = "Keep display awake",
-                    checked = uiState.keepScreenOn,
-                    onCheckedChange = viewModel::onKeepScreenOnChange,
-                )
                 Text(
-                    text = "Stops the screen from dimming or turning off while the app is open. Uses more battery.",
+                    text = "Bolus Display Threshold",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(8.dp))
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    BolusDisplayThreshold.entries.forEach { threshold ->
+                        FilterChip(
+                            selected = uiState.bolusDisplayThreshold == threshold,
+                            onClick = { viewModel.onBolusDisplayThresholdChange(threshold) },
+                            label = { Text(threshold.label) },
+                        )
+                    }
+                }
+                Text(
+                    text = "Boluses below the threshold keep their marker on the chart but not the amount label.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp),
                 )
             }
         }

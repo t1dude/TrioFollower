@@ -7,6 +7,7 @@ import com.trionsandroid.app.data.remote.NightscoutServiceFactory
 import com.trionsandroid.app.data.nightscout.ConnectionEvents
 import com.trionsandroid.app.data.settings.AlarmSettings
 import com.trionsandroid.app.data.settings.BackgroundMode
+import com.trionsandroid.app.data.settings.BolusDisplayThreshold
 import com.trionsandroid.app.data.settings.ForecastDisplay
 import com.trionsandroid.app.data.settings.GlucoseColorScheme
 import com.trionsandroid.app.data.settings.GlucoseUnit
@@ -55,6 +56,7 @@ class SettingsViewModel @Inject constructor(
             timeFormat = settings.timeFormat,
             keepScreenOn = settings.keepScreenOn,
             showNowLine = settings.showNowLine,
+            bolusDisplayThreshold = settings.bolusDisplayThreshold,
             glucoseColorScheme = settings.glucoseColorScheme,
             homeStatsFace = settings.homeStatsFace,
             forecastDisplay = settings.forecastDisplay,
@@ -98,6 +100,10 @@ class SettingsViewModel @Inject constructor(
 
     fun onForecastDisplayChange(display: ForecastDisplay) {
         viewModelScope.launch { settingsRepository.setForecastDisplay(display) }
+    }
+
+    fun onBolusDisplayThresholdChange(threshold: BolusDisplayThreshold) {
+        viewModelScope.launch { settingsRepository.setBolusDisplayThreshold(threshold) }
     }
 
     fun onShowNowLineChange(show: Boolean) {

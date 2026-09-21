@@ -6,6 +6,7 @@ import com.trionsandroid.app.data.nightscout.GlucoseReading
 import com.trionsandroid.app.data.nightscout.InsulinProfile
 import com.trionsandroid.app.data.nightscout.Treatment
 import com.trionsandroid.app.data.settings.AlarmSettings
+import com.trionsandroid.app.data.settings.BolusDisplayThreshold
 import com.trionsandroid.app.data.settings.ForecastDisplay
 import com.trionsandroid.app.data.settings.GlucoseColorScheme
 import com.trionsandroid.app.data.settings.GlucoseUnit
@@ -20,6 +21,7 @@ data class HomeUiState(
     // True for open/pull refreshes (the chart jumps to the latest data even if panned away), false for automatic ones.
     val forceScrollToLatest: Boolean = true,
     val showNowLine: Boolean = true,
+    val bolusDisplayThreshold: BolusDisplayThreshold = BolusDisplayThreshold.ALL,
     val glucoseColorScheme: GlucoseColorScheme = GlucoseColorScheme.DYNAMIC,
     val homeStatsFace: HomeStatsFace = HomeStatsFace.TIME_IN_RANGE,
     val forecast: Forecast? = null,

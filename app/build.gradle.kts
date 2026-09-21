@@ -14,8 +14,8 @@ android {
         applicationId = "com.trionsandroid.app"
         minSdk = 31
         targetSdk = 37
-        versionCode = 7
-        versionName = "0.2.5"
+        versionCode = 8
+        versionName = "0.2.6"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

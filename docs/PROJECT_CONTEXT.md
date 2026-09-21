@@ -380,9 +380,8 @@ Since, on top of the six milestones:
   Not compile-checked or device-tested when first committed.
 
 - **Large widget layout** (2026-09-21): the graph widget is `layout/widget_graph.xml`, not one stretched
-  bitmap: a rounded background image (alpha = transparency), a square bubble image whose width follows
-  its height (`adjustViewBounds`, so it is always round) and a graph image that takes all remaining width
-  (`fitXY`). The old single fit-centre bitmap left empty side margins whenever the launcher's reported
+  bitmap: a rounded background image (alpha = transparency), a bubble image (1/3 of the width, drawn against the
+  left edge and sized to fit its slot, so it stays round) and a graph image (2/3 of the width, `fitXY`). The old single fit-centre bitmap left empty side margins whenever the launcher's reported
   size differed from the real one. The graph shows 6h of history plus 2h of forecast. Not device-tested.
 
 ## Background-sync reliability issue — resolved, confirmed on-device

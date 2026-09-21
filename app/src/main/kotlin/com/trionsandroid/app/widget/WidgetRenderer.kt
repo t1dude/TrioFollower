@@ -73,10 +73,15 @@ object WidgetRenderer {
         return bitmap
     }
 
-    /** Just the bubble, square and transparent; the widget layout supplies the background. */
-    fun renderBubbleOnly(data: WidgetData, sidePx: Int): Bitmap {
-        val bitmap = Bitmap.createBitmap(sidePx, sidePx, Bitmap.Config.ARGB_8888)
-        drawBubble(Canvas(bitmap), sidePx / 2f, sidePx / 2f, sidePx.toFloat(), data)
+    /**
+     * Just the bubble on a transparent bitmap the size of its slot in the widget. It is drawn against
+     * the left edge: the ring's left edge is 68/208 of the bubble size from the center, and the
+     * trend arrow (up to 102/208 to the right) never points left.
+     */
+    fun renderBubbleOnly(data: WidgetData, widthPx: Int, heightPx: Int): Bitmap {
+        val bitmap = Bitmap.createBitmap(widthPx, heightPx, Bitmap.Config.ARGB_8888)
+        val size = min(widthPx * 208f / 170f, heightPx * 0.9f)
+        drawBubble(Canvas(bitmap), size * 68f / 208f, heightPx / 2f, size, data)
         return bitmap
     }
 

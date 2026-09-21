@@ -74,16 +74,16 @@ class WidgetUpdater @Inject constructor(
             setOnClickPendingIntent(R.id.widget_image, openAppIntent())
         }
 
-    /** Bubble and graph are separate images in one layout: the bubble keeps a square shape, and the
-     *  graph takes all the remaining width. */
+    /** Bubble and graph are separate images in one layout, one third and two thirds of the width. */
     private fun graphViews(data: WidgetData, widthPx: Int, heightPx: Int, density: Float): RemoteViews {
-        val padding = (6 * density).toInt()
-        val inner = (heightPx - 2 * padding).coerceAtLeast(40)
-        val graphWidth = (widthPx - inner - 2 * padding).coerceAtLeast(100)
+        val innerWidth = widthPx - (10 * density).toInt() // 4dp start + 6dp end padding
+        val innerHeight = (heightPx - 12 * density).toInt().coerceAtLeast(40)
+        val bubbleWidth = (innerWidth / 3).coerceAtLeast(40)
+        val graphWidth = (innerWidth - bubbleWidth).coerceAtLeast(100)
         val alpha = ((100 - data.transparencyPercent.coerceIn(0, 100)) / 100f * 255).toInt()
         return RemoteViews(context.packageName, R.layout.widget_graph).apply {
-            setImageViewBitmap(R.id.widget_bubble, WidgetRenderer.renderBubbleOnly(data, inner))
-            setImageViewBitmap(R.id.widget_graph, WidgetRenderer.renderGraphOnly(data, graphWidth, inner, density))
+            setImageViewBitmap(R.id.widget_bubble, WidgetRenderer.renderBubbleOnly(data, bubbleWidth, innerHeight))
+            setImageViewBitmap(R.id.widget_graph, WidgetRenderer.renderGraphOnly(data, graphWidth, innerHeight, density))
             setInt(R.id.widget_background, "setImageAlpha", alpha)
             setOnClickPendingIntent(R.id.widget_root, openAppIntent())
         }

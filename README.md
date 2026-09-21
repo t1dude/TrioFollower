@@ -72,6 +72,23 @@ refuses to update an app that was signed with a different key.
 screen shows what's new, with a button that opens the download page. You can turn the check off, or
 check by hand, in Settings > Information and Releases.
 
+## Development
+
+TrioFollower is written in Kotlin. The screens use Jetpack Compose with Material 3. It is built with
+Gradle and needs Android 12 (API 31) or newer.
+
+Main dependencies:
+
+- Jetpack Compose, Navigation, Lifecycle and Activity for the interface.
+- Room and DataStore for the local cache and the settings.
+- WorkManager for background sync.
+- Hilt for dependency injection.
+- Retrofit, OkHttp and kotlinx.serialization for the Nightscout API.
+- AndroidX Security for storing the access token.
+
+The app is developed with code assistance from Claude Code, an AI coding assistant. The developer
+reviews and tests the changes.
+
 ## Disclaimer
 
 TrioFollower is a hobby project made by an enthusiast for personal use. It is open source and comes with

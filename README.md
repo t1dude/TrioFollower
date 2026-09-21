@@ -61,9 +61,7 @@ There are two ways to install the app:
 - **Download from GitHub Releases:** get the latest APK from the
   [releases page](https://github.com/t1dude/TrioFollower/releases) and open it on your phone. Android
   asks you to allow installs from your browser or file manager the first time.
-- **Build it yourself:** open the project in Android Studio, let Gradle sync, and run the `app`
-  configuration on a phone or emulator. Notes for developers are in
-  [`docs/PROJECT_CONTEXT.md`](docs/PROJECT_CONTEXT.md).
+- **Build it yourself:** open the project in Android Studio, let Gradle sync, and build an APK using your own signing certificate.
 
 If you switch between a downloaded APK and one you built yourself, uninstall the app first. Android
 refuses to update an app that was signed with a different key.

@@ -20,13 +20,13 @@
         android:paddingEnd="6dp"
         android:paddingBottom="6dp">
 
-        <!-- One third of the width for the bubble, two thirds for the graph. -->
+        <!-- One third of the width for the bubble (never stretched, so it stays round), two thirds for the graph. -->
         <ImageView
             android:id="@+id/widget_bubble"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:scaleType="fitXY" />
+            android:scaleType="fitCenter" />
 
         <ImageView
             android:id="@+id/widget_graph"

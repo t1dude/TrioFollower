@@ -82,13 +82,21 @@ class RefreshForegroundService : Service() {
         loopJob = scope.launch {
             diagnosticLogger.log(TAG, "Foreground sync loop starting, interval=${intervalMinutes}m")
             var cycle = 0
+            var lastFullRefreshAtMillis = 0L
             while (isActive) {
                 cycle++
                 // Re-acquired every cycle so the timeout never expires while the loop runs.
                 wakeLock.acquire(WAKE_LOCK_SAFETY_TIMEOUT_MILLIS)
                 diagnosticLogger.log(TAG, "Cycle $cycle starting at ${DIAGNOSTIC_TIME_FORMATTER.format(LocalTime.now())}")
+                // Alarms only need glucose entries and treatments, so most cycles fetch just those
+                // (an "essential" refresh) instead of the full set of Nightscout endpoints (profile,
+                // devicestatus, lifecycle, adjustments), which cuts network/CPU work for the fast
+                // real-time intervals. A full refresh still runs periodically so that data doesn't go stale.
+                val now = System.currentTimeMillis()
+                val essential = now - lastFullRefreshAtMillis < FULL_REFRESH_INTERVAL_MILLIS
+                if (!essential) lastFullRefreshAtMillis = now
                 runCatching {
-                    nightscoutRepository.refresh()
+                    nightscoutRepository.refresh(essential = essential)
                     alarmCheckRunner.checkAndNotify()
                 }.onFailure { diagnosticLogger.logError(TAG, "Foreground sync cycle failed", it) }
                 // Update the ongoing notification every cycle, so it also shows the loop is still ticking.
@@ -176,6 +184,9 @@ class RefreshForegroundService : Service() {
         private const val NOTIFICATION_ID = 42
         private const val OPEN_APP_REQUEST_CODE = 43
         private const val LATEST_READING_LOOKBACK_HOURS = 24L
+        // Matches WorkManager's battery-friendly cadence: how often a real-time cycle does a full
+        // refresh (profile, devicestatus, lifecycle, adjustments) instead of an essential one.
+        private const val FULL_REFRESH_INTERVAL_MILLIS = 15 * 60_000L
         // Longer than the slowest real-time interval (30 min). Only a leak safety net.
         private const val WAKE_LOCK_SAFETY_TIMEOUT_MILLIS = 45 * 60_000L
         private val DIAGNOSTIC_TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm")

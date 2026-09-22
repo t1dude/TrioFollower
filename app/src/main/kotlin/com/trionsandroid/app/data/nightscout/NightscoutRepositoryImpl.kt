@@ -66,8 +66,8 @@ class NightscoutRepositoryImpl @Inject constructor(
 
     override fun observeInsulinProfile(): Flow<InsulinProfile?> = insulinProfile.asStateFlow()
 
-    override suspend fun refresh(lookbackHours: Int): Result<Unit> {
-        diagnosticLogger.log(TAG, "refresh() starting, lookbackHours=$lookbackHours")
+    override suspend fun refresh(lookbackHours: Int, essential: Boolean): Result<Unit> {
+        diagnosticLogger.log(TAG, "refresh() starting, lookbackHours=$lookbackHours essential=$essential")
         return runCatching {
             val settings = settingsRepository.settings.first()
             val baseUrl = settings.nightscoutUrl
@@ -112,99 +112,104 @@ class NightscoutRepositoryImpl @Inject constructor(
             treatmentDao.deleteNewerThan(futureCutoffMillis())
             deviceStatusDao.deleteOlderThan(cutoffMillis)
 
-            // Profile, devicestatus, lifecycle and adjustment fetches below are isolated so a failure in
-            // one doesn't fail the whole refresh.
-            runCatching {
-                val profileEnvelope = api.getProfile(bearerToken = bearer)
-                decodeResilient<ProfileDocumentDto>("$TAG.Profile", profileEnvelope.result)
-                    .firstOrNull()
-                    ?.toInsulinProfile()
-            }.onSuccess { profile ->
-                if (profile != null) {
-                    insulinProfile.value = profile
-                    diagnosticLogger.log(
-                        TAG,
-                        "Profile: dia=${profile.diaHours}h basalEntries=${profile.basalSchedule.size}",
-                    )
-                } else {
-                    diagnosticLogger.log(TAG, "Profile: no usable profile document found")
+            // Profile, devicestatus, lifecycle and adjustments are skipped on an essential refresh:
+            // alarms only need entries and treatments (see AlarmCheckRunner / PredictedHighEvaluator),
+            // so frequent real-time cycles skip these to cut requests per wake-up. The caller still runs
+            // a full refresh periodically so this data doesn't go stale. Each fetch below is isolated so
+            // a failure in one doesn't fail the whole refresh.
+            if (!essential) {
+                runCatching {
+                    val profileEnvelope = api.getProfile(bearerToken = bearer)
+                    decodeResilient<ProfileDocumentDto>("$TAG.Profile", profileEnvelope.result)
+                        .firstOrNull()
+                        ?.toInsulinProfile()
+                }.onSuccess { profile ->
+                    if (profile != null) {
+                        insulinProfile.value = profile
+                        diagnosticLogger.log(
+                            TAG,
+                            "Profile: dia=${profile.diaHours}h basalEntries=${profile.basalSchedule.size}",
+                        )
+                    } else {
+                        diagnosticLogger.log(TAG, "Profile: no usable profile document found")
+                    }
+                }.onFailure { e ->
+                    diagnosticLogger.logError(TAG, "Profile fetch failed (non-fatal)", e)
                 }
-            }.onFailure { e ->
-                diagnosticLogger.logError(TAG, "Profile fetch failed (non-fatal)", e)
-            }
 
-            // Devicestatus is queried by date and created_at, like treatments.
-            runCatching {
-                val byDate = api.getDeviceStatus(bearerToken = bearer, sinceMillis = sinceMillis)
-                val byCreatedAt = api.getDeviceStatusByCreatedAt(bearerToken = bearer, sinceMillis = sinceMillis)
-                val dtosByDate = decodeResilient<DeviceStatusDto>("$TAG.DeviceStatus", byDate.result)
-                val dtosByCreatedAt = decodeResilient<DeviceStatusDto>("$TAG.DeviceStatus", byCreatedAt.result)
-                val merged = (dtosByDate + dtosByCreatedAt).distinctBy { it.stableId }
-                val storedDeviceStatus = merged.mapNotNull { it.toEntity() }
-                deviceStatusDao.upsertAll(storedDeviceStatus)
-                Triple(byDate.result.size, byCreatedAt.result.size, storedDeviceStatus.size)
-            }.onSuccess { (byDate, byCreatedAt, stored) ->
-                diagnosticLogger.log(TAG, "DeviceStatus: byDate=$byDate byCreatedAt=$byCreatedAt stored=$stored")
-            }.onFailure { e ->
-                diagnosticLogger.logError(TAG, "DeviceStatus fetch failed (non-fatal)", e)
-            }
+                // Devicestatus is queried by date and created_at, like treatments.
+                runCatching {
+                    val byDate = api.getDeviceStatus(bearerToken = bearer, sinceMillis = sinceMillis)
+                    val byCreatedAt = api.getDeviceStatusByCreatedAt(bearerToken = bearer, sinceMillis = sinceMillis)
+                    val dtosByDate = decodeResilient<DeviceStatusDto>("$TAG.DeviceStatus", byDate.result)
+                    val dtosByCreatedAt = decodeResilient<DeviceStatusDto>("$TAG.DeviceStatus", byCreatedAt.result)
+                    val merged = (dtosByDate + dtosByCreatedAt).distinctBy { it.stableId }
+                    val storedDeviceStatus = merged.mapNotNull { it.toEntity() }
+                    deviceStatusDao.upsertAll(storedDeviceStatus)
+                    Triple(byDate.result.size, byCreatedAt.result.size, storedDeviceStatus.size)
+                }.onSuccess { (byDate, byCreatedAt, stored) ->
+                    diagnosticLogger.log(TAG, "DeviceStatus: byDate=$byDate byCreatedAt=$byCreatedAt stored=$stored")
+                }.onFailure { e ->
+                    diagnosticLogger.logError(TAG, "DeviceStatus fetch failed (non-fatal)", e)
+                }
 
-            runCatching {
-                val lookbackMillis = System.currentTimeMillis() - TimeUnit.DAYS.toMillis(LIFECYCLE_LOOKBACK_DAYS)
-                val lifecycleDtos = LIFECYCLE_EVENT_TYPES.flatMap { eventType ->
-                    val byDate = api.getLatestLifecycleEvent(
-                        bearerToken = bearer,
-                        eventType = eventType,
-                        sinceMillis = lookbackMillis,
-                        untilMillis = futureCutoffMillis(),
-                    )
-                    val byCreatedAt = api.getLatestLifecycleEventByCreatedAt(
-                        bearerToken = bearer,
-                        eventType = eventType,
-                        sinceMillis = lookbackMillis,
-                        untilMillis = futureCutoffMillis(),
-                    )
-                    decodeResilient<TreatmentDto>("$TAG.Lifecycle", byDate.result) +
-                        decodeResilient<TreatmentDto>("$TAG.Lifecycle", byCreatedAt.result)
-                }.distinctBy { it.stableId }
-                val storedLifecycle = lifecycleDtos.mapNotNull { it.toEntity() }.notInFuture()
-                treatmentDao.upsertAll(storedLifecycle)
-                storedLifecycle.size
-            }.onSuccess { count ->
-                diagnosticLogger.log(TAG, "Lifecycle events: stored=$count")
-            }.onFailure { e ->
-                diagnosticLogger.logError(TAG, "Lifecycle events fetch failed (non-fatal)", e)
-            }
+                runCatching {
+                    val lookbackMillis = System.currentTimeMillis() - TimeUnit.DAYS.toMillis(LIFECYCLE_LOOKBACK_DAYS)
+                    val lifecycleDtos = LIFECYCLE_EVENT_TYPES.flatMap { eventType ->
+                        val byDate = api.getLatestLifecycleEvent(
+                            bearerToken = bearer,
+                            eventType = eventType,
+                            sinceMillis = lookbackMillis,
+                            untilMillis = futureCutoffMillis(),
+                        )
+                        val byCreatedAt = api.getLatestLifecycleEventByCreatedAt(
+                            bearerToken = bearer,
+                            eventType = eventType,
+                            sinceMillis = lookbackMillis,
+                            untilMillis = futureCutoffMillis(),
+                        )
+                        decodeResilient<TreatmentDto>("$TAG.Lifecycle", byDate.result) +
+                            decodeResilient<TreatmentDto>("$TAG.Lifecycle", byCreatedAt.result)
+                    }.distinctBy { it.stableId }
+                    val storedLifecycle = lifecycleDtos.mapNotNull { it.toEntity() }.notInFuture()
+                    treatmentDao.upsertAll(storedLifecycle)
+                    storedLifecycle.size
+                }.onSuccess { count ->
+                    diagnosticLogger.log(TAG, "Lifecycle events: stored=$count")
+                }.onFailure { e ->
+                    diagnosticLogger.logError(TAG, "Lifecycle events fetch failed (non-fatal)", e)
+                }
 
-            runCatching {
-                val lookbackMillis = System.currentTimeMillis() - TimeUnit.DAYS.toMillis(ADJUSTMENT_LOOKBACK_DAYS)
-                val adjustmentDtos = ADJUSTMENT_EVENT_TYPES.flatMap { eventType ->
-                    val byDate = api.getAdjustments(
-                        bearerToken = bearer,
-                        eventType = eventType,
+                runCatching {
+                    val lookbackMillis = System.currentTimeMillis() - TimeUnit.DAYS.toMillis(ADJUSTMENT_LOOKBACK_DAYS)
+                    val adjustmentDtos = ADJUSTMENT_EVENT_TYPES.flatMap { eventType ->
+                        val byDate = api.getAdjustments(
+                            bearerToken = bearer,
+                            eventType = eventType,
+                            sinceMillis = lookbackMillis,
+                        )
+                        val byCreatedAt = api.getAdjustmentsByCreatedAt(
+                            bearerToken = bearer,
+                            eventType = eventType,
+                            sinceMillis = lookbackMillis,
+                        )
+                        decodeResilient<TreatmentDto>("$TAG.Adjustments", byDate.result) +
+                            decodeResilient<TreatmentDto>("$TAG.Adjustments", byCreatedAt.result)
+                    }.distinctBy { it.stableId }
+                    val storedAdjustments = adjustmentDtos.mapNotNull { it.toEntity() }.notInFuture()
+                    treatmentDao.upsertAll(storedAdjustments)
+                    // Trio replaces an ended override's entry under a new id, so drop the old ones.
+                    treatmentDao.deleteStaleAdjustments(
+                        eventTypes = ADJUSTMENT_EVENT_TYPES,
                         sinceMillis = lookbackMillis,
+                        keepIds = storedAdjustments.map { it.id },
                     )
-                    val byCreatedAt = api.getAdjustmentsByCreatedAt(
-                        bearerToken = bearer,
-                        eventType = eventType,
-                        sinceMillis = lookbackMillis,
-                    )
-                    decodeResilient<TreatmentDto>("$TAG.Adjustments", byDate.result) +
-                        decodeResilient<TreatmentDto>("$TAG.Adjustments", byCreatedAt.result)
-                }.distinctBy { it.stableId }
-                val storedAdjustments = adjustmentDtos.mapNotNull { it.toEntity() }.notInFuture()
-                treatmentDao.upsertAll(storedAdjustments)
-                // Trio replaces an ended override's entry under a new id, so drop the old ones.
-                treatmentDao.deleteStaleAdjustments(
-                    eventTypes = ADJUSTMENT_EVENT_TYPES,
-                    sinceMillis = lookbackMillis,
-                    keepIds = storedAdjustments.map { it.id },
-                )
-                storedAdjustments.size
-            }.onSuccess { count ->
-                diagnosticLogger.log(TAG, "Adjustments: stored=$count")
-            }.onFailure { e ->
-                diagnosticLogger.logError(TAG, "Adjustments fetch failed (non-fatal)", e)
+                    storedAdjustments.size
+                }.onSuccess { count ->
+                    diagnosticLogger.log(TAG, "Adjustments: stored=$count")
+                }.onFailure { e ->
+                    diagnosticLogger.logError(TAG, "Adjustments fetch failed (non-fatal)", e)
+                }
             }
             // Redraw the home screen widgets with the new data.
             runCatching { widgetUpdater.updateAll() }

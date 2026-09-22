@@ -21,6 +21,13 @@ interface NightscoutRepository {
      */
     suspend fun getReasoningForReading(readingTimestamp: java.time.Instant): Reasoning?
 
-    /** Fetches recent data from Nightscout into the local cache. */
-    suspend fun refresh(lookbackHours: Int = 24): Result<Unit>
+    /**
+     * Fetches recent data from Nightscout into the local cache.
+     *
+     * @param essential Skip the profile, devicestatus, lifecycle and adjustment fetches (none of
+     * which alarms depend on) and only pull glucose entries and treatments. Used by frequent
+     * real-time background cycles to cut the number of requests per wake-up; the caller still runs
+     * a full (non-essential) refresh periodically so that data doesn't go stale.
+     */
+    suspend fun refresh(lookbackHours: Int = 24, essential: Boolean = false): Result<Unit>
 }

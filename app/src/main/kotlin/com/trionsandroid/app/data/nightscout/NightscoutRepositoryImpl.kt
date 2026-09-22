@@ -105,6 +105,24 @@ class NightscoutRepositoryImpl @Inject constructor(
                     "merged=${mergedTreatmentDtos.size} stored=${storedTreatments.size}",
             )
 
+            // Trio replaces an edited or deleted carb/bolus entry with a new record instead of
+            // updating the original in place (as it does for overrides; see deleteStaleAdjustments),
+            // so the old one otherwise lingers forever and shows as a duplicate marker on the chart.
+            // Scoped to carb/bolus entries, and to the window just queried, so this can't prune
+            // something outside what was actually re-fetched.
+            runCatching {
+                val freshIds = storedTreatments.map { it.id }.toSet()
+                val staleIds = treatmentDao.getSince(sinceMillis)
+                    .filter { it.id !in freshIds && it.isCarbOrBolusEntry() }
+                    .map { it.id }
+                if (staleIds.isNotEmpty()) treatmentDao.deleteByIds(staleIds)
+                staleIds.size
+            }.onSuccess { count ->
+                if (count > 0) diagnosticLogger.log(TAG, "Treatments: pruned $count stale carb/bolus entr${if (count == 1) "y" else "ies"}")
+            }.onFailure { e ->
+                diagnosticLogger.logError(TAG, "Stale carb/bolus prune failed (non-fatal)", e)
+            }
+
             val cutoffMillis = System.currentTimeMillis() - TimeUnit.HOURS.toMillis(RETENTION_HOURS)
             glucoseEntryDao.deleteOlderThan(cutoffMillis)
             treatmentDao.deleteOlderThan(cutoffMillis)
@@ -239,6 +257,10 @@ class NightscoutRepositoryImpl @Inject constructor(
         val cutoff = futureCutoffMillis()
         return filter { it.dateMillis <= cutoff }
     }
+
+    /** Mirrors how the chart and history classify a carb or bolus marker (see GlucoseChart). */
+    private fun TreatmentEntity.isCarbOrBolusEntry(): Boolean =
+        (carbsGrams ?: 0.0) > 0.0 || ((insulinUnits ?: 0.0) > 0.0 && isBolusEventType(eventType))
 
     private companion object {
         // Allowance for clock skew.

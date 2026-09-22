@@ -13,6 +13,13 @@ interface TreatmentDao {
     @Query("SELECT * FROM treatments WHERE dateMillis >= :sinceMillis ORDER BY dateMillis ASC")
     fun observeSince(sinceMillis: Long): Flow<List<TreatmentEntity>>
 
+    /** One-shot read for stale-row pruning (see [deleteByIds]); [observeSince] is a Flow, not a snapshot. */
+    @Query("SELECT * FROM treatments WHERE dateMillis >= :sinceMillis")
+    suspend fun getSince(sinceMillis: Long): List<TreatmentEntity>
+
+    @Query("DELETE FROM treatments WHERE id IN (:ids)")
+    suspend fun deleteByIds(ids: List<String>)
+
     @Query("DELETE FROM treatments WHERE dateMillis > :afterMillis")
     suspend fun deleteNewerThan(afterMillis: Long)
 

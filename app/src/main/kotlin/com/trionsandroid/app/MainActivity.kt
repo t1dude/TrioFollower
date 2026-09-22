@@ -1,9 +1,11 @@
 package com.trionsandroid.app
 
 import android.content.Intent
+import android.graphics.Color
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.lifecycle.lifecycleScope
@@ -27,7 +29,14 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        // The theme is always dark (see TrioNSTheme), so the status/nav bar icons must always be
+        // light, regardless of the system's own light/dark setting. The default enableEdgeToEdge()
+        // picks icon color from the system's mode instead of the app's, so on a device in system
+        // light mode it chose dark icons over our dark background: unreadable status bar text.
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
+        )
         setContent {
             TrioNSTheme {
                 TrioNavHost()

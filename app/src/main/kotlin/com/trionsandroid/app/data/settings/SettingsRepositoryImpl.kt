@@ -101,6 +101,7 @@ class SettingsRepositoryImpl @Inject constructor(
             prefs[Keys.NOT_LOOPING_MINUTES] = alarms.notLoopingMinutes
             prefs[Keys.LOW_PHONE_BATTERY_ALARM_ENABLED] = alarms.lowPhoneBatteryAlarmEnabled
             prefs[Keys.LOW_PHONE_BATTERY_PERCENT] = alarms.lowPhoneBatteryPercent
+            prefs[Keys.RANDOM_ALARM_ENABLED] = alarms.randomAlarmEnabled
         }
     }
 
@@ -180,6 +181,7 @@ class SettingsRepositoryImpl @Inject constructor(
                     ?: defaultAlarms.lowPhoneBatteryAlarmEnabled,
                 lowPhoneBatteryPercent = this[Keys.LOW_PHONE_BATTERY_PERCENT]
                     ?: defaultAlarms.lowPhoneBatteryPercent,
+                randomAlarmEnabled = this[Keys.RANDOM_ALARM_ENABLED] ?: defaultAlarms.randomAlarmEnabled,
             ),
         )
     }
@@ -228,5 +230,6 @@ class SettingsRepositoryImpl @Inject constructor(
         val NOT_LOOPING_MINUTES = intPreferencesKey("not_looping_minutes")
         val LOW_PHONE_BATTERY_ALARM_ENABLED = booleanPreferencesKey("low_phone_battery_alarm_enabled")
         val LOW_PHONE_BATTERY_PERCENT = intPreferencesKey("low_phone_battery_percent")
+        val RANDOM_ALARM_ENABLED = booleanPreferencesKey("random_alarm_enabled")
     }
 }

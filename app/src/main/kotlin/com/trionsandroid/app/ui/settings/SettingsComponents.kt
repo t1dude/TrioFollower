@@ -190,6 +190,31 @@ fun PredictedHighInfoSheet(onDismiss: () -> Unit) {
     }
 }
 
+/** Explains the Random Alarm. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun RandomAlarmInfoSheet(onDismiss: () -> Unit) {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(start = 24.dp, end = 24.dp, bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text("Random alarm 🎲", style = MaterialTheme.typography.titleLarge)
+            Text(
+                "If all the alarms above aren't quite enough alarm fatigue for you, this one's for you.",
+            )
+            Text(
+                "It fires at a few random times a day — up to 4 — for no reason at all. No threshold " +
+                    "to set: it's either on or off.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
 @Composable
 fun ThresholdRow(
     label: String,

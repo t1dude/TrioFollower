@@ -13,4 +13,6 @@ enum class SupplementalAlarmKind(val displayTitle: String, val notificationId: I
     NOT_LOOPING("Not looping", 1015),
     /** The Trio (looping) phone's own battery, as it reports itself to Nightscout — not this app's phone. */
     LOW_PHONE_BATTERY("Low Trio phone battery", 1016),
+    /** Fires at a few random times a day, for no reason — see RandomAlarmInfoSheet. */
+    RANDOM_ALARM("Random alarm", 1017),
 }

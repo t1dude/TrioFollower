@@ -10,10 +10,13 @@ import com.trionsandroid.app.data.settings.AlarmSettings
 import com.trionsandroid.app.data.settings.SettingsRepository
 import kotlinx.coroutines.flow.first
 import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import kotlin.math.roundToInt
+import kotlin.random.Random
 
 /**
  * Run after each refresh (by RefreshWorker and RefreshForegroundService): checks the latest
@@ -92,9 +95,10 @@ class AlarmCheckRunner @Inject constructor(
     }
 
     /**
-     * The Additional Alarms: IOB, COB, reservoir, sensor/pump change, not looping and low phone
-     * battery. Unlike the glucose zone above, these are independent of each other — any number can
-     * be active at once — so each is tracked and notified separately (see [evaluateSupplemental]).
+     * The Additional Alarms: IOB, COB, reservoir, sensor/pump change, not looping, low phone
+     * battery and the random alarm. Unlike the glucose zone above, these are independent of each
+     * other — any number can be active at once — so each is tracked and notified separately (see
+     * [evaluateSupplemental] and, for the random alarm's different event-based shape, [checkRandomAlarm]).
      */
     private suspend fun checkSupplementalAlarms(alarms: AlarmSettings) {
         val nowMillis = System.currentTimeMillis()
@@ -168,6 +172,57 @@ class AlarmCheckRunner @Inject constructor(
             isActive = alarms.lowPhoneBatteryAlarmEnabled && statusFresh && uploaderBattery != null &&
                 uploaderBattery <= alarms.lowPhoneBatteryPercent,
         ) { "Trio phone battery at $uploaderBattery% (threshold ${alarms.lowPhoneBatteryPercent}%)" }
+
+        checkRandomAlarm(alarms)
+    }
+
+    /**
+     * Fires at a few random times a day (1-4), for no reason — see RandomAlarmInfoSheet. Unlike the
+     * other supplemental alarms, this isn't a condition that's true or false each check; it's a
+     * one-off event, so it has its own scheduling instead of going through [evaluateSupplemental].
+     */
+    private suspend fun checkRandomAlarm(alarms: AlarmSettings) {
+        if (!alarms.randomAlarmEnabled) return
+        val kind = SupplementalAlarmKind.RANDOM_ALARM
+        val nowMillis = System.currentTimeMillis()
+        val today = LocalDate.now().toString()
+
+        if (alarmStateStore.getRandomAlarmScheduleDate() != today) {
+            val times = randomAlarmTimesForToday()
+            alarmStateStore.setRandomAlarmScheduleDate(today)
+            alarmStateStore.setRandomAlarmPendingMillis(times)
+            diagnosticLogger.log(TAG, "Random alarm: ${times.size} time(s) scheduled for today")
+        }
+
+        val pending = alarmStateStore.getRandomAlarmPendingMillis()
+        val due = pending.filter { it <= nowMillis }
+        if (due.isNotEmpty()) {
+            // One notification per check even if more than one came due at once (e.g. after a long
+            // gap in background checks); the rest are simply dropped rather than bursting several.
+            alarmStateStore.setRandomAlarmPendingMillis(pending - due.toSet())
+            alarmStateStore.setSupplementalAcknowledged(kind, false)
+            alarmStateStore.setSupplementalLastNotifiedAtMillis(kind, nowMillis)
+            diagnosticLogger.log(TAG, "Random alarm firing")
+            alarmNotifier.notifySupplemental(kind, RANDOM_ALARM_MESSAGES.random(), alarms)
+            return
+        }
+
+        // No new fire this cycle: repeat only an unacknowledged one, same as the other alarms.
+        // isSupplementalAcknowledged defaults to true, so this is a no-op before the first ever fire.
+        if (!alarms.requireAcknowledgement || !alarms.repeatIfNotAcknowledged) return
+        if (alarmStateStore.isSupplementalAcknowledged(kind)) return
+        if (nowMillis - alarmStateStore.getSupplementalLastNotifiedAtMillis(kind) < REPEAT_INTERVAL_MILLIS) return
+        diagnosticLogger.log(TAG, "Repeating unacknowledged random alarm")
+        alarmStateStore.setSupplementalLastNotifiedAtMillis(kind, nowMillis)
+        alarmNotifier.notifySupplemental(kind, RANDOM_ALARM_MESSAGES.random(), alarms)
+    }
+
+    /** 1 to 4 random instants, uniformly spread across today (the device's local day). */
+    private fun randomAlarmTimesForToday(): List<Long> {
+        val dayStartMillis = LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        val dayLengthMillis = TimeUnit.DAYS.toMillis(1)
+        val count = Random.nextInt(1, MAX_RANDOM_ALARMS_PER_DAY + 1)
+        return List(count) { dayStartMillis + Random.nextLong(dayLengthMillis) }.sorted()
     }
 
     /**
@@ -219,5 +274,13 @@ class AlarmCheckRunner @Inject constructor(
         const val LIFECYCLE_LOOKBACK_DAYS = 30L
         val PREDICTED_HIGH_COOLDOWN_MILLIS = TimeUnit.MINUTES.toMillis(60)
         val REPEAT_INTERVAL_MILLIS = TimeUnit.MINUTES.toMillis(5)
+        const val MAX_RANDOM_ALARMS_PER_DAY = 4
+        val RANDOM_ALARM_MESSAGES = listOf(
+            "Beep. No reason. Carry on.",
+            "This is not a drill. Or is it?",
+            "Just checking you're still paying attention.",
+            "Nothing's wrong. We just missed you.",
+            "A completely unnecessary alarm, exactly as requested.",
+        )
     }
 }

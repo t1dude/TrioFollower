@@ -55,4 +55,9 @@ data class AlarmSettings(
      */
     val lowPhoneBatteryAlarmEnabled: Boolean = false,
     val lowPhoneBatteryPercent: Int = 20,
+    /**
+     * For when the other alarms aren't quite enough alarm fatigue: fires at a few random times a
+     * day (up to 4), for no reason at all. No threshold to set. Off by default.
+     */
+    val randomAlarmEnabled: Boolean = false,
 )

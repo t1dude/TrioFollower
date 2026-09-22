@@ -61,6 +61,8 @@ fun SettingsScreen(expandBasicSettings: Boolean = false, viewModel: SettingsView
     var showToken by remember { mutableStateOf(false) }
     var showPredictedHighInfo by remember { mutableStateOf(false) }
     if (showPredictedHighInfo) PredictedHighInfoSheet(onDismiss = { showPredictedHighInfo = false })
+    var showRandomAlarmInfo by remember { mutableStateOf(false) }
+    if (showRandomAlarmInfo) RandomAlarmInfoSheet(onDismiss = { showRandomAlarmInfo = false })
 
     LazyColumn(
         modifier = Modifier
@@ -580,6 +582,14 @@ fun SettingsScreen(expandBasicSettings: Boolean = false, viewModel: SettingsView
                                 }
                             }
                         }
+                        LabeledSwitch(
+                            label = "Random alarm",
+                            checked = uiState.alarms.randomAlarmEnabled,
+                            onCheckedChange = {
+                                viewModel.onAlarmSettingsChange(uiState.alarms.copy(randomAlarmEnabled = it))
+                            },
+                            onInfoClick = { showRandomAlarmInfo = true },
+                        )
                     }
                 }
             }

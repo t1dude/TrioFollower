@@ -85,10 +85,33 @@ class AlarmStateStore @Inject constructor(
     private fun supplementalLastNotifiedAtKey(kind: SupplementalAlarmKind) =
         longPreferencesKey("supplemental_${kind.name}_last_notified_at_millis")
 
+    // --- Random alarm's own daily schedule (see AlarmCheckRunner.checkRandomAlarm). ---
+
+    /** The local date (ISO, e.g. "2026-09-22") [getRandomAlarmPendingMillis] was generated for. */
+    suspend fun getRandomAlarmScheduleDate(): String? =
+        dataStore.data.map { it[Keys.RANDOM_ALARM_SCHEDULE_DATE] }.first()
+
+    suspend fun setRandomAlarmScheduleDate(date: String) {
+        dataStore.edit { it[Keys.RANDOM_ALARM_SCHEDULE_DATE] = date }
+    }
+
+    /** Today's not-yet-fired random alarm times (epoch millis), regenerated once per local day. */
+    suspend fun getRandomAlarmPendingMillis(): List<Long> =
+        dataStore.data
+            .map { prefs -> prefs[Keys.RANDOM_ALARM_PENDING_MILLIS]?.split(',')?.mapNotNull { it.toLongOrNull() } }
+            .first()
+            ?: emptyList()
+
+    suspend fun setRandomAlarmPendingMillis(millis: List<Long>) {
+        dataStore.edit { it[Keys.RANDOM_ALARM_PENDING_MILLIS] = millis.joinToString(",") }
+    }
+
     private object Keys {
         val LAST_PREDICTED_HIGH_NOTIFIED_AT_MILLIS = longPreferencesKey("alarm_last_predicted_high_notified_at_millis")
         val LAST_ZONE = stringPreferencesKey("last_alarm_zone")
         val ACKNOWLEDGED = booleanPreferencesKey("alarm_acknowledged")
         val LAST_NOTIFIED_AT_MILLIS = longPreferencesKey("alarm_last_notified_at_millis")
+        val RANDOM_ALARM_SCHEDULE_DATE = stringPreferencesKey("random_alarm_schedule_date")
+        val RANDOM_ALARM_PENDING_MILLIS = stringPreferencesKey("random_alarm_pending_millis")
     }
 }

@@ -527,7 +527,7 @@ fun SettingsScreen(expandBasicSettings: Boolean = false, viewModel: SettingsView
                             },
                             valueContent = {
                                 StepperRow(
-                                    label = "Threshold (below)",
+                                    label = "Threshold",
                                     valueText = String.format(Locale.getDefault(), "%.1f U", alarms.reservoir.thresholdUnits),
                                     onDecrease = {
                                         val value = (alarms.reservoir.thresholdUnits - 5).coerceAtLeast(5.0)
@@ -552,7 +552,7 @@ fun SettingsScreen(expandBasicSettings: Boolean = false, viewModel: SettingsView
                             },
                             valueContent = {
                                 StepperRow(
-                                    label = "Time left (below)",
+                                    label = "Time left",
                                     valueText = "${alarms.pumpChange.hoursThreshold} h",
                                     onDecrease = {
                                         val value = (alarms.pumpChange.hoursThreshold - 1).coerceAtLeast(1)
@@ -577,7 +577,7 @@ fun SettingsScreen(expandBasicSettings: Boolean = false, viewModel: SettingsView
                             },
                             valueContent = {
                                 StepperRow(
-                                    label = "Time left (below)",
+                                    label = "Time left",
                                     valueText = "${alarms.sensorChange.hoursThreshold} h",
                                     onDecrease = {
                                         val value = (alarms.sensorChange.hoursThreshold - 1).coerceAtLeast(1)
@@ -645,7 +645,7 @@ fun SettingsScreen(expandBasicSettings: Boolean = false, viewModel: SettingsView
                             valueContent = {
                                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                     StepperRow(
-                                        label = "Threshold (below)",
+                                        label = "Threshold",
                                         valueText = "${alarms.lowPhoneBattery.percent}%",
                                         onDecrease = {
                                             val value = (alarms.lowPhoneBattery.percent - 5).coerceAtLeast(5)

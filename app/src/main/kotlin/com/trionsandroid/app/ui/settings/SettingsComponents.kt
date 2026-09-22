@@ -286,6 +286,7 @@ private fun TogglePairItem(label: String, checked: Boolean, onCheckedChange: (Bo
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.bodyMedium,
         )
+        Spacer(Modifier.width(8.dp))
         Switch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }

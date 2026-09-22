@@ -49,7 +49,10 @@ data class AlarmSettings(
     /** Alert when no confirmed loop (algorithm reasoning) for [notLoopingMinutes]. Off by default. */
     val notLoopingAlarmEnabled: Boolean = false,
     val notLoopingMinutes: Int = 20,
-    /** Alert when the phone's own battery drops to or below [lowPhoneBatteryPercent]. Off by default. */
+    /**
+     * Alert when the Trio (looping) phone's own battery, as it reports itself to Nightscout, drops
+     * to or below [lowPhoneBatteryPercent]. Not the battery of the phone this app runs on. Off by default.
+     */
     val lowPhoneBatteryAlarmEnabled: Boolean = false,
     val lowPhoneBatteryPercent: Int = 20,
 )

@@ -527,7 +527,7 @@ fun SettingsScreen(expandBasicSettings: Boolean = false, viewModel: SettingsView
                             },
                         )
                         NumericThresholdRow(
-                            label = "Low phone battery below",
+                            label = "Trio phone battery below",
                             enabled = uiState.alarms.lowPhoneBatteryAlarmEnabled,
                             onEnabledChange = {
                                 viewModel.onAlarmSettingsChange(uiState.alarms.copy(lowPhoneBatteryAlarmEnabled = it))
@@ -542,6 +542,14 @@ fun SettingsScreen(expandBasicSettings: Boolean = false, viewModel: SettingsView
                                 viewModel.onAlarmSettingsChange(uiState.alarms.copy(lowPhoneBatteryPercent = value))
                             },
                         )
+                        if (uiState.alarms.lowPhoneBatteryAlarmEnabled) {
+                            Text(
+                                text = "The battery of the phone running Trio, as it reports to Nightscout — " +
+                                    "not this phone.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                         LabeledSwitch(
                             label = "Not looping",
                             checked = uiState.alarms.notLoopingAlarmEnabled,

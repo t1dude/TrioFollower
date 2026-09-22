@@ -16,6 +16,9 @@ data class DeviceStatusDto(
     @SerialName("created_at") val createdAt: String? = null,
     val openaps: OpenApsStatusDto? = null,
     val pump: PumpStatusDto? = null,
+    // The battery of the phone Trio runs on (as opposed to the pump's own battery), for the Low
+    // phone battery alarm and any future "uploader" display.
+    val uploader: UploaderStatusDto? = null,
 ) {
     val stableId: String get() = identifier ?: legacyId ?: "${date}_$createdAt"
 }
@@ -27,6 +30,12 @@ data class DeviceStatusDto(
 @Serializable
 data class PumpStatusDto(
     val reservoir: Double? = null,
+)
+
+/** devicestatus.uploader: the looping phone's own battery level (0-100), as it reports itself. */
+@Serializable
+data class UploaderStatusDto(
+    val battery: Double? = null,
 )
 
 @Serializable

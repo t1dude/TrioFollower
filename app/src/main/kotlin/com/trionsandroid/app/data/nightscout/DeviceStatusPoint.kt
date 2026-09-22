@@ -8,6 +8,8 @@ data class DeviceStatusPoint(
     val cobGrams: Double?,
     // Double.POSITIVE_INFINITY means "50 U or more, level unknown" (shown as "50+").
     val reservoirUnits: Double?,
+    /** The looping phone's own battery (0-100), not this app's phone. */
+    val uploaderBatteryPercent: Double? = null,
     /** The loop's eventual glucose prediction (mg/dL). */
     val eventualBgMgDl: Int? = null,
 )

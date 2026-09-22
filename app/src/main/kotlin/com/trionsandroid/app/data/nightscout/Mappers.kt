@@ -135,13 +135,19 @@ fun DeviceStatusDto.toEntity(): DeviceStatusEntity? {
         null
     }
     val eventualBg = (openaps?.suggested?.eventualBG ?: openaps?.enacted?.eventualBG)?.roundToInt()
-    if (iob == null && cob == null && reservoir == null && reason == null && !hasForecast && eventualBg == null) return null
+    val uploaderBattery = uploader?.battery
+    if (iob == null && cob == null && reservoir == null && reason == null && !hasForecast &&
+        eventualBg == null && uploaderBattery == null
+    ) {
+        return null
+    }
     return DeviceStatusEntity(
         id = stableId,
         dateMillis = dateMillis,
         iobUnits = iob,
         cobGrams = cob,
         reservoirUnits = reservoir,
+        uploaderBatteryPercent = uploaderBattery,
         reason = reason,
         eventualBgMgDl = eventualBg,
         forecastStartMillis = forecastStart,
@@ -180,6 +186,7 @@ fun DeviceStatusSummary.toDomain(): DeviceStatusPoint = DeviceStatusPoint(
     iobUnits = iobUnits,
     cobGrams = cobGrams,
     reservoirUnits = reservoirUnits,
+    uploaderBatteryPercent = uploaderBatteryPercent,
     eventualBgMgDl = eventualBgMgDl,
 )
 
@@ -188,6 +195,7 @@ fun DeviceStatusEntity.toDomain(): DeviceStatusPoint = DeviceStatusPoint(
     iobUnits = iobUnits,
     cobGrams = cobGrams,
     reservoirUnits = reservoirUnits,
+    uploaderBatteryPercent = uploaderBatteryPercent,
     eventualBgMgDl = eventualBgMgDl,
 )
 

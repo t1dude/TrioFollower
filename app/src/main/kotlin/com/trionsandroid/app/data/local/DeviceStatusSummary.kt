@@ -7,5 +7,6 @@ data class DeviceStatusSummary(
     val iobUnits: Double?,
     val cobGrams: Double?,
     val reservoirUnits: Double?,
+    val uploaderBatteryPercent: Double?,
     val eventualBgMgDl: Int?,
 )

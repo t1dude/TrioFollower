@@ -15,8 +15,8 @@ interface DeviceStatusDao {
 
     /** Same rows without the large `reason` and forecast columns, for the IOB/COB/HUD lists. */
     @Query(
-        "SELECT id, dateMillis, iobUnits, cobGrams, reservoirUnits, eventualBgMgDl FROM device_status " +
-            "WHERE dateMillis >= :sinceMillis ORDER BY dateMillis ASC",
+        "SELECT id, dateMillis, iobUnits, cobGrams, reservoirUnits, uploaderBatteryPercent, eventualBgMgDl " +
+            "FROM device_status WHERE dateMillis >= :sinceMillis ORDER BY dateMillis ASC",
     )
     fun observeSummariesSince(sinceMillis: Long): Flow<List<DeviceStatusSummary>>
 

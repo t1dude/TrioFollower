@@ -10,6 +10,9 @@ data class DeviceStatusEntity(
     val iobUnits: Double?,
     val cobGrams: Double?,
     val reservoirUnits: Double?,
+    // The looping phone's own battery (0-100), from devicestatus.uploader.battery. Not the battery
+    // of the phone this app runs on.
+    val uploaderBatteryPercent: Double? = null,
     val reason: String? = null,
     val eventualBgMgDl: Int? = null,
     // Forecast curves as comma-separated mg/dL; forecastStartMillis is set only when a curve exists.

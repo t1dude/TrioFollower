@@ -5,7 +5,7 @@ import androidx.room.RoomDatabase
 
 @Database(
     entities = [GlucoseEntryEntity::class, TreatmentEntity::class, DeviceStatusEntity::class],
-    version = 7,
+    version = 8,
     exportSchema = true,
 )
 abstract class TrioDatabase : RoomDatabase() {

@@ -1,6 +1,5 @@
 package com.trionsandroid.app.data.alarm
 
-import com.trionsandroid.app.data.device.PhoneBatteryReader
 import com.trionsandroid.app.data.logging.DiagnosticLogger
 import com.trionsandroid.app.data.nightscout.NightscoutRepository
 import com.trionsandroid.app.data.nightscout.formatTimeRemaining
@@ -26,7 +25,6 @@ class AlarmCheckRunner @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val alarmStateStore: AlarmStateStore,
     private val alarmNotifier: AlarmNotifier,
-    private val phoneBatteryReader: PhoneBatteryReader,
     private val diagnosticLogger: DiagnosticLogger,
 ) {
     suspend fun checkAndNotify() {
@@ -161,13 +159,15 @@ class AlarmCheckRunner @Inject constructor(
             if (minutesSinceLoop == null) "No confirmed loop yet" else "No confirmed loop for $minutesSinceLoop min"
         }
 
-        val batteryPercent = phoneBatteryReader.currentLevelPercent()
+        // The Trio (looping) phone's own battery, as it reports itself to Nightscout — not the
+        // battery of the phone this app runs on.
+        val uploaderBattery = latestStatus?.uploaderBatteryPercent?.roundToInt()
         evaluateSupplemental(
             kind = SupplementalAlarmKind.LOW_PHONE_BATTERY,
             alarms = alarms,
-            isActive = alarms.lowPhoneBatteryAlarmEnabled && batteryPercent != null &&
-                batteryPercent <= alarms.lowPhoneBatteryPercent,
-        ) { "Phone battery at $batteryPercent% (threshold ${alarms.lowPhoneBatteryPercent}%)" }
+            isActive = alarms.lowPhoneBatteryAlarmEnabled && statusFresh && uploaderBattery != null &&
+                uploaderBattery <= alarms.lowPhoneBatteryPercent,
+        ) { "Trio phone battery at $uploaderBattery% (threshold ${alarms.lowPhoneBatteryPercent}%)" }
     }
 
     /**

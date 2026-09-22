@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -60,6 +61,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
@@ -180,7 +182,7 @@ fun PredictedHighInfoSheet(onDismiss: () -> Unit) {
             Text(
                 "When Reese's glucose is rising slowly, his Mom would like an alert so she can make sure " +
                     "the necessary adjustments are made. It helps handle scenarios like pump failure, " +
-                    "leakage, occlusions - or just sleeping in.",
+                    "leakage, occlusions - or forgetting to change the pump.",
             )
             Text("How it works", style = MaterialTheme.typography.titleMedium)
             Text(
@@ -245,13 +247,22 @@ fun StepperRow(
             Spacer(modifier = Modifier.size(10.dp).background(dotColor, CircleShape))
             Spacer(Modifier.width(12.dp))
         }
-        Text(label, modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurface)
+        Text(
+            label,
+            modifier = Modifier.weight(1f),
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Spacer(Modifier.width(4.dp))
         IconButton(onClick = onDecrease) {
             Icon(Icons.Filled.Remove, contentDescription = "Decrease $label")
         }
+        // A minimum rather than a fixed width, so a short value (most of them) gives the label
+        // the room it needs instead of reserving space for the longest value up front.
         Text(
             text = valueText,
-            modifier = Modifier.width(84.dp),
+            modifier = Modifier.widthIn(min = 52.dp),
             textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurface,
         )
@@ -279,14 +290,16 @@ fun TogglePairRow(
 
 @Composable
 private fun TogglePairItem(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit, modifier: Modifier) {
+    // The label fills its half of the row (rather than hugging the switch), so the switch always
+    // lands at the same fixed column - aligned with the switch on the row above/below it - instead
+    // of drifting left or right depending on how long that row's label happens to be.
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
         Text(
             label,
-            modifier = Modifier.weight(1f, fill = false),
+            modifier = Modifier.weight(1f),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.bodyMedium,
         )
-        Spacer(Modifier.width(8.dp))
         Switch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }

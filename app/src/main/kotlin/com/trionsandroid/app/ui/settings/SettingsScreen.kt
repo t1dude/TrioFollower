@@ -434,9 +434,6 @@ fun SettingsScreen(expandBasicSettings: Boolean = false, viewModel: SettingsView
                                 )
                             },
                         )
-                    }
-                    Spacer(Modifier.height(16.dp))
-                    SettingsSubsection(title = "Additional Alarms") {
                         AlarmAccordion(
                             title = "Predicted high (Reese Mode)",
                             enabled = alarms.predictedHigh.enabled,
@@ -449,6 +446,9 @@ fun SettingsScreen(expandBasicSettings: Boolean = false, viewModel: SettingsView
                             },
                             onInfoClick = { showPredictedHighInfo = true },
                         )
+                    }
+                    Spacer(Modifier.height(16.dp))
+                    SettingsSubsection(title = "Additional Alarms") {
                         AlarmAccordion(
                             title = "No data",
                             enabled = alarms.noData.enabled,
@@ -480,6 +480,114 @@ fun SettingsScreen(expandBasicSettings: Boolean = false, viewModel: SettingsView
                                         }
                                     }
                                 }
+                            },
+                        )
+                        AlarmAccordion(
+                            title = "Not looping",
+                            enabled = alarms.notLooping.enabled,
+                            onEnabledChange = {
+                                viewModel.onAlarmSettingsChange(alarms.copy(notLooping = alarms.notLooping.copy(enabled = it)))
+                            },
+                            behavior = alarms.notLooping.behavior,
+                            onBehaviorChange = {
+                                viewModel.onAlarmSettingsChange(alarms.copy(notLooping = alarms.notLooping.copy(behavior = it)))
+                            },
+                            valueContent = {
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Text(
+                                        text = "Alert if no confirmed loop for",
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                                        NOT_LOOPING_MINUTES_OPTIONS.forEachIndexed { index, minutes ->
+                                            SegmentedButton(
+                                                selected = alarms.notLooping.minutes == minutes,
+                                                onClick = {
+                                                    viewModel.onAlarmSettingsChange(alarms.copy(notLooping = alarms.notLooping.copy(minutes = minutes)))
+                                                },
+                                                shape = SegmentedButtonDefaults.itemShape(index = index, count = NOT_LOOPING_MINUTES_OPTIONS.size),
+                                            ) {
+                                                Text("$minutes min")
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                        )
+                        AlarmAccordion(
+                            title = "Reservoir low",
+                            enabled = alarms.reservoir.enabled,
+                            onEnabledChange = {
+                                viewModel.onAlarmSettingsChange(alarms.copy(reservoir = alarms.reservoir.copy(enabled = it)))
+                            },
+                            behavior = alarms.reservoir.behavior,
+                            onBehaviorChange = {
+                                viewModel.onAlarmSettingsChange(alarms.copy(reservoir = alarms.reservoir.copy(behavior = it)))
+                            },
+                            valueContent = {
+                                StepperRow(
+                                    label = "Threshold (below)",
+                                    valueText = String.format(Locale.getDefault(), "%.1f U", alarms.reservoir.thresholdUnits),
+                                    onDecrease = {
+                                        val value = (alarms.reservoir.thresholdUnits - 5).coerceAtLeast(5.0)
+                                        viewModel.onAlarmSettingsChange(alarms.copy(reservoir = alarms.reservoir.copy(thresholdUnits = value)))
+                                    },
+                                    onIncrease = {
+                                        val value = (alarms.reservoir.thresholdUnits + 5).coerceAtMost(100.0)
+                                        viewModel.onAlarmSettingsChange(alarms.copy(reservoir = alarms.reservoir.copy(thresholdUnits = value)))
+                                    },
+                                )
+                            },
+                        )
+                        AlarmAccordion(
+                            title = "Pump change due",
+                            enabled = alarms.pumpChange.enabled,
+                            onEnabledChange = {
+                                viewModel.onAlarmSettingsChange(alarms.copy(pumpChange = alarms.pumpChange.copy(enabled = it)))
+                            },
+                            behavior = alarms.pumpChange.behavior,
+                            onBehaviorChange = {
+                                viewModel.onAlarmSettingsChange(alarms.copy(pumpChange = alarms.pumpChange.copy(behavior = it)))
+                            },
+                            valueContent = {
+                                StepperRow(
+                                    label = "Time left (below)",
+                                    valueText = "${alarms.pumpChange.hoursThreshold} h",
+                                    onDecrease = {
+                                        val value = (alarms.pumpChange.hoursThreshold - 1).coerceAtLeast(1)
+                                        viewModel.onAlarmSettingsChange(alarms.copy(pumpChange = alarms.pumpChange.copy(hoursThreshold = value)))
+                                    },
+                                    onIncrease = {
+                                        val value = (alarms.pumpChange.hoursThreshold + 1).coerceAtMost(48)
+                                        viewModel.onAlarmSettingsChange(alarms.copy(pumpChange = alarms.pumpChange.copy(hoursThreshold = value)))
+                                    },
+                                )
+                            },
+                        )
+                        AlarmAccordion(
+                            title = "CGM due",
+                            enabled = alarms.sensorChange.enabled,
+                            onEnabledChange = {
+                                viewModel.onAlarmSettingsChange(alarms.copy(sensorChange = alarms.sensorChange.copy(enabled = it)))
+                            },
+                            behavior = alarms.sensorChange.behavior,
+                            onBehaviorChange = {
+                                viewModel.onAlarmSettingsChange(alarms.copy(sensorChange = alarms.sensorChange.copy(behavior = it)))
+                            },
+                            valueContent = {
+                                StepperRow(
+                                    label = "Time left (below)",
+                                    valueText = "${alarms.sensorChange.hoursThreshold} h",
+                                    onDecrease = {
+                                        val value = (alarms.sensorChange.hoursThreshold - 1).coerceAtLeast(1)
+                                        viewModel.onAlarmSettingsChange(alarms.copy(sensorChange = alarms.sensorChange.copy(hoursThreshold = value)))
+                                    },
+                                    onIncrease = {
+                                        val value = (alarms.sensorChange.hoursThreshold + 1).coerceAtMost(48)
+                                        viewModel.onAlarmSettingsChange(alarms.copy(sensorChange = alarms.sensorChange.copy(hoursThreshold = value)))
+                                    },
+                                )
                             },
                         )
                         AlarmAccordion(
@@ -522,114 +630,6 @@ fun SettingsScreen(expandBasicSettings: Boolean = false, viewModel: SettingsView
                                         viewModel.onAlarmSettingsChange(alarms.copy(cob = alarms.cob.copy(thresholdGrams = value)))
                                     },
                                 )
-                            },
-                        )
-                        AlarmAccordion(
-                            title = "Reservoir low",
-                            enabled = alarms.reservoir.enabled,
-                            onEnabledChange = {
-                                viewModel.onAlarmSettingsChange(alarms.copy(reservoir = alarms.reservoir.copy(enabled = it)))
-                            },
-                            behavior = alarms.reservoir.behavior,
-                            onBehaviorChange = {
-                                viewModel.onAlarmSettingsChange(alarms.copy(reservoir = alarms.reservoir.copy(behavior = it)))
-                            },
-                            valueContent = {
-                                StepperRow(
-                                    label = "Threshold (below)",
-                                    valueText = String.format(Locale.getDefault(), "%.1f U", alarms.reservoir.thresholdUnits),
-                                    onDecrease = {
-                                        val value = (alarms.reservoir.thresholdUnits - 5).coerceAtLeast(5.0)
-                                        viewModel.onAlarmSettingsChange(alarms.copy(reservoir = alarms.reservoir.copy(thresholdUnits = value)))
-                                    },
-                                    onIncrease = {
-                                        val value = (alarms.reservoir.thresholdUnits + 5).coerceAtMost(100.0)
-                                        viewModel.onAlarmSettingsChange(alarms.copy(reservoir = alarms.reservoir.copy(thresholdUnits = value)))
-                                    },
-                                )
-                            },
-                        )
-                        AlarmAccordion(
-                            title = "Sensor change due",
-                            enabled = alarms.sensorChange.enabled,
-                            onEnabledChange = {
-                                viewModel.onAlarmSettingsChange(alarms.copy(sensorChange = alarms.sensorChange.copy(enabled = it)))
-                            },
-                            behavior = alarms.sensorChange.behavior,
-                            onBehaviorChange = {
-                                viewModel.onAlarmSettingsChange(alarms.copy(sensorChange = alarms.sensorChange.copy(behavior = it)))
-                            },
-                            valueContent = {
-                                StepperRow(
-                                    label = "Time left (below)",
-                                    valueText = "${alarms.sensorChange.hoursThreshold} h",
-                                    onDecrease = {
-                                        val value = (alarms.sensorChange.hoursThreshold - 1).coerceAtLeast(1)
-                                        viewModel.onAlarmSettingsChange(alarms.copy(sensorChange = alarms.sensorChange.copy(hoursThreshold = value)))
-                                    },
-                                    onIncrease = {
-                                        val value = (alarms.sensorChange.hoursThreshold + 1).coerceAtMost(48)
-                                        viewModel.onAlarmSettingsChange(alarms.copy(sensorChange = alarms.sensorChange.copy(hoursThreshold = value)))
-                                    },
-                                )
-                            },
-                        )
-                        AlarmAccordion(
-                            title = "Pump change due",
-                            enabled = alarms.pumpChange.enabled,
-                            onEnabledChange = {
-                                viewModel.onAlarmSettingsChange(alarms.copy(pumpChange = alarms.pumpChange.copy(enabled = it)))
-                            },
-                            behavior = alarms.pumpChange.behavior,
-                            onBehaviorChange = {
-                                viewModel.onAlarmSettingsChange(alarms.copy(pumpChange = alarms.pumpChange.copy(behavior = it)))
-                            },
-                            valueContent = {
-                                StepperRow(
-                                    label = "Time left (below)",
-                                    valueText = "${alarms.pumpChange.hoursThreshold} h",
-                                    onDecrease = {
-                                        val value = (alarms.pumpChange.hoursThreshold - 1).coerceAtLeast(1)
-                                        viewModel.onAlarmSettingsChange(alarms.copy(pumpChange = alarms.pumpChange.copy(hoursThreshold = value)))
-                                    },
-                                    onIncrease = {
-                                        val value = (alarms.pumpChange.hoursThreshold + 1).coerceAtMost(48)
-                                        viewModel.onAlarmSettingsChange(alarms.copy(pumpChange = alarms.pumpChange.copy(hoursThreshold = value)))
-                                    },
-                                )
-                            },
-                        )
-                        AlarmAccordion(
-                            title = "Not looping",
-                            enabled = alarms.notLooping.enabled,
-                            onEnabledChange = {
-                                viewModel.onAlarmSettingsChange(alarms.copy(notLooping = alarms.notLooping.copy(enabled = it)))
-                            },
-                            behavior = alarms.notLooping.behavior,
-                            onBehaviorChange = {
-                                viewModel.onAlarmSettingsChange(alarms.copy(notLooping = alarms.notLooping.copy(behavior = it)))
-                            },
-                            valueContent = {
-                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Text(
-                                        text = "Alert if no confirmed loop for",
-                                        style = MaterialTheme.typography.labelLarge,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                                        NOT_LOOPING_MINUTES_OPTIONS.forEachIndexed { index, minutes ->
-                                            SegmentedButton(
-                                                selected = alarms.notLooping.minutes == minutes,
-                                                onClick = {
-                                                    viewModel.onAlarmSettingsChange(alarms.copy(notLooping = alarms.notLooping.copy(minutes = minutes)))
-                                                },
-                                                shape = SegmentedButtonDefaults.itemShape(index = index, count = NOT_LOOPING_MINUTES_OPTIONS.size),
-                                            ) {
-                                                Text("$minutes min")
-                                            }
-                                        }
-                                    }
-                                }
                             },
                         )
                         AlarmAccordion(

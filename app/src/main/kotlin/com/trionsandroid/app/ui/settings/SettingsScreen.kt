@@ -446,6 +446,14 @@ fun SettingsScreen(expandBasicSettings: Boolean = false, viewModel: SettingsView
                             },
                         )
                     }
+                    Spacer(Modifier.height(16.dp))
+                    SettingsSubsection(title = "Additional Alarms") {
+                        Text(
+                            text = "More alarm options coming soon.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
         }

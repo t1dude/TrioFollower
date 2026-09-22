@@ -33,4 +33,8 @@ interface DeviceStatusDao {
 
     @Query("DELETE FROM device_status WHERE dateMillis < :beforeMillis")
     suspend fun deleteOlderThan(beforeMillis: Long)
+
+    /** When the loop last produced reasoning (a determination), for the Not Looping alarm. */
+    @Query("SELECT dateMillis FROM device_status WHERE reason IS NOT NULL ORDER BY dateMillis DESC LIMIT 1")
+    suspend fun mostRecentReasonDateMillis(): Long?
 }

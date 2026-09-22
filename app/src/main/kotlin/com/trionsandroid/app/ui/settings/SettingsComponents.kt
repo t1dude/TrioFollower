@@ -229,6 +229,39 @@ fun ThresholdRow(
     }
 }
 
+/** Like [ThresholdRow], but for a non-glucose value (IOB, COB, reservoir, hours, percent, …). */
+@Composable
+fun NumericThresholdRow(
+    label: String,
+    enabled: Boolean,
+    onEnabledChange: (Boolean) -> Unit,
+    valueText: String,
+    onDecrease: () -> Unit,
+    onIncrease: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(label, modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurface)
+        if (enabled) {
+            IconButton(onClick = onDecrease) {
+                Icon(Icons.Filled.Remove, contentDescription = "Decrease $label threshold")
+            }
+            Text(
+                text = valueText,
+                modifier = Modifier.width(84.dp),
+                textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            IconButton(onClick = onIncrease) {
+                Icon(Icons.Filled.Add, contentDescription = "Increase $label threshold")
+            }
+        }
+        Switch(checked = enabled, onCheckedChange = onEnabledChange)
+    }
+}
+
 @Composable
 fun ConnectionStatusRow(state: ConnectionTestState) {
     when (state) {

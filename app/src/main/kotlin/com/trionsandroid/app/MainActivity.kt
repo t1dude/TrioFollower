@@ -10,6 +10,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.lifecycle.lifecycleScope
 import com.trionsandroid.app.data.alarm.AlarmAcknowledger
+import com.trionsandroid.app.data.alarm.SupplementalAlarmKind
 import com.trionsandroid.app.data.nightscout.NightscoutRepository
 import com.trionsandroid.app.data.settings.SettingsRepository
 import com.trionsandroid.app.ui.navigation.TrioNavHost
@@ -72,10 +73,17 @@ class MainActivity : ComponentActivity() {
             intent.removeExtra(EXTRA_ACKNOWLEDGE_ALARM)
             lifecycleScope.launch { alarmAcknowledger.acknowledge() }
         }
+        // Same, for a supplemental alarm (IOB, COB, reservoir, sensor/pump change, not looping, battery).
+        intent.getStringExtra(EXTRA_ACKNOWLEDGE_SUPPLEMENTAL_ALARM)?.let { kindName ->
+            intent.removeExtra(EXTRA_ACKNOWLEDGE_SUPPLEMENTAL_ALARM)
+            val kind = runCatching { SupplementalAlarmKind.valueOf(kindName) }.getOrNull()
+            if (kind != null) lifecycleScope.launch { alarmAcknowledger.acknowledgeSupplemental(kind) }
+        }
     }
 
     companion object {
         const val EXTRA_REFRESH_ON_OPEN = "refresh_on_open"
         const val EXTRA_ACKNOWLEDGE_ALARM = "acknowledge_alarm"
+        const val EXTRA_ACKNOWLEDGE_SUPPLEMENTAL_ALARM = "acknowledge_supplemental_alarm"
     }
 }

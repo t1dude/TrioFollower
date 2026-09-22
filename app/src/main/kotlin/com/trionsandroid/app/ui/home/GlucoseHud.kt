@@ -47,6 +47,9 @@ import kotlin.math.roundToInt
 import com.trionsandroid.app.data.nightscout.DeviceStatusPoint
 import com.trionsandroid.app.data.nightscout.InsulinProfile
 import com.trionsandroid.app.data.nightscout.Treatment
+import com.trionsandroid.app.data.nightscout.formatTimeRemaining
+import com.trionsandroid.app.data.nightscout.sensorTimeRemaining
+import com.trionsandroid.app.data.nightscout.siteTimeRemaining
 import com.trionsandroid.app.ui.theme.TrioInsulin
 import com.trionsandroid.app.ui.theme.TrioLoopGreen
 import com.trionsandroid.app.ui.theme.TrioLoopRed
@@ -56,14 +59,6 @@ import kotlinx.coroutines.delay
 import java.time.Duration
 import java.time.Instant
 import java.util.Locale
-
-// Assumed lifetimes, since Nightscout has no pump or sensor expiry field: 3 days for a site,
-// 10 days for a CGM sensor.
-private const val SITE_CHANGE_INTERVAL_DAYS = 3L
-private const val SENSOR_DURATION_DAYS = 10L
-
-private const val SITE_CHANGE_EVENT_TYPE = "Site Change"
-private const val SENSOR_START_EVENT_TYPE = "Sensor Start"
 
 private const val LEGEND_HANG_MILLIS = 1500L
 
@@ -99,18 +94,9 @@ fun computePumpCgmHudState(
         .maxByOrNull { it.timestamp.toEpochMilli() }
         ?.reservoirUnits
 
-    val siteChangedAt = treatments
-        .filter { it.eventType == SITE_CHANGE_EVENT_TYPE }
-        .maxByOrNull { it.timestamp.toEpochMilli() }
-        ?.timestamp
-    val sensorStartedAt = treatments
-        .filter { it.eventType == SENSOR_START_EVENT_TYPE }
-        .maxByOrNull { it.timestamp.toEpochMilli() }
-        ?.timestamp
-
     val now = Instant.ofEpochMilli(nowMillis)
-    val siteRemaining = siteChangedAt?.let { Duration.ofDays(SITE_CHANGE_INTERVAL_DAYS) - Duration.between(it, now) }
-    val sensorRemaining = sensorStartedAt?.let { Duration.ofDays(SENSOR_DURATION_DAYS) - Duration.between(it, now) }
+    val siteRemaining = siteTimeRemaining(treatments, now)
+    val sensorRemaining = sensorTimeRemaining(treatments, now)
 
     // COB and the eventual prediction go blank when the latest status is old.
     val currentCobGrams = if (latestIsFresh) latestDeviceStatus?.cobGrams else null
@@ -134,19 +120,6 @@ private fun reservoirColor(units: Double?): Color = when {
     units <= 10.0 -> TrioLoopRed
     units <= 30.0 -> TrioWarningOrange
     else -> TrioInsulin
-}
-
-/** "2d 4h", "6h 30m", "45m", or "Replace" once expired. */
-private fun formatRemaining(remaining: Duration): String {
-    if (remaining.isNegative || remaining.isZero) return "Replace"
-    val days = remaining.toDays()
-    val hours = remaining.toHours() % 24
-    val minutes = remaining.toMinutes() % 60
-    return when {
-        days >= 1 -> "${days}d ${hours}h"
-        hours >= 1 -> if (hours < 12) "${hours}h ${minutes}m" else "${hours}h"
-        else -> "${minutes}m"
-    }
 }
 
 private fun formatUnits(units: Double?): String = when {
@@ -189,13 +162,13 @@ fun PumpHudStackRight(state: PumpCgmHudState, unit: GlucoseUnit, modifier: Modif
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(HUD_PILL_SPACING), horizontalAlignment = Alignment.CenterHorizontally) {
         HudPill(
             icon = Icons.Filled.Sensors,
-            label = state.sensorRemaining?.let(::formatRemaining) ?: "--",
+            label = state.sensorRemaining?.let(::formatTimeRemaining) ?: "--",
             legend = "Sensor time left",
             color = remainingTimeColor(state.sensorRemaining),
         )
         HudPill(
             icon = Icons.Filled.HourglassBottom,
-            label = state.siteRemaining?.let(::formatRemaining) ?: "--",
+            label = state.siteRemaining?.let(::formatTimeRemaining) ?: "--",
             legend = "Pump site time left",
             color = remainingTimeColor(state.siteRemaining),
         )

@@ -14,4 +14,9 @@ class AlarmAcknowledger @Inject constructor(
         alarmStateStore.setAcknowledged(true)
         alarmNotifier.cancel()
     }
+
+    suspend fun acknowledgeSupplemental(kind: SupplementalAlarmKind) {
+        alarmStateStore.setSupplementalAcknowledged(kind, true)
+        alarmNotifier.cancelSupplemental(kind)
+    }
 }

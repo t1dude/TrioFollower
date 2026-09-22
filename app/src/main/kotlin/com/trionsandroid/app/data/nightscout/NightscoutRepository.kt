@@ -15,6 +15,9 @@ interface NightscoutRepository {
     /** The loop's latest glucose forecast, or null. */
     fun observeLatestForecast(): Flow<Forecast?>
 
+    /** When the loop last produced reasoning (a determination), or null if never. For the Not Looping alarm. */
+    suspend fun mostRecentConfirmedLoopAt(): java.time.Instant?
+
     /**
      * The reasoning for the reading at [readingTimestamp]: the first determination received from
      * shortly before it until just under the next reading. Null if none is cached.
@@ -24,8 +27,8 @@ interface NightscoutRepository {
     /**
      * Fetches recent data from Nightscout into the local cache.
      *
-     * @param essential Skip the profile, devicestatus, lifecycle and adjustment fetches (none of
-     * which alarms depend on) and only pull glucose entries and treatments. Used by frequent
+     * @param essential Skip the profile, lifecycle and adjustment fetches (no alarm depends on
+     * them) and only pull glucose entries, treatments and device status. Used by frequent
      * real-time background cycles to cut the number of requests per wake-up; the caller still runs
      * a full (non-essential) refresh periodically so that data doesn't go stale.
      */

@@ -66,6 +66,9 @@ class NightscoutRepositoryImpl @Inject constructor(
 
     override fun observeInsulinProfile(): Flow<InsulinProfile?> = insulinProfile.asStateFlow()
 
+    override suspend fun mostRecentConfirmedLoopAt(): Instant? =
+        deviceStatusDao.mostRecentReasonDateMillis()?.let { Instant.ofEpochMilli(it) }
+
     override suspend fun refresh(lookbackHours: Int, essential: Boolean): Result<Unit> {
         diagnosticLogger.log(TAG, "refresh() starting, lookbackHours=$lookbackHours essential=$essential")
         return runCatching {
@@ -130,9 +133,28 @@ class NightscoutRepositoryImpl @Inject constructor(
             treatmentDao.deleteNewerThan(futureCutoffMillis())
             deviceStatusDao.deleteOlderThan(cutoffMillis)
 
-            // Profile, devicestatus, lifecycle and adjustments are skipped on an essential refresh:
-            // alarms only need entries and treatments (see AlarmCheckRunner / PredictedHighEvaluator),
-            // so frequent real-time cycles skip these to cut requests per wake-up. The caller still runs
+            // Devicestatus (IOB, COB, reservoir, loop reasoning) is always fetched, even on an
+            // essential refresh: the IOB/COB/reservoir/not-looping alarms need it fresh every cycle.
+            // Queried by date and created_at, like treatments.
+            runCatching {
+                val byDate = api.getDeviceStatus(bearerToken = bearer, sinceMillis = sinceMillis)
+                val byCreatedAt = api.getDeviceStatusByCreatedAt(bearerToken = bearer, sinceMillis = sinceMillis)
+                val dtosByDate = decodeResilient<DeviceStatusDto>("$TAG.DeviceStatus", byDate.result)
+                val dtosByCreatedAt = decodeResilient<DeviceStatusDto>("$TAG.DeviceStatus", byCreatedAt.result)
+                val merged = (dtosByDate + dtosByCreatedAt).distinctBy { it.stableId }
+                val storedDeviceStatus = merged.mapNotNull { it.toEntity() }
+                deviceStatusDao.upsertAll(storedDeviceStatus)
+                Triple(byDate.result.size, byCreatedAt.result.size, storedDeviceStatus.size)
+            }.onSuccess { (byDate, byCreatedAt, stored) ->
+                diagnosticLogger.log(TAG, "DeviceStatus: byDate=$byDate byCreatedAt=$byCreatedAt stored=$stored")
+            }.onFailure { e ->
+                diagnosticLogger.logError(TAG, "DeviceStatus fetch failed (non-fatal)", e)
+            }
+
+            // Profile, lifecycle events and adjustments are skipped on an essential refresh: no alarm
+            // depends on them (the sensor/pump-change alarms use "Site Change"/"Sensor Start" events,
+            // which the general treatments fetch above already picks up within its own lookback), so
+            // frequent real-time cycles skip these to cut requests per wake-up. The caller still runs
             // a full refresh periodically so this data doesn't go stale. Each fetch below is isolated so
             // a failure in one doesn't fail the whole refresh.
             if (!essential) {
@@ -153,22 +175,6 @@ class NightscoutRepositoryImpl @Inject constructor(
                     }
                 }.onFailure { e ->
                     diagnosticLogger.logError(TAG, "Profile fetch failed (non-fatal)", e)
-                }
-
-                // Devicestatus is queried by date and created_at, like treatments.
-                runCatching {
-                    val byDate = api.getDeviceStatus(bearerToken = bearer, sinceMillis = sinceMillis)
-                    val byCreatedAt = api.getDeviceStatusByCreatedAt(bearerToken = bearer, sinceMillis = sinceMillis)
-                    val dtosByDate = decodeResilient<DeviceStatusDto>("$TAG.DeviceStatus", byDate.result)
-                    val dtosByCreatedAt = decodeResilient<DeviceStatusDto>("$TAG.DeviceStatus", byCreatedAt.result)
-                    val merged = (dtosByDate + dtosByCreatedAt).distinctBy { it.stableId }
-                    val storedDeviceStatus = merged.mapNotNull { it.toEntity() }
-                    deviceStatusDao.upsertAll(storedDeviceStatus)
-                    Triple(byDate.result.size, byCreatedAt.result.size, storedDeviceStatus.size)
-                }.onSuccess { (byDate, byCreatedAt, stored) ->
-                    diagnosticLogger.log(TAG, "DeviceStatus: byDate=$byDate byCreatedAt=$byCreatedAt stored=$stored")
-                }.onFailure { e ->
-                    diagnosticLogger.logError(TAG, "DeviceStatus fetch failed (non-fatal)", e)
                 }
 
                 runCatching {
@@ -273,7 +279,6 @@ class NightscoutRepositoryImpl @Inject constructor(
         const val REASONING_SLACK_BEFORE_MILLIS = 60_000L
         const val REASONING_WINDOW_AFTER_MILLIS = 270_000L
         const val LIFECYCLE_LOOKBACK_DAYS = 30L
-        val LIFECYCLE_EVENT_TYPES = listOf("Site Change", "Sensor Start")
         const val ADJUSTMENT_LOOKBACK_DAYS = 30L
     }
 }

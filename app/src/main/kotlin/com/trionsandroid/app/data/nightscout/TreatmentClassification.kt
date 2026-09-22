@@ -31,3 +31,9 @@ fun isTempTargetEventType(eventType: String): Boolean = eventType == TEMP_TARGET
 
 fun isAdjustmentEventType(eventType: String): Boolean =
     isOverrideEventType(eventType) || isTempTargetEventType(eventType)
+
+// Trio uploads a pump site (cannula) change as "Site Change" and a CGM sensor change as "Sensor
+// Start". Shared between the sync layer (which fetches them) and DeviceLifecycle (which times them).
+const val SITE_CHANGE_EVENT_TYPE = "Site Change"
+const val SENSOR_START_EVENT_TYPE = "Sensor Start"
+val LIFECYCLE_EVENT_TYPES = listOf(SITE_CHANGE_EVENT_TYPE, SENSOR_START_EVENT_TYPE)

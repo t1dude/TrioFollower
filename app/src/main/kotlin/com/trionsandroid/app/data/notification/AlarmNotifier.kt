@@ -14,6 +14,7 @@ import androidx.core.app.NotificationManagerCompat
 import com.trionsandroid.app.MainActivity
 import com.trionsandroid.app.R
 import com.trionsandroid.app.data.alarm.AlarmZone
+import com.trionsandroid.app.data.alarm.SupplementalAlarmKind
 import com.trionsandroid.app.data.nightscout.GlucoseReading
 import com.trionsandroid.app.data.settings.AlarmSettings
 import com.trionsandroid.app.data.settings.GlucoseUnit
@@ -75,6 +76,45 @@ class AlarmNotifier @Inject constructor(
         NotificationManagerCompat.from(context).cancel(NOTIFICATION_ID)
     }
 
+    /**
+     * A supplemental alarm (IOB, COB, reservoir, sensor/pump change, not looping, low phone
+     * battery): independent of the glucose zone and of the other supplemental kinds, so each gets
+     * its own notification id and can be showing at the same time as any other.
+     */
+    fun notifySupplemental(kind: SupplementalAlarmKind, text: String, alarms: AlarmSettings) {
+        ensureChannel()
+        if (ActivityCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
+
+        val builder = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentTitle(kind.displayTitle)
+            .setContentText(text)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setContentIntent(openAppAndAcknowledgeSupplementalPendingIntent(kind))
+        if (alarms.requireAcknowledgement) {
+            builder.setOngoing(true)
+            builder.setAutoCancel(false)
+            builder.addAction(0, "OK", acknowledgeSupplementalPendingIntent(kind))
+        } else {
+            builder.setOngoing(false)
+            builder.setAutoCancel(true)
+        }
+        if (!alarms.soundEnabled && !alarms.vibrationEnabled) {
+            builder.setSilent(true)
+        }
+
+        NotificationManagerCompat.from(context).notify(kind.notificationId, builder.build())
+    }
+
+    fun cancelSupplemental(kind: SupplementalAlarmKind) {
+        NotificationManagerCompat.from(context).cancel(kind.notificationId)
+    }
+
     private fun openAppAndAcknowledgePendingIntent(): PendingIntent {
         val intent = Intent(context, MainActivity::class.java).apply {
             action = Intent.ACTION_MAIN
@@ -102,11 +142,39 @@ class AlarmNotifier @Inject constructor(
         )
     }
 
+    private fun openAppAndAcknowledgeSupplementalPendingIntent(kind: SupplementalAlarmKind): PendingIntent {
+        val intent = Intent(context, MainActivity::class.java).apply {
+            action = Intent.ACTION_MAIN
+            addCategory(Intent.CATEGORY_LAUNCHER)
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra(MainActivity.EXTRA_ACKNOWLEDGE_SUPPLEMENTAL_ALARM, kind.name)
+        }
+        return PendingIntent.getActivity(
+            context,
+            SUPPLEMENTAL_OPEN_REQUEST_CODE_BASE + kind.ordinal,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+    }
+
+    private fun acknowledgeSupplementalPendingIntent(kind: SupplementalAlarmKind): PendingIntent {
+        val intent = Intent(context, AlarmAckReceiver::class.java).apply {
+            action = AlarmAckReceiver.ACTION_ACKNOWLEDGE_SUPPLEMENTAL
+            putExtra(AlarmAckReceiver.EXTRA_SUPPLEMENTAL_KIND, kind.name)
+        }
+        return PendingIntent.getBroadcast(
+            context,
+            SUPPLEMENTAL_ACK_REQUEST_CODE_BASE + kind.ordinal,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+    }
+
     private fun ensureChannel() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val manager = context.getSystemService(NotificationManager::class.java)
-        val channel = NotificationChannel(CHANNEL_ID, "Glucose alarms", NotificationManager.IMPORTANCE_HIGH).apply {
-            description = "Urgent low, low, predicted high, high, urgent high, and no-data glucose alerts"
+        val channel = NotificationChannel(CHANNEL_ID, "Alarms", NotificationManager.IMPORTANCE_HIGH).apply {
+            description = "Glucose, IOB/COB, reservoir, sensor/pump change, not-looping and phone battery alerts"
         }
         manager.createNotificationChannel(channel)
     }
@@ -116,5 +184,8 @@ class AlarmNotifier @Inject constructor(
         const val NOTIFICATION_ID = 1001
         const val OPEN_APP_REQUEST_CODE = 1002
         const val ACKNOWLEDGE_REQUEST_CODE = 1003
+        // Offset by SupplementalAlarmKind.ordinal, so each kind gets its own stable request code.
+        const val SUPPLEMENTAL_OPEN_REQUEST_CODE_BASE = 1100
+        const val SUPPLEMENTAL_ACK_REQUEST_CODE_BASE = 1200
     }
 }

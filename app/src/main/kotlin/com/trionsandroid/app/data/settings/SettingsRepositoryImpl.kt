@@ -3,6 +3,7 @@ package com.trionsandroid.app.data.settings
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.doublePreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -86,6 +87,20 @@ class SettingsRepositoryImpl @Inject constructor(
             prefs[Keys.PREDICTED_HIGH_ENABLED] = alarms.predictedHighEnabled
             prefs[Keys.ALARM_REQUIRE_ACKNOWLEDGEMENT] = alarms.requireAcknowledgement
             prefs[Keys.ALARM_REPEAT_IF_NOT_ACKNOWLEDGED] = alarms.repeatIfNotAcknowledged
+            prefs[Keys.IOB_ALARM_ENABLED] = alarms.iobAlarmEnabled
+            prefs[Keys.IOB_THRESHOLD_UNITS] = alarms.iobThresholdUnits
+            prefs[Keys.COB_ALARM_ENABLED] = alarms.cobAlarmEnabled
+            prefs[Keys.COB_THRESHOLD_GRAMS] = alarms.cobThresholdGrams
+            prefs[Keys.RESERVOIR_ALARM_ENABLED] = alarms.reservoirAlarmEnabled
+            prefs[Keys.RESERVOIR_THRESHOLD_UNITS] = alarms.reservoirThresholdUnits
+            prefs[Keys.SENSOR_CHANGE_ALARM_ENABLED] = alarms.sensorChangeAlarmEnabled
+            prefs[Keys.SENSOR_CHANGE_HOURS_THRESHOLD] = alarms.sensorChangeHoursThreshold
+            prefs[Keys.PUMP_CHANGE_ALARM_ENABLED] = alarms.pumpChangeAlarmEnabled
+            prefs[Keys.PUMP_CHANGE_HOURS_THRESHOLD] = alarms.pumpChangeHoursThreshold
+            prefs[Keys.NOT_LOOPING_ALARM_ENABLED] = alarms.notLoopingAlarmEnabled
+            prefs[Keys.NOT_LOOPING_MINUTES] = alarms.notLoopingMinutes
+            prefs[Keys.LOW_PHONE_BATTERY_ALARM_ENABLED] = alarms.lowPhoneBatteryAlarmEnabled
+            prefs[Keys.LOW_PHONE_BATTERY_PERCENT] = alarms.lowPhoneBatteryPercent
         }
     }
 
@@ -144,6 +159,27 @@ class SettingsRepositoryImpl @Inject constructor(
                     ?: defaultAlarms.requireAcknowledgement,
                 repeatIfNotAcknowledged = this[Keys.ALARM_REPEAT_IF_NOT_ACKNOWLEDGED]
                     ?: defaultAlarms.repeatIfNotAcknowledged,
+                iobAlarmEnabled = this[Keys.IOB_ALARM_ENABLED] ?: defaultAlarms.iobAlarmEnabled,
+                iobThresholdUnits = this[Keys.IOB_THRESHOLD_UNITS] ?: defaultAlarms.iobThresholdUnits,
+                cobAlarmEnabled = this[Keys.COB_ALARM_ENABLED] ?: defaultAlarms.cobAlarmEnabled,
+                cobThresholdGrams = this[Keys.COB_THRESHOLD_GRAMS] ?: defaultAlarms.cobThresholdGrams,
+                reservoirAlarmEnabled = this[Keys.RESERVOIR_ALARM_ENABLED] ?: defaultAlarms.reservoirAlarmEnabled,
+                reservoirThresholdUnits = this[Keys.RESERVOIR_THRESHOLD_UNITS]
+                    ?: defaultAlarms.reservoirThresholdUnits,
+                sensorChangeAlarmEnabled = this[Keys.SENSOR_CHANGE_ALARM_ENABLED]
+                    ?: defaultAlarms.sensorChangeAlarmEnabled,
+                sensorChangeHoursThreshold = this[Keys.SENSOR_CHANGE_HOURS_THRESHOLD]
+                    ?: defaultAlarms.sensorChangeHoursThreshold,
+                pumpChangeAlarmEnabled = this[Keys.PUMP_CHANGE_ALARM_ENABLED] ?: defaultAlarms.pumpChangeAlarmEnabled,
+                pumpChangeHoursThreshold = this[Keys.PUMP_CHANGE_HOURS_THRESHOLD]
+                    ?: defaultAlarms.pumpChangeHoursThreshold,
+                notLoopingAlarmEnabled = this[Keys.NOT_LOOPING_ALARM_ENABLED] ?: defaultAlarms.notLoopingAlarmEnabled,
+                notLoopingMinutes = this[Keys.NOT_LOOPING_MINUTES]?.takeIf { it in NOT_LOOPING_MINUTES_OPTIONS }
+                    ?: defaultAlarms.notLoopingMinutes,
+                lowPhoneBatteryAlarmEnabled = this[Keys.LOW_PHONE_BATTERY_ALARM_ENABLED]
+                    ?: defaultAlarms.lowPhoneBatteryAlarmEnabled,
+                lowPhoneBatteryPercent = this[Keys.LOW_PHONE_BATTERY_PERCENT]
+                    ?: defaultAlarms.lowPhoneBatteryPercent,
             ),
         )
     }
@@ -178,5 +214,19 @@ class SettingsRepositoryImpl @Inject constructor(
         val PREDICTED_HIGH_ENABLED = booleanPreferencesKey("predicted_high_enabled")
         val ALARM_REQUIRE_ACKNOWLEDGEMENT = booleanPreferencesKey("alarm_require_acknowledgement")
         val ALARM_REPEAT_IF_NOT_ACKNOWLEDGED = booleanPreferencesKey("alarm_repeat_if_not_acknowledged")
+        val IOB_ALARM_ENABLED = booleanPreferencesKey("iob_alarm_enabled")
+        val IOB_THRESHOLD_UNITS = doublePreferencesKey("iob_threshold_units")
+        val COB_ALARM_ENABLED = booleanPreferencesKey("cob_alarm_enabled")
+        val COB_THRESHOLD_GRAMS = doublePreferencesKey("cob_threshold_grams")
+        val RESERVOIR_ALARM_ENABLED = booleanPreferencesKey("reservoir_alarm_enabled")
+        val RESERVOIR_THRESHOLD_UNITS = doublePreferencesKey("reservoir_threshold_units")
+        val SENSOR_CHANGE_ALARM_ENABLED = booleanPreferencesKey("sensor_change_alarm_enabled")
+        val SENSOR_CHANGE_HOURS_THRESHOLD = intPreferencesKey("sensor_change_hours_threshold")
+        val PUMP_CHANGE_ALARM_ENABLED = booleanPreferencesKey("pump_change_alarm_enabled")
+        val PUMP_CHANGE_HOURS_THRESHOLD = intPreferencesKey("pump_change_hours_threshold")
+        val NOT_LOOPING_ALARM_ENABLED = booleanPreferencesKey("not_looping_alarm_enabled")
+        val NOT_LOOPING_MINUTES = intPreferencesKey("not_looping_minutes")
+        val LOW_PHONE_BATTERY_ALARM_ENABLED = booleanPreferencesKey("low_phone_battery_alarm_enabled")
+        val LOW_PHONE_BATTERY_PERCENT = intPreferencesKey("low_phone_battery_percent")
     }
 }

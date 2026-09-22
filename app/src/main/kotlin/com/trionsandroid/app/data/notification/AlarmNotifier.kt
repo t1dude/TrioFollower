@@ -16,7 +16,7 @@ import com.trionsandroid.app.R
 import com.trionsandroid.app.data.alarm.AlarmZone
 import com.trionsandroid.app.data.alarm.SupplementalAlarmKind
 import com.trionsandroid.app.data.nightscout.GlucoseReading
-import com.trionsandroid.app.data.settings.AlarmSettings
+import com.trionsandroid.app.data.settings.AlarmBehavior
 import com.trionsandroid.app.data.settings.GlucoseUnit
 import com.trionsandroid.app.data.settings.format
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -29,8 +29,10 @@ import javax.inject.Singleton
 class AlarmNotifier @Inject constructor(
     @ApplicationContext private val context: Context,
 ) {
-    /** [reading] is the newest reading; null only for No data with nothing recent. */
-    fun notify(zone: AlarmZone, reading: GlucoseReading?, unit: GlucoseUnit, alarms: AlarmSettings) {
+    /** [reading] is the newest reading; null only for No data with nothing recent. [behavior] is
+     *  that zone's own (see AlarmSettings.behaviorFor), since sound/vibration/acknowledgement are
+     *  now set per alarm rather than globally. */
+    fun notify(zone: AlarmZone, reading: GlucoseReading?, unit: GlucoseUnit, behavior: AlarmBehavior) {
         ensureChannel()
         if (ActivityCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
             PackageManager.PERMISSION_GRANTED
@@ -45,7 +47,7 @@ class AlarmNotifier @Inject constructor(
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setContentIntent(openAppAndAcknowledgePendingIntent())
-        if (alarms.requireAcknowledgement) {
+        if (behavior.requireAcknowledgement) {
             // Ongoing notifications can't be swiped away. OK or a tap acknowledges and cancels it.
             builder.setOngoing(true)
             builder.setAutoCancel(false)
@@ -55,7 +57,7 @@ class AlarmNotifier @Inject constructor(
             builder.setAutoCancel(true)
         }
         // Sound and vibration can't be silenced separately on one channel, so only both off is silent.
-        if (!alarms.soundEnabled && !alarms.vibrationEnabled) {
+        if (!behavior.soundEnabled && !behavior.vibrationEnabled) {
             builder.setSilent(true)
         }
 
@@ -81,7 +83,7 @@ class AlarmNotifier @Inject constructor(
      * battery): independent of the glucose zone and of the other supplemental kinds, so each gets
      * its own notification id and can be showing at the same time as any other.
      */
-    fun notifySupplemental(kind: SupplementalAlarmKind, text: String, alarms: AlarmSettings) {
+    fun notifySupplemental(kind: SupplementalAlarmKind, text: String, behavior: AlarmBehavior) {
         ensureChannel()
         if (ActivityCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
             PackageManager.PERMISSION_GRANTED
@@ -96,7 +98,7 @@ class AlarmNotifier @Inject constructor(
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setContentIntent(openAppAndAcknowledgeSupplementalPendingIntent(kind))
-        if (alarms.requireAcknowledgement) {
+        if (behavior.requireAcknowledgement) {
             builder.setOngoing(true)
             builder.setAutoCancel(false)
             builder.addAction(0, "OK", acknowledgeSupplementalPendingIntent(kind))
@@ -104,7 +106,7 @@ class AlarmNotifier @Inject constructor(
             builder.setOngoing(false)
             builder.setAutoCancel(true)
         }
-        if (!alarms.soundEnabled && !alarms.vibrationEnabled) {
+        if (!behavior.soundEnabled && !behavior.vibrationEnabled) {
             builder.setSilent(true)
         }
 

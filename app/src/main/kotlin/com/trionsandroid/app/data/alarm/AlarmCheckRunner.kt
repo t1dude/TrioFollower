@@ -6,11 +6,14 @@ import com.trionsandroid.app.data.nightscout.formatTimeRemaining
 import com.trionsandroid.app.data.nightscout.sensorTimeRemaining
 import com.trionsandroid.app.data.nightscout.siteTimeRemaining
 import com.trionsandroid.app.data.notification.AlarmNotifier
+import com.trionsandroid.app.data.settings.AlarmBehavior
 import com.trionsandroid.app.data.settings.AlarmSettings
 import com.trionsandroid.app.data.settings.SettingsRepository
+import com.trionsandroid.app.data.settings.toMinuteOfDay
 import kotlinx.coroutines.flow.first
 import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalTime
 import java.time.ZoneId
 import java.util.Locale
 import java.util.concurrent.TimeUnit
@@ -21,7 +24,8 @@ import kotlin.random.Random
 /**
  * Run after each refresh (by RefreshWorker and RefreshForegroundService): checks the latest
  * reading against the alarm settings and notifies when the alarm zone changes, and separately
- * evaluates the Additional Alarms (see [checkSupplementalAlarms]).
+ * evaluates the Additional Alarms (see [checkSupplementalAlarms]). Every alarm now carries its own
+ * [AlarmBehavior] (day/night, sound, vibration, acknowledgement), gated by [isAllowedNow].
  */
 class AlarmCheckRunner @Inject constructor(
     private val nightscoutRepository: NightscoutRepository,
@@ -33,10 +37,12 @@ class AlarmCheckRunner @Inject constructor(
     suspend fun checkAndNotify() {
         val settings = settingsRepository.settings.first()
         if (!settings.alarms.alarmsEnabled) return
+        val alarms = settings.alarms
+        val nowMinuteOfDay = LocalTime.now().toMinuteOfDay()
 
         // Independent of the glucose-zone logic below (which returns early in several places), so
         // it runs on every check regardless of whether glucose data is fresh or the zone changed.
-        runCatching { checkSupplementalAlarms(settings.alarms) }
+        runCatching { checkSupplementalAlarms(alarms, nowMinuteOfDay) }
             .onFailure { diagnosticLogger.logError(TAG, "Supplemental alarm check failed", it) }
 
         val nowMillis = System.currentTimeMillis()
@@ -45,19 +51,21 @@ class AlarmCheckRunner @Inject constructor(
         val latest = nightscoutRepository.observeGlucoseEntries(sinceMillis).first().maxByOrNull { it.timestamp }
         val latestAgeMillis = latest?.let { nowMillis - it.timestamp.toEpochMilli() } ?: Long.MAX_VALUE
 
-        val noData = settings.alarms.noDataEnabled &&
-            latestAgeMillis > TimeUnit.MINUTES.toMillis(settings.alarms.noDataMinutes.toLong())
-        // Without the No data alarm, a stale reading is ignored.
+        val noData = alarms.noData.enabled && isAllowedNow(alarms.noData.behavior, alarms.dayNightWindow, nowMinuteOfDay) &&
+            latestAgeMillis > TimeUnit.MINUTES.toMillis(alarms.noData.minutes.toLong())
+        // Without an allowed No data alarm, a stale reading is ignored.
         if (!noData && latestAgeMillis > TimeUnit.MINUTES.toMillis(RECENT_READING_WINDOW_MINUTES)) return
 
-        var zone = if (noData) AlarmZone.NO_DATA else evaluateAlarmZone(latest!!.mgDl, settings.alarms)
+        var zone = if (noData) AlarmZone.NO_DATA else evaluateAlarmZone(latest!!.mgDl, alarms, nowMinuteOfDay)
         val lastZone = alarmStateStore.getLastZone()
 
-        if (zone == AlarmZone.NORMAL && settings.alarms.predictedHighEnabled && latest != null) {
+        if (zone == AlarmZone.NORMAL && alarms.predictedHigh.enabled &&
+            isAllowedNow(alarms.predictedHigh.behavior, alarms.dayNightWindow, nowMinuteOfDay) && latest != null
+        ) {
             val predictedSince = nowMillis - PREDICTED_HIGH_WINDOW_MILLIS - TimeUnit.MINUTES.toMillis(10)
             val readings = nightscoutRepository.observeGlucoseEntries(predictedSince).first()
             val treatments = nightscoutRepository.observeTreatments(predictedSince).first()
-            if (isPredictedHigh(readings, treatments, settings.alarms, nowMillis)) {
+            if (isPredictedHigh(readings, treatments, alarms, nowMillis)) {
                 // Cooldown so a flickering predicate doesn't re-alert every check.
                 val coolingDown = lastZone != AlarmZone.PREDICTED_HIGH &&
                     nowMillis - alarmStateStore.getLastPredictedHighNotifiedAtMillis() < PREDICTED_HIGH_COOLDOWN_MILLIS
@@ -75,7 +83,7 @@ class AlarmCheckRunner @Inject constructor(
                 if (zone == AlarmZone.PREDICTED_HIGH) {
                     alarmStateStore.setLastPredictedHighNotifiedAtMillis(System.currentTimeMillis())
                 }
-                alarmNotifier.notify(zone, latest, settings.glucoseUnit, settings.alarms)
+                alarmNotifier.notify(zone, latest, settings.glucoseUnit, alarms.behaviorFor(zone))
             }
             return
         }
@@ -83,7 +91,8 @@ class AlarmCheckRunner @Inject constructor(
         // Same zone as last check: only a repeat of an unacknowledged alarm is left to do. Repeats can
         // only happen when a check runs (15 minutes apart in battery-friendly mode).
         if (zone == AlarmZone.NORMAL) return
-        if (!settings.alarms.requireAcknowledgement || !settings.alarms.repeatIfNotAcknowledged) return
+        val behavior = alarms.behaviorFor(zone)
+        if (!behavior.requireAcknowledgement || !behavior.repeatIfNotAcknowledged) return
         if (alarmStateStore.isAcknowledged()) return
 
         val now = System.currentTimeMillis()
@@ -91,7 +100,7 @@ class AlarmCheckRunner @Inject constructor(
 
         diagnosticLogger.log(TAG, "Repeating unacknowledged $zone alarm (${latest?.mgDl} mg/dL)")
         alarmStateStore.setLastNotifiedAtMillis(now)
-        alarmNotifier.notify(zone, latest, settings.glucoseUnit, settings.alarms)
+        alarmNotifier.notify(zone, latest, settings.glucoseUnit, behavior)
     }
 
     /**
@@ -100,9 +109,10 @@ class AlarmCheckRunner @Inject constructor(
      * other — any number can be active at once — so each is tracked and notified separately (see
      * [evaluateSupplemental] and, for the random alarm's different event-based shape, [checkRandomAlarm]).
      */
-    private suspend fun checkSupplementalAlarms(alarms: AlarmSettings) {
+    private suspend fun checkSupplementalAlarms(alarms: AlarmSettings, nowMinuteOfDay: Int) {
         val nowMillis = System.currentTimeMillis()
         val now = Instant.ofEpochMilli(nowMillis)
+        val window = alarms.dayNightWindow
 
         val latestStatus = nightscoutRepository.observeDeviceStatus(nowMillis - TimeUnit.HOURS.toMillis(2))
             .first()
@@ -112,24 +122,24 @@ class AlarmCheckRunner @Inject constructor(
 
         evaluateSupplemental(
             kind = SupplementalAlarmKind.IOB_HIGH,
-            alarms = alarms,
-            isActive = alarms.iobAlarmEnabled && statusFresh &&
-                (latestStatus?.iobUnits ?: Double.NEGATIVE_INFINITY) >= alarms.iobThresholdUnits,
-        ) { "${oneDecimal(latestStatus?.iobUnits)} U IOB (threshold ${oneDecimal(alarms.iobThresholdUnits)} U)" }
+            behavior = alarms.iob.behavior,
+            isActive = alarms.iob.enabled && isAllowedNow(alarms.iob.behavior, window, nowMinuteOfDay) && statusFresh &&
+                (latestStatus?.iobUnits ?: Double.NEGATIVE_INFINITY) >= alarms.iob.thresholdUnits,
+        ) { "${oneDecimal(latestStatus?.iobUnits)} U IOB (threshold ${oneDecimal(alarms.iob.thresholdUnits)} U)" }
 
         evaluateSupplemental(
             kind = SupplementalAlarmKind.COB_HIGH,
-            alarms = alarms,
-            isActive = alarms.cobAlarmEnabled && statusFresh &&
-                (latestStatus?.cobGrams ?: Double.NEGATIVE_INFINITY) >= alarms.cobThresholdGrams,
-        ) { "${wholeNumber(latestStatus?.cobGrams)} g COB (threshold ${wholeNumber(alarms.cobThresholdGrams)} g)" }
+            behavior = alarms.cob.behavior,
+            isActive = alarms.cob.enabled && isAllowedNow(alarms.cob.behavior, window, nowMinuteOfDay) && statusFresh &&
+                (latestStatus?.cobGrams ?: Double.NEGATIVE_INFINITY) >= alarms.cob.thresholdGrams,
+        ) { "${wholeNumber(latestStatus?.cobGrams)} g COB (threshold ${wholeNumber(alarms.cob.thresholdGrams)} g)" }
 
         evaluateSupplemental(
             kind = SupplementalAlarmKind.RESERVOIR_LOW,
-            alarms = alarms,
-            isActive = alarms.reservoirAlarmEnabled && statusFresh &&
-                (latestStatus?.reservoirUnits ?: Double.POSITIVE_INFINITY) <= alarms.reservoirThresholdUnits,
-        ) { "${oneDecimal(latestStatus?.reservoirUnits)} U left (threshold ${oneDecimal(alarms.reservoirThresholdUnits)} U)" }
+            behavior = alarms.reservoir.behavior,
+            isActive = alarms.reservoir.enabled && isAllowedNow(alarms.reservoir.behavior, window, nowMinuteOfDay) &&
+                statusFresh && (latestStatus?.reservoirUnits ?: Double.POSITIVE_INFINITY) <= alarms.reservoir.thresholdUnits,
+        ) { "${oneDecimal(latestStatus?.reservoirUnits)} U left (threshold ${oneDecimal(alarms.reservoir.thresholdUnits)} U)" }
 
         // Site (pump) and sensor change use the general treatments cache directly, which the sync
         // layer refreshes every cycle regardless of essential/full mode (see NightscoutRepositoryImpl).
@@ -139,26 +149,28 @@ class AlarmCheckRunner @Inject constructor(
 
         evaluateSupplemental(
             kind = SupplementalAlarmKind.SENSOR_CHANGE_DUE,
-            alarms = alarms,
-            isActive = alarms.sensorChangeAlarmEnabled && sensorRemaining != null &&
-                sensorRemaining.toMinutes() <= TimeUnit.HOURS.toMinutes(alarms.sensorChangeHoursThreshold.toLong()),
+            behavior = alarms.sensorChange.behavior,
+            isActive = alarms.sensorChange.enabled && isAllowedNow(alarms.sensorChange.behavior, window, nowMinuteOfDay) &&
+                sensorRemaining != null &&
+                sensorRemaining.toMinutes() <= TimeUnit.HOURS.toMinutes(alarms.sensorChange.hoursThreshold.toLong()),
         // isActive guarantees non-null by the time each message() below runs.
         ) { "Sensor time left: ${formatTimeRemaining(sensorRemaining!!)}" }
 
         evaluateSupplemental(
             kind = SupplementalAlarmKind.PUMP_CHANGE_DUE,
-            alarms = alarms,
-            isActive = alarms.pumpChangeAlarmEnabled && siteRemaining != null &&
-                siteRemaining.toMinutes() <= TimeUnit.HOURS.toMinutes(alarms.pumpChangeHoursThreshold.toLong()),
+            behavior = alarms.pumpChange.behavior,
+            isActive = alarms.pumpChange.enabled && isAllowedNow(alarms.pumpChange.behavior, window, nowMinuteOfDay) &&
+                siteRemaining != null &&
+                siteRemaining.toMinutes() <= TimeUnit.HOURS.toMinutes(alarms.pumpChange.hoursThreshold.toLong()),
         ) { "Pump site time left: ${formatTimeRemaining(siteRemaining!!)}" }
 
         val lastLoopAt = nightscoutRepository.mostRecentConfirmedLoopAt()
         val minutesSinceLoop = lastLoopAt?.let { TimeUnit.MILLISECONDS.toMinutes(nowMillis - it.toEpochMilli()) }
         evaluateSupplemental(
             kind = SupplementalAlarmKind.NOT_LOOPING,
-            alarms = alarms,
-            isActive = alarms.notLoopingAlarmEnabled &&
-                (minutesSinceLoop == null || minutesSinceLoop >= alarms.notLoopingMinutes),
+            behavior = alarms.notLooping.behavior,
+            isActive = alarms.notLooping.enabled && isAllowedNow(alarms.notLooping.behavior, window, nowMinuteOfDay) &&
+                (minutesSinceLoop == null || minutesSinceLoop >= alarms.notLooping.minutes),
         ) {
             if (minutesSinceLoop == null) "No confirmed loop yet" else "No confirmed loop for $minutesSinceLoop min"
         }
@@ -168,12 +180,48 @@ class AlarmCheckRunner @Inject constructor(
         val uploaderBattery = latestStatus?.uploaderBatteryPercent?.roundToInt()
         evaluateSupplemental(
             kind = SupplementalAlarmKind.LOW_PHONE_BATTERY,
-            alarms = alarms,
-            isActive = alarms.lowPhoneBatteryAlarmEnabled && statusFresh && uploaderBattery != null &&
-                uploaderBattery <= alarms.lowPhoneBatteryPercent,
-        ) { "Trio phone battery at $uploaderBattery% (threshold ${alarms.lowPhoneBatteryPercent}%)" }
+            behavior = alarms.lowPhoneBattery.behavior,
+            isActive = alarms.lowPhoneBattery.enabled && isAllowedNow(alarms.lowPhoneBattery.behavior, window, nowMinuteOfDay) &&
+                statusFresh && uploaderBattery != null && uploaderBattery <= alarms.lowPhoneBattery.percent,
+        ) { "Trio phone battery at $uploaderBattery% (threshold ${alarms.lowPhoneBattery.percent}%)" }
 
-        checkRandomAlarm(alarms)
+        checkRandomAlarm(alarms, nowMinuteOfDay)
+    }
+
+    /**
+     * Notifies on the false-to-true edge, clears silently on the true-to-false edge (which also
+     * covers a day/night restriction newly kicking in), and (with [AlarmBehavior.requireAcknowledgement]
+     * and [AlarmBehavior.repeatIfNotAcknowledged]) repeats while still active and unacknowledged —
+     * the same rules [checkAndNotify] applies to the glucose zone, but tracked per [kind] since
+     * these can overlap each other and the glucose zone.
+     */
+    private suspend fun evaluateSupplemental(
+        kind: SupplementalAlarmKind,
+        behavior: AlarmBehavior,
+        isActive: Boolean,
+        message: () -> String,
+    ) {
+        val wasActive = alarmStateStore.isSupplementalActive(kind)
+        if (isActive) {
+            if (!wasActive) {
+                alarmStateStore.setSupplementalActive(kind, true)
+                alarmStateStore.setSupplementalAcknowledged(kind, false)
+                alarmStateStore.setSupplementalLastNotifiedAtMillis(kind, System.currentTimeMillis())
+                diagnosticLogger.log(TAG, "Supplemental alarm started: ${kind.displayTitle}")
+                alarmNotifier.notifySupplemental(kind, message(), behavior)
+                return
+            }
+            if (!behavior.requireAcknowledgement || !behavior.repeatIfNotAcknowledged) return
+            if (alarmStateStore.isSupplementalAcknowledged(kind)) return
+            val now = System.currentTimeMillis()
+            if (now - alarmStateStore.getSupplementalLastNotifiedAtMillis(kind) < REPEAT_INTERVAL_MILLIS) return
+            diagnosticLogger.log(TAG, "Repeating unacknowledged supplemental alarm: ${kind.displayTitle}")
+            alarmStateStore.setSupplementalLastNotifiedAtMillis(kind, now)
+            alarmNotifier.notifySupplemental(kind, message(), behavior)
+        } else if (wasActive) {
+            alarmStateStore.setSupplementalActive(kind, false)
+            alarmNotifier.cancelSupplemental(kind)
+        }
     }
 
     /**
@@ -181,9 +229,10 @@ class AlarmCheckRunner @Inject constructor(
      * other supplemental alarms, this isn't a condition that's true or false each check; it's a
      * one-off event, so it has its own scheduling instead of going through [evaluateSupplemental].
      */
-    private suspend fun checkRandomAlarm(alarms: AlarmSettings) {
-        if (!alarms.randomAlarmEnabled) return
+    private suspend fun checkRandomAlarm(alarms: AlarmSettings, nowMinuteOfDay: Int) {
+        if (!alarms.randomAlarm.enabled) return
         val kind = SupplementalAlarmKind.RANDOM_ALARM
+        val behavior = alarms.randomAlarm.behavior
         val nowMillis = System.currentTimeMillis()
         val today = LocalDate.now().toString()
 
@@ -200,21 +249,25 @@ class AlarmCheckRunner @Inject constructor(
             // One notification per check even if more than one came due at once (e.g. after a long
             // gap in background checks); the rest are simply dropped rather than bursting several.
             alarmStateStore.setRandomAlarmPendingMillis(pending - due.toSet())
+            if (!isAllowedNow(behavior, alarms.dayNightWindow, nowMinuteOfDay)) {
+                diagnosticLogger.log(TAG, "Random alarm was due but Day/Night settings don't allow it now; dropped")
+                return
+            }
             alarmStateStore.setSupplementalAcknowledged(kind, false)
             alarmStateStore.setSupplementalLastNotifiedAtMillis(kind, nowMillis)
             diagnosticLogger.log(TAG, "Random alarm firing")
-            alarmNotifier.notifySupplemental(kind, RANDOM_ALARM_MESSAGES.random(), alarms)
+            alarmNotifier.notifySupplemental(kind, RANDOM_ALARM_MESSAGES.random(), behavior)
             return
         }
 
         // No new fire this cycle: repeat only an unacknowledged one, same as the other alarms.
         // isSupplementalAcknowledged defaults to true, so this is a no-op before the first ever fire.
-        if (!alarms.requireAcknowledgement || !alarms.repeatIfNotAcknowledged) return
+        if (!behavior.requireAcknowledgement || !behavior.repeatIfNotAcknowledged) return
         if (alarmStateStore.isSupplementalAcknowledged(kind)) return
         if (nowMillis - alarmStateStore.getSupplementalLastNotifiedAtMillis(kind) < REPEAT_INTERVAL_MILLIS) return
         diagnosticLogger.log(TAG, "Repeating unacknowledged random alarm")
         alarmStateStore.setSupplementalLastNotifiedAtMillis(kind, nowMillis)
-        alarmNotifier.notifySupplemental(kind, RANDOM_ALARM_MESSAGES.random(), alarms)
+        alarmNotifier.notifySupplemental(kind, RANDOM_ALARM_MESSAGES.random(), behavior)
     }
 
     /** 1 to 4 random instants, uniformly spread across today (the device's local day). */
@@ -223,41 +276,6 @@ class AlarmCheckRunner @Inject constructor(
         val dayLengthMillis = TimeUnit.DAYS.toMillis(1)
         val count = Random.nextInt(1, MAX_RANDOM_ALARMS_PER_DAY + 1)
         return List(count) { dayStartMillis + Random.nextLong(dayLengthMillis) }.sorted()
-    }
-
-    /**
-     * Notifies on the false-to-true edge, clears silently on the true-to-false edge, and (with
-     * [AlarmSettings.requireAcknowledgement] and [AlarmSettings.repeatIfNotAcknowledged]) repeats
-     * while still active and unacknowledged — the same rules [checkAndNotify] applies to the
-     * glucose zone, but tracked per [kind] since these can overlap each other and the glucose zone.
-     */
-    private suspend fun evaluateSupplemental(
-        kind: SupplementalAlarmKind,
-        alarms: AlarmSettings,
-        isActive: Boolean,
-        message: () -> String,
-    ) {
-        val wasActive = alarmStateStore.isSupplementalActive(kind)
-        if (isActive) {
-            if (!wasActive) {
-                alarmStateStore.setSupplementalActive(kind, true)
-                alarmStateStore.setSupplementalAcknowledged(kind, false)
-                alarmStateStore.setSupplementalLastNotifiedAtMillis(kind, System.currentTimeMillis())
-                diagnosticLogger.log(TAG, "Supplemental alarm started: ${kind.displayTitle}")
-                alarmNotifier.notifySupplemental(kind, message(), alarms)
-                return
-            }
-            if (!alarms.requireAcknowledgement || !alarms.repeatIfNotAcknowledged) return
-            if (alarmStateStore.isSupplementalAcknowledged(kind)) return
-            val now = System.currentTimeMillis()
-            if (now - alarmStateStore.getSupplementalLastNotifiedAtMillis(kind) < REPEAT_INTERVAL_MILLIS) return
-            diagnosticLogger.log(TAG, "Repeating unacknowledged supplemental alarm: ${kind.displayTitle}")
-            alarmStateStore.setSupplementalLastNotifiedAtMillis(kind, now)
-            alarmNotifier.notifySupplemental(kind, message(), alarms)
-        } else if (wasActive) {
-            alarmStateStore.setSupplementalActive(kind, false)
-            alarmNotifier.cancelSupplemental(kind)
-        }
     }
 
     private fun oneDecimal(value: Double?): String =

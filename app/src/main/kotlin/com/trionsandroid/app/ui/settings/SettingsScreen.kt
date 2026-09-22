@@ -48,6 +48,8 @@ import com.trionsandroid.app.data.settings.NO_DATA_MINUTES_OPTIONS
 import com.trionsandroid.app.data.settings.NOT_LOOPING_MINUTES_OPTIONS
 import com.trionsandroid.app.data.settings.TimeFormat
 import com.trionsandroid.app.data.settings.allowedRefreshIntervals
+import com.trionsandroid.app.data.settings.format
+import com.trionsandroid.app.data.settings.timeFormatter
 import com.trionsandroid.app.ui.theme.TrioGlucoseHigh
 import com.trionsandroid.app.ui.theme.TrioGlucoseLow
 import com.trionsandroid.app.ui.theme.TrioGlucoseUrgent
@@ -307,286 +309,374 @@ fun SettingsScreen(expandBasicSettings: Boolean = false, viewModel: SettingsView
         }
 
         item {
+            val alarms = uiState.alarms
+            val glucoseUnit = uiState.glucoseUnit
+
             SettingsSection(title = "Alarms") {
                 LabeledSwitch(
                     label = "Enable alarms",
-                    checked = uiState.alarms.alarmsEnabled,
-                    onCheckedChange = { viewModel.onAlarmSettingsChange(uiState.alarms.copy(alarmsEnabled = it)) },
+                    checked = alarms.alarmsEnabled,
+                    onCheckedChange = { viewModel.onAlarmSettingsChange(alarms.copy(alarmsEnabled = it)) },
                 )
-                if (uiState.alarms.alarmsEnabled) {
-                    Spacer(Modifier.height(12.dp))
-                    LabeledSwitch(
-                        label = "Sound",
-                        checked = uiState.alarms.soundEnabled,
-                        onCheckedChange = { viewModel.onAlarmSettingsChange(uiState.alarms.copy(soundEnabled = it)) },
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    LabeledSwitch(
-                        label = "Vibration",
-                        checked = uiState.alarms.vibrationEnabled,
-                        onCheckedChange = { viewModel.onAlarmSettingsChange(uiState.alarms.copy(vibrationEnabled = it)) },
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    LabeledSwitch(
-                        label = "Require acknowledgement",
-                        checked = uiState.alarms.requireAcknowledgement,
-                        onCheckedChange = {
-                            viewModel.onAlarmSettingsChange(
-                                uiState.alarms.copy(
-                                    requireAcknowledgement = it,
-                                    repeatIfNotAcknowledged = it && uiState.alarms.repeatIfNotAcknowledged,
-                                ),
-                            )
-                        },
-                    )
-                    if (uiState.alarms.requireAcknowledgement) {
-                        Spacer(Modifier.height(8.dp))
-                        LabeledSwitch(
-                            label = "Repeat if not acknowledged",
-                            checked = uiState.alarms.repeatIfNotAcknowledged,
-                            onCheckedChange = {
-                                viewModel.onAlarmSettingsChange(uiState.alarms.copy(repeatIfNotAcknowledged = it))
-                            },
+                if (alarms.alarmsEnabled) {
+                    Spacer(Modifier.height(16.dp))
+                    SettingsSubsection(title = "Day and Night Windows") {
+                        DayNightWindowsSection(
+                            window = alarms.dayNightWindow,
+                            onWindowChange = { viewModel.onAlarmSettingsChange(alarms.copy(dayNightWindow = it)) },
+                            is24Hour = uiState.timeFormat == TimeFormat.HOUR_24,
+                            formatter = uiState.timeFormat.timeFormatter(),
                         )
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    LabeledSwitch(
-                        label = "Predicted high (Reese Mode)",
-                        checked = uiState.alarms.predictedHighEnabled,
-                        onCheckedChange = { viewModel.onAlarmSettingsChange(uiState.alarms.copy(predictedHighEnabled = it)) },
-                        onInfoClick = { showPredictedHighInfo = true },
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    LabeledSwitch(
-                        label = "No data",
-                        checked = uiState.alarms.noDataEnabled,
-                        onCheckedChange = { viewModel.onAlarmSettingsChange(uiState.alarms.copy(noDataEnabled = it)) },
-                    )
-                    if (uiState.alarms.noDataEnabled) {
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            text = "Alert if no new glucose data for",
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                            NO_DATA_MINUTES_OPTIONS.forEachIndexed { index, minutes ->
-                                SegmentedButton(
-                                    selected = uiState.alarms.noDataMinutes == minutes,
-                                    onClick = {
-                                        viewModel.onAlarmSettingsChange(uiState.alarms.copy(noDataMinutes = minutes))
-                                    },
-                                    shape = SegmentedButtonDefaults.itemShape(
-                                        index = index,
-                                        count = NO_DATA_MINUTES_OPTIONS.size,
-                                    ),
-                                ) {
-                                    Text("$minutes min")
-                                }
-                            }
-                        }
                     }
                     Spacer(Modifier.height(16.dp))
-                    SettingsSubsection(title = "Alarm Thresholds") {
-                        ThresholdRow(
-                            label = "Urgent high",
-                            dotColor = TrioGlucoseUrgent,
-                            enabled = uiState.alarms.urgentHigh.enabled,
+                    SettingsSubsection(title = "Glucose Alarms") {
+                        AlarmAccordion(
+                            title = "Urgent high",
+                            enabled = alarms.urgentHigh.enabled,
                             onEnabledChange = {
-                                viewModel.onAlarmSettingsChange(
-                                    uiState.alarms.copy(urgentHigh = uiState.alarms.urgentHigh.copy(enabled = it)),
-                                )
+                                viewModel.onAlarmSettingsChange(alarms.copy(urgentHigh = alarms.urgentHigh.copy(enabled = it)))
                             },
-                            valueMgDl = uiState.alarms.urgentHigh.thresholdMgDl,
-                            unit = uiState.glucoseUnit,
-                            onValueChange = {
-                                viewModel.onAlarmSettingsChange(
-                                    uiState.alarms.copy(urgentHigh = uiState.alarms.urgentHigh.copy(thresholdMgDl = it)),
+                            behavior = alarms.urgentHigh.behavior,
+                            onBehaviorChange = {
+                                viewModel.onAlarmSettingsChange(alarms.copy(urgentHigh = alarms.urgentHigh.copy(behavior = it)))
+                            },
+                            valueContent = {
+                                StepperRow(
+                                    label = "Threshold",
+                                    dotColor = TrioGlucoseUrgent,
+                                    valueText = "${glucoseUnit.format(alarms.urgentHigh.thresholdMgDl)} ${glucoseUnit.label}",
+                                    onDecrease = {
+                                        val value = (alarms.urgentHigh.thresholdMgDl - 5).coerceAtLeast(40)
+                                        viewModel.onAlarmSettingsChange(alarms.copy(urgentHigh = alarms.urgentHigh.copy(thresholdMgDl = value)))
+                                    },
+                                    onIncrease = {
+                                        val value = (alarms.urgentHigh.thresholdMgDl + 5).coerceAtMost(400)
+                                        viewModel.onAlarmSettingsChange(alarms.copy(urgentHigh = alarms.urgentHigh.copy(thresholdMgDl = value)))
+                                    },
                                 )
                             },
                         )
-                        ThresholdRow(
-                            label = "High",
-                            dotColor = TrioGlucoseHigh,
-                            enabled = uiState.alarms.high.enabled,
+                        AlarmAccordion(
+                            title = "High",
+                            enabled = alarms.high.enabled,
                             onEnabledChange = {
-                                viewModel.onAlarmSettingsChange(uiState.alarms.copy(high = uiState.alarms.high.copy(enabled = it)))
+                                viewModel.onAlarmSettingsChange(alarms.copy(high = alarms.high.copy(enabled = it)))
                             },
-                            valueMgDl = uiState.alarms.high.thresholdMgDl,
-                            unit = uiState.glucoseUnit,
-                            onValueChange = {
-                                viewModel.onAlarmSettingsChange(uiState.alarms.copy(high = uiState.alarms.high.copy(thresholdMgDl = it)))
+                            behavior = alarms.high.behavior,
+                            onBehaviorChange = {
+                                viewModel.onAlarmSettingsChange(alarms.copy(high = alarms.high.copy(behavior = it)))
                             },
-                        )
-                        ThresholdRow(
-                            label = "Low",
-                            dotColor = TrioGlucoseLow,
-                            enabled = uiState.alarms.low.enabled,
-                            onEnabledChange = {
-                                viewModel.onAlarmSettingsChange(uiState.alarms.copy(low = uiState.alarms.low.copy(enabled = it)))
-                            },
-                            valueMgDl = uiState.alarms.low.thresholdMgDl,
-                            unit = uiState.glucoseUnit,
-                            onValueChange = {
-                                viewModel.onAlarmSettingsChange(uiState.alarms.copy(low = uiState.alarms.low.copy(thresholdMgDl = it)))
-                            },
-                        )
-                        ThresholdRow(
-                            label = "Urgent low",
-                            dotColor = TrioGlucoseUrgent,
-                            enabled = uiState.alarms.urgentLow.enabled,
-                            onEnabledChange = {
-                                viewModel.onAlarmSettingsChange(
-                                    uiState.alarms.copy(urgentLow = uiState.alarms.urgentLow.copy(enabled = it)),
+                            valueContent = {
+                                StepperRow(
+                                    label = "Threshold",
+                                    dotColor = TrioGlucoseHigh,
+                                    valueText = "${glucoseUnit.format(alarms.high.thresholdMgDl)} ${glucoseUnit.label}",
+                                    onDecrease = {
+                                        val value = (alarms.high.thresholdMgDl - 5).coerceAtLeast(40)
+                                        viewModel.onAlarmSettingsChange(alarms.copy(high = alarms.high.copy(thresholdMgDl = value)))
+                                    },
+                                    onIncrease = {
+                                        val value = (alarms.high.thresholdMgDl + 5).coerceAtMost(400)
+                                        viewModel.onAlarmSettingsChange(alarms.copy(high = alarms.high.copy(thresholdMgDl = value)))
+                                    },
                                 )
                             },
-                            valueMgDl = uiState.alarms.urgentLow.thresholdMgDl,
-                            unit = uiState.glucoseUnit,
-                            onValueChange = {
-                                viewModel.onAlarmSettingsChange(
-                                    uiState.alarms.copy(urgentLow = uiState.alarms.urgentLow.copy(thresholdMgDl = it)),
+                        )
+                        AlarmAccordion(
+                            title = "Low",
+                            enabled = alarms.low.enabled,
+                            onEnabledChange = {
+                                viewModel.onAlarmSettingsChange(alarms.copy(low = alarms.low.copy(enabled = it)))
+                            },
+                            behavior = alarms.low.behavior,
+                            onBehaviorChange = {
+                                viewModel.onAlarmSettingsChange(alarms.copy(low = alarms.low.copy(behavior = it)))
+                            },
+                            valueContent = {
+                                StepperRow(
+                                    label = "Threshold",
+                                    dotColor = TrioGlucoseLow,
+                                    valueText = "${glucoseUnit.format(alarms.low.thresholdMgDl)} ${glucoseUnit.label}",
+                                    onDecrease = {
+                                        val value = (alarms.low.thresholdMgDl - 5).coerceAtLeast(40)
+                                        viewModel.onAlarmSettingsChange(alarms.copy(low = alarms.low.copy(thresholdMgDl = value)))
+                                    },
+                                    onIncrease = {
+                                        val value = (alarms.low.thresholdMgDl + 5).coerceAtMost(400)
+                                        viewModel.onAlarmSettingsChange(alarms.copy(low = alarms.low.copy(thresholdMgDl = value)))
+                                    },
+                                )
+                            },
+                        )
+                        AlarmAccordion(
+                            title = "Urgent low",
+                            enabled = alarms.urgentLow.enabled,
+                            onEnabledChange = {
+                                viewModel.onAlarmSettingsChange(alarms.copy(urgentLow = alarms.urgentLow.copy(enabled = it)))
+                            },
+                            behavior = alarms.urgentLow.behavior,
+                            onBehaviorChange = {
+                                viewModel.onAlarmSettingsChange(alarms.copy(urgentLow = alarms.urgentLow.copy(behavior = it)))
+                            },
+                            valueContent = {
+                                StepperRow(
+                                    label = "Threshold",
+                                    dotColor = TrioGlucoseUrgent,
+                                    valueText = "${glucoseUnit.format(alarms.urgentLow.thresholdMgDl)} ${glucoseUnit.label}",
+                                    onDecrease = {
+                                        val value = (alarms.urgentLow.thresholdMgDl - 5).coerceAtLeast(40)
+                                        viewModel.onAlarmSettingsChange(alarms.copy(urgentLow = alarms.urgentLow.copy(thresholdMgDl = value)))
+                                    },
+                                    onIncrease = {
+                                        val value = (alarms.urgentLow.thresholdMgDl + 5).coerceAtMost(400)
+                                        viewModel.onAlarmSettingsChange(alarms.copy(urgentLow = alarms.urgentLow.copy(thresholdMgDl = value)))
+                                    },
                                 )
                             },
                         )
                     }
                     Spacer(Modifier.height(16.dp))
                     SettingsSubsection(title = "Additional Alarms") {
-                        NumericThresholdRow(
-                            label = "IOB",
-                            enabled = uiState.alarms.iobAlarmEnabled,
-                            onEnabledChange = { viewModel.onAlarmSettingsChange(uiState.alarms.copy(iobAlarmEnabled = it)) },
-                            valueText = String.format(Locale.getDefault(), "%.1f U", uiState.alarms.iobThresholdUnits),
-                            onDecrease = {
-                                val value = (uiState.alarms.iobThresholdUnits - 0.5).coerceAtLeast(0.5)
-                                viewModel.onAlarmSettingsChange(uiState.alarms.copy(iobThresholdUnits = value))
-                            },
-                            onIncrease = {
-                                val value = (uiState.alarms.iobThresholdUnits + 0.5).coerceAtMost(30.0)
-                                viewModel.onAlarmSettingsChange(uiState.alarms.copy(iobThresholdUnits = value))
-                            },
-                        )
-                        NumericThresholdRow(
-                            label = "COB",
-                            enabled = uiState.alarms.cobAlarmEnabled,
-                            onEnabledChange = { viewModel.onAlarmSettingsChange(uiState.alarms.copy(cobAlarmEnabled = it)) },
-                            valueText = "${uiState.alarms.cobThresholdGrams.toInt()} g",
-                            onDecrease = {
-                                val value = (uiState.alarms.cobThresholdGrams - 5).coerceAtLeast(5.0)
-                                viewModel.onAlarmSettingsChange(uiState.alarms.copy(cobThresholdGrams = value))
-                            },
-                            onIncrease = {
-                                val value = (uiState.alarms.cobThresholdGrams + 5).coerceAtMost(200.0)
-                                viewModel.onAlarmSettingsChange(uiState.alarms.copy(cobThresholdGrams = value))
-                            },
-                        )
-                        NumericThresholdRow(
-                            label = "Reservoir below",
-                            enabled = uiState.alarms.reservoirAlarmEnabled,
+                        AlarmAccordion(
+                            title = "Predicted high (Reese Mode)",
+                            enabled = alarms.predictedHigh.enabled,
                             onEnabledChange = {
-                                viewModel.onAlarmSettingsChange(uiState.alarms.copy(reservoirAlarmEnabled = it))
+                                viewModel.onAlarmSettingsChange(alarms.copy(predictedHigh = alarms.predictedHigh.copy(enabled = it)))
                             },
-                            valueText = String.format(Locale.getDefault(), "%.1f U", uiState.alarms.reservoirThresholdUnits),
-                            onDecrease = {
-                                val value = (uiState.alarms.reservoirThresholdUnits - 5).coerceAtLeast(5.0)
-                                viewModel.onAlarmSettingsChange(uiState.alarms.copy(reservoirThresholdUnits = value))
+                            behavior = alarms.predictedHigh.behavior,
+                            onBehaviorChange = {
+                                viewModel.onAlarmSettingsChange(alarms.copy(predictedHigh = alarms.predictedHigh.copy(behavior = it)))
                             },
-                            onIncrease = {
-                                val value = (uiState.alarms.reservoirThresholdUnits + 5).coerceAtMost(100.0)
-                                viewModel.onAlarmSettingsChange(uiState.alarms.copy(reservoirThresholdUnits = value))
-                            },
+                            onInfoClick = { showPredictedHighInfo = true },
                         )
-                        NumericThresholdRow(
-                            label = "Sensor change due within",
-                            enabled = uiState.alarms.sensorChangeAlarmEnabled,
+                        AlarmAccordion(
+                            title = "No data",
+                            enabled = alarms.noData.enabled,
                             onEnabledChange = {
-                                viewModel.onAlarmSettingsChange(uiState.alarms.copy(sensorChangeAlarmEnabled = it))
+                                viewModel.onAlarmSettingsChange(alarms.copy(noData = alarms.noData.copy(enabled = it)))
                             },
-                            valueText = "${uiState.alarms.sensorChangeHoursThreshold} h",
-                            onDecrease = {
-                                val value = (uiState.alarms.sensorChangeHoursThreshold - 1).coerceAtLeast(1)
-                                viewModel.onAlarmSettingsChange(uiState.alarms.copy(sensorChangeHoursThreshold = value))
+                            behavior = alarms.noData.behavior,
+                            onBehaviorChange = {
+                                viewModel.onAlarmSettingsChange(alarms.copy(noData = alarms.noData.copy(behavior = it)))
                             },
-                            onIncrease = {
-                                val value = (uiState.alarms.sensorChangeHoursThreshold + 1).coerceAtMost(48)
-                                viewModel.onAlarmSettingsChange(uiState.alarms.copy(sensorChangeHoursThreshold = value))
-                            },
-                        )
-                        NumericThresholdRow(
-                            label = "Pump change due within",
-                            enabled = uiState.alarms.pumpChangeAlarmEnabled,
-                            onEnabledChange = {
-                                viewModel.onAlarmSettingsChange(uiState.alarms.copy(pumpChangeAlarmEnabled = it))
-                            },
-                            valueText = "${uiState.alarms.pumpChangeHoursThreshold} h",
-                            onDecrease = {
-                                val value = (uiState.alarms.pumpChangeHoursThreshold - 1).coerceAtLeast(1)
-                                viewModel.onAlarmSettingsChange(uiState.alarms.copy(pumpChangeHoursThreshold = value))
-                            },
-                            onIncrease = {
-                                val value = (uiState.alarms.pumpChangeHoursThreshold + 1).coerceAtMost(48)
-                                viewModel.onAlarmSettingsChange(uiState.alarms.copy(pumpChangeHoursThreshold = value))
-                            },
-                        )
-                        NumericThresholdRow(
-                            label = "Trio phone battery below",
-                            enabled = uiState.alarms.lowPhoneBatteryAlarmEnabled,
-                            onEnabledChange = {
-                                viewModel.onAlarmSettingsChange(uiState.alarms.copy(lowPhoneBatteryAlarmEnabled = it))
-                            },
-                            valueText = "${uiState.alarms.lowPhoneBatteryPercent}%",
-                            onDecrease = {
-                                val value = (uiState.alarms.lowPhoneBatteryPercent - 5).coerceAtLeast(5)
-                                viewModel.onAlarmSettingsChange(uiState.alarms.copy(lowPhoneBatteryPercent = value))
-                            },
-                            onIncrease = {
-                                val value = (uiState.alarms.lowPhoneBatteryPercent + 5).coerceAtMost(50)
-                                viewModel.onAlarmSettingsChange(uiState.alarms.copy(lowPhoneBatteryPercent = value))
-                            },
-                        )
-                        if (uiState.alarms.lowPhoneBatteryAlarmEnabled) {
-                            Text(
-                                text = "The battery of the phone running Trio, as it reports to Nightscout — " +
-                                    "not this phone.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        LabeledSwitch(
-                            label = "Not looping",
-                            checked = uiState.alarms.notLoopingAlarmEnabled,
-                            onCheckedChange = {
-                                viewModel.onAlarmSettingsChange(uiState.alarms.copy(notLoopingAlarmEnabled = it))
-                            },
-                        )
-                        if (uiState.alarms.notLoopingAlarmEnabled) {
-                            Text(
-                                text = "Alert if no confirmed loop for",
-                                style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                                NOT_LOOPING_MINUTES_OPTIONS.forEachIndexed { index, minutes ->
-                                    SegmentedButton(
-                                        selected = uiState.alarms.notLoopingMinutes == minutes,
-                                        onClick = {
-                                            viewModel.onAlarmSettingsChange(uiState.alarms.copy(notLoopingMinutes = minutes))
-                                        },
-                                        shape = SegmentedButtonDefaults.itemShape(
-                                            index = index,
-                                            count = NOT_LOOPING_MINUTES_OPTIONS.size,
-                                        ),
-                                    ) {
-                                        Text("$minutes min")
+                            valueContent = {
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Text(
+                                        text = "Alert if no new glucose data for",
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                                        NO_DATA_MINUTES_OPTIONS.forEachIndexed { index, minutes ->
+                                            SegmentedButton(
+                                                selected = alarms.noData.minutes == minutes,
+                                                onClick = {
+                                                    viewModel.onAlarmSettingsChange(alarms.copy(noData = alarms.noData.copy(minutes = minutes)))
+                                                },
+                                                shape = SegmentedButtonDefaults.itemShape(index = index, count = NO_DATA_MINUTES_OPTIONS.size),
+                                            ) {
+                                                Text("$minutes min")
+                                            }
+                                        }
                                     }
                                 }
-                            }
-                        }
-                        LabeledSwitch(
-                            label = "Random alarm",
-                            checked = uiState.alarms.randomAlarmEnabled,
-                            onCheckedChange = {
-                                viewModel.onAlarmSettingsChange(uiState.alarms.copy(randomAlarmEnabled = it))
+                            },
+                        )
+                        AlarmAccordion(
+                            title = "IOB",
+                            enabled = alarms.iob.enabled,
+                            onEnabledChange = { viewModel.onAlarmSettingsChange(alarms.copy(iob = alarms.iob.copy(enabled = it))) },
+                            behavior = alarms.iob.behavior,
+                            onBehaviorChange = { viewModel.onAlarmSettingsChange(alarms.copy(iob = alarms.iob.copy(behavior = it))) },
+                            valueContent = {
+                                StepperRow(
+                                    label = "Threshold",
+                                    valueText = String.format(Locale.getDefault(), "%.1f U", alarms.iob.thresholdUnits),
+                                    onDecrease = {
+                                        val value = (alarms.iob.thresholdUnits - 0.5).coerceAtLeast(0.5)
+                                        viewModel.onAlarmSettingsChange(alarms.copy(iob = alarms.iob.copy(thresholdUnits = value)))
+                                    },
+                                    onIncrease = {
+                                        val value = (alarms.iob.thresholdUnits + 0.5).coerceAtMost(30.0)
+                                        viewModel.onAlarmSettingsChange(alarms.copy(iob = alarms.iob.copy(thresholdUnits = value)))
+                                    },
+                                )
+                            },
+                        )
+                        AlarmAccordion(
+                            title = "COB",
+                            enabled = alarms.cob.enabled,
+                            onEnabledChange = { viewModel.onAlarmSettingsChange(alarms.copy(cob = alarms.cob.copy(enabled = it))) },
+                            behavior = alarms.cob.behavior,
+                            onBehaviorChange = { viewModel.onAlarmSettingsChange(alarms.copy(cob = alarms.cob.copy(behavior = it))) },
+                            valueContent = {
+                                StepperRow(
+                                    label = "Threshold",
+                                    valueText = "${alarms.cob.thresholdGrams.toInt()} g",
+                                    onDecrease = {
+                                        val value = (alarms.cob.thresholdGrams - 5).coerceAtLeast(5.0)
+                                        viewModel.onAlarmSettingsChange(alarms.copy(cob = alarms.cob.copy(thresholdGrams = value)))
+                                    },
+                                    onIncrease = {
+                                        val value = (alarms.cob.thresholdGrams + 5).coerceAtMost(200.0)
+                                        viewModel.onAlarmSettingsChange(alarms.copy(cob = alarms.cob.copy(thresholdGrams = value)))
+                                    },
+                                )
+                            },
+                        )
+                        AlarmAccordion(
+                            title = "Reservoir low",
+                            enabled = alarms.reservoir.enabled,
+                            onEnabledChange = {
+                                viewModel.onAlarmSettingsChange(alarms.copy(reservoir = alarms.reservoir.copy(enabled = it)))
+                            },
+                            behavior = alarms.reservoir.behavior,
+                            onBehaviorChange = {
+                                viewModel.onAlarmSettingsChange(alarms.copy(reservoir = alarms.reservoir.copy(behavior = it)))
+                            },
+                            valueContent = {
+                                StepperRow(
+                                    label = "Threshold (below)",
+                                    valueText = String.format(Locale.getDefault(), "%.1f U", alarms.reservoir.thresholdUnits),
+                                    onDecrease = {
+                                        val value = (alarms.reservoir.thresholdUnits - 5).coerceAtLeast(5.0)
+                                        viewModel.onAlarmSettingsChange(alarms.copy(reservoir = alarms.reservoir.copy(thresholdUnits = value)))
+                                    },
+                                    onIncrease = {
+                                        val value = (alarms.reservoir.thresholdUnits + 5).coerceAtMost(100.0)
+                                        viewModel.onAlarmSettingsChange(alarms.copy(reservoir = alarms.reservoir.copy(thresholdUnits = value)))
+                                    },
+                                )
+                            },
+                        )
+                        AlarmAccordion(
+                            title = "Sensor change due",
+                            enabled = alarms.sensorChange.enabled,
+                            onEnabledChange = {
+                                viewModel.onAlarmSettingsChange(alarms.copy(sensorChange = alarms.sensorChange.copy(enabled = it)))
+                            },
+                            behavior = alarms.sensorChange.behavior,
+                            onBehaviorChange = {
+                                viewModel.onAlarmSettingsChange(alarms.copy(sensorChange = alarms.sensorChange.copy(behavior = it)))
+                            },
+                            valueContent = {
+                                StepperRow(
+                                    label = "Time left (below)",
+                                    valueText = "${alarms.sensorChange.hoursThreshold} h",
+                                    onDecrease = {
+                                        val value = (alarms.sensorChange.hoursThreshold - 1).coerceAtLeast(1)
+                                        viewModel.onAlarmSettingsChange(alarms.copy(sensorChange = alarms.sensorChange.copy(hoursThreshold = value)))
+                                    },
+                                    onIncrease = {
+                                        val value = (alarms.sensorChange.hoursThreshold + 1).coerceAtMost(48)
+                                        viewModel.onAlarmSettingsChange(alarms.copy(sensorChange = alarms.sensorChange.copy(hoursThreshold = value)))
+                                    },
+                                )
+                            },
+                        )
+                        AlarmAccordion(
+                            title = "Pump change due",
+                            enabled = alarms.pumpChange.enabled,
+                            onEnabledChange = {
+                                viewModel.onAlarmSettingsChange(alarms.copy(pumpChange = alarms.pumpChange.copy(enabled = it)))
+                            },
+                            behavior = alarms.pumpChange.behavior,
+                            onBehaviorChange = {
+                                viewModel.onAlarmSettingsChange(alarms.copy(pumpChange = alarms.pumpChange.copy(behavior = it)))
+                            },
+                            valueContent = {
+                                StepperRow(
+                                    label = "Time left (below)",
+                                    valueText = "${alarms.pumpChange.hoursThreshold} h",
+                                    onDecrease = {
+                                        val value = (alarms.pumpChange.hoursThreshold - 1).coerceAtLeast(1)
+                                        viewModel.onAlarmSettingsChange(alarms.copy(pumpChange = alarms.pumpChange.copy(hoursThreshold = value)))
+                                    },
+                                    onIncrease = {
+                                        val value = (alarms.pumpChange.hoursThreshold + 1).coerceAtMost(48)
+                                        viewModel.onAlarmSettingsChange(alarms.copy(pumpChange = alarms.pumpChange.copy(hoursThreshold = value)))
+                                    },
+                                )
+                            },
+                        )
+                        AlarmAccordion(
+                            title = "Not looping",
+                            enabled = alarms.notLooping.enabled,
+                            onEnabledChange = {
+                                viewModel.onAlarmSettingsChange(alarms.copy(notLooping = alarms.notLooping.copy(enabled = it)))
+                            },
+                            behavior = alarms.notLooping.behavior,
+                            onBehaviorChange = {
+                                viewModel.onAlarmSettingsChange(alarms.copy(notLooping = alarms.notLooping.copy(behavior = it)))
+                            },
+                            valueContent = {
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Text(
+                                        text = "Alert if no confirmed loop for",
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                                        NOT_LOOPING_MINUTES_OPTIONS.forEachIndexed { index, minutes ->
+                                            SegmentedButton(
+                                                selected = alarms.notLooping.minutes == minutes,
+                                                onClick = {
+                                                    viewModel.onAlarmSettingsChange(alarms.copy(notLooping = alarms.notLooping.copy(minutes = minutes)))
+                                                },
+                                                shape = SegmentedButtonDefaults.itemShape(index = index, count = NOT_LOOPING_MINUTES_OPTIONS.size),
+                                            ) {
+                                                Text("$minutes min")
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                        )
+                        AlarmAccordion(
+                            title = "Trio phone battery low",
+                            enabled = alarms.lowPhoneBattery.enabled,
+                            onEnabledChange = {
+                                viewModel.onAlarmSettingsChange(alarms.copy(lowPhoneBattery = alarms.lowPhoneBattery.copy(enabled = it)))
+                            },
+                            behavior = alarms.lowPhoneBattery.behavior,
+                            onBehaviorChange = {
+                                viewModel.onAlarmSettingsChange(alarms.copy(lowPhoneBattery = alarms.lowPhoneBattery.copy(behavior = it)))
+                            },
+                            valueContent = {
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    StepperRow(
+                                        label = "Threshold (below)",
+                                        valueText = "${alarms.lowPhoneBattery.percent}%",
+                                        onDecrease = {
+                                            val value = (alarms.lowPhoneBattery.percent - 5).coerceAtLeast(5)
+                                            viewModel.onAlarmSettingsChange(
+                                                alarms.copy(lowPhoneBattery = alarms.lowPhoneBattery.copy(percent = value)),
+                                            )
+                                        },
+                                        onIncrease = {
+                                            val value = (alarms.lowPhoneBattery.percent + 5).coerceAtMost(50)
+                                            viewModel.onAlarmSettingsChange(
+                                                alarms.copy(lowPhoneBattery = alarms.lowPhoneBattery.copy(percent = value)),
+                                            )
+                                        },
+                                    )
+                                    Text(
+                                        text = "The battery of the phone running Trio, as it reports to Nightscout — not this phone.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            },
+                        )
+                        AlarmAccordion(
+                            title = "Random alarm",
+                            enabled = alarms.randomAlarm.enabled,
+                            onEnabledChange = {
+                                viewModel.onAlarmSettingsChange(alarms.copy(randomAlarm = alarms.randomAlarm.copy(enabled = it)))
+                            },
+                            behavior = alarms.randomAlarm.behavior,
+                            onBehaviorChange = {
+                                viewModel.onAlarmSettingsChange(alarms.copy(randomAlarm = alarms.randomAlarm.copy(behavior = it)))
                             },
                             onInfoClick = { showRandomAlarmInfo = true },
                         )

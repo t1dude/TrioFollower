@@ -48,11 +48,23 @@ The app only shows data and sends alerts. It cannot control a pump or change any
   reasoning for it.
 
 **Alarms**
-- Urgent low, low, high and urgent high.
-- Predicted high, for a slow climb inside your range. Handy when a pump site fails, or when
-  someone sleeps in.
-- No data, if no new glucose arrives for 20, 40 or 60 minutes.
-- Optional acknowledgement, and repeat until acknowledged.
+- Glucose alarms: urgent low, low, high and urgent high, each with its own threshold.
+- Additional alarms, each with its own limit:
+  - Predicted high, for a slow climb inside your range. Handy when a pump site fails, or when
+    someone sleeps in.
+  - No data, if no new glucose arrives for 20, 40 or 60 minutes.
+  - Not looping, if Trio has not looped for 20, 40 or 60 minutes.
+  - High insulin on board or high carbs on board.
+  - Low reservoir.
+  - Sensor change due and pump site change due, a set number of hours before it runs out.
+  - Low battery on the Trio phone (the iPhone running Trio, not the phone running this app).
+  - Random alarm, which goes off a few times a day for no reason at all. For when the other alarms
+    don't give you enough alarm fatigue.
+- Every alarm can be turned on or off, and set up on its own: sound, vibration, acknowledgement,
+  and repeat until acknowledged.
+- Day and Night windows: set your own day and night hours, and choose for each alarm whether it
+  goes off during the day, at night, or both.
+- Settings for each alarm fold out when you tap it, so you can see at a glance which alarms are on.
 
 **Updating data**
 - Data refreshes when you open the app, and on your chosen interval while the app is open.
@@ -84,7 +96,7 @@ check by hand, in Settings > Information and Releases.
 
 ## Development
 
-TrioFollower is written in Kotlin. The screens use Jetpack Compose with Material 3. It is built with
+Trio Follower is written in Kotlin. The screens use Jetpack Compose with Material 3. It is built with
 Gradle and needs Android 12 (API 31) or newer.
 
 Main dependencies:
@@ -101,11 +113,11 @@ reviews and tests the changes.
 
 ## Disclaimer
 
-TrioFollower is a hobby project made by an enthusiast for personal use. It is open source and comes with
-no warranty. The developer is also a contributor to the Trio project, but TrioFollower is not affiliated 
+Trio Follower is a hobby project made by an enthusiast for personal use. It is open source and comes with
+no warranty. The developer is also a contributor to the Trio project, but Trio Follower is not affiliated 
 with the Nightscout or Trio projects. Several features and design elements are borrowed from Trio. A big thank you to the entire Trio developer team and community!
 
-Please understand that TrioFollower is:
+Please understand that Trio Follower is:
 
 - used entirely at your own risk
 - not CE or FDA approved for therapy

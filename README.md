@@ -50,8 +50,7 @@ The app only shows data and sends alerts. It cannot control a pump or change any
 **Alarms**
 - Glucose alarms: urgent low, low, high and urgent high, each with its own threshold.
 - Additional alarms, each with its own limit:
-  - Predicted high, for a slow climb inside your range. Handy when a pump site fails, or when
-    someone sleeps in.
+  - Predicted high, for a slow climb inside your range. Handy when a pump site fails.
   - No data, if no new glucose arrives for 20, 40 or 60 minutes.
   - Not looping, if Trio has not looped for 20, 40 or 60 minutes.
   - High insulin on board or high carbs on board.

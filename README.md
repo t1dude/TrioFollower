@@ -63,7 +63,6 @@ The app only shows data and sends alerts. It cannot control a pump or change any
   and repeat until acknowledged.
 - Day and Night windows: set your own day and night hours, and choose for each alarm whether it
   goes off during the day, at night, or both.
-- Settings for each alarm fold out when you tap it, so you can see at a glance which alarms are on.
 
 **Updating data**
 - Data refreshes when you open the app, and on your chosen interval while the app is open.
